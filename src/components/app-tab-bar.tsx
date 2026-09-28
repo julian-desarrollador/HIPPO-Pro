@@ -1,18 +1,24 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext } from "react";
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import { usePathname } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs, TabList, TabTrigger, TabSlot, type TabTriggerSlotProps, type TabListProps } from "expo-router/ui";
 
 import { desktopBarHeight, mobileBarHeight, wideLayout } from "@/constants/layout";
 import { palette } from "@/constants/palette";
 import { useLedger, type ViewerRole } from "@/modules/ledger";
 
-type NavMenu = {
-  variant: "desktop" | "drawer";
-  close: () => void;
-};
+const TAB_ICONS = {
+  home: { outline: "home-outline", filled: "home" },
+  carga: { outline: "create-outline", filled: "create" },
+  depositos: { outline: "swap-horizontal-outline", filled: "swap-horizontal" },
+  gastos: { outline: "receipt-outline", filled: "receipt" },
+  resultado: { outline: "stats-chart-outline", filled: "stats-chart" },
+} as const;
 
-const NavMenuContext = createContext<NavMenu>({ variant: "desktop", close: () => {} });
+type TabIcon = keyof typeof TAB_ICONS;
+
+const NavChromeContext = createContext<"desktop" | "bottom">("desktop");
 
 export default function AppTabs() {
   const { canViewBalances } = useLedger();
@@ -23,20 +29,20 @@ export default function AppTabs() {
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
-            <TabButton>Inicio</TabButton>
+            <TabButton icon="home">Inicio</TabButton>
           </TabTrigger>
           <TabTrigger name="carga" href="/carga" asChild>
-            <TabButton>Carga</TabButton>
+            <TabButton icon="carga">Carga</TabButton>
           </TabTrigger>
           <TabTrigger name="depositos" href="/depositos" asChild>
-            <TabButton>Depósitos</TabButton>
+            <TabButton icon="depositos">Depósitos</TabButton>
           </TabTrigger>
           <TabTrigger name="gastos" href="/gastos" asChild>
-            <TabButton>Gastos</TabButton>
+            <TabButton icon="gastos">Gastos</TabButton>
           </TabTrigger>
           {canViewBalances ? (
             <TabTrigger name="resultado" href="/resultado" asChild>
-              <TabButton>Resultado</TabButton>
+              <TabButton icon="resultado">Resultado</TabButton>
             </TabTrigger>
           ) : null}
         </CustomTabList>
@@ -45,62 +51,45 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
-  const menu = useContext(NavMenuContext);
+export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlotProps & { icon: TabIcon }) {
+  const variant = useContext(NavChromeContext);
+  const glyph = TAB_ICONS[icon];
+
+  if (variant === "bottom") {
+    return (
+      <Pressable
+        {...props}
+        accessibilityRole="link"
+        className="min-w-0 flex-1 items-center gap-1 py-1"
+        style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}>
+        <Ionicons name={isFocused ? glyph.filled : glyph.outline} size={22} color={isFocused ? palette.navy : palette.muted} />
+        <Text
+          numberOfLines={1}
+          className={isFocused ? "text-[11px] font-semibold text-navy" : "text-[11px] font-medium text-muted"}>
+          {children}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
       {...props}
       accessibilityRole="link"
-      onPress={(event) => {
-        props.onPress?.(event);
-        menu.close();
-      }}
-      className={
-        menu.variant === "drawer"
-          ? isFocused
-            ? "flex-row items-center justify-between rounded-xl bg-tint px-4 py-3.5"
-            : "flex-row items-center justify-between rounded-xl px-4 py-3.5"
-          : isFocused
-            ? "rounded-lg bg-tint px-3.5 py-2"
-            : "rounded-lg px-3.5 py-2"
-      }
+      className={isFocused ? "rounded-lg bg-tint px-3.5 py-2" : "rounded-lg px-3.5 py-2"}
       style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}>
-      <Text
-        className={
-          menu.variant === "drawer"
-            ? isFocused
-              ? "text-base font-semibold text-navy"
-              : "text-base text-ink"
-            : isFocused
-              ? "text-sm font-semibold text-navy"
-              : "text-sm font-medium text-muted"
-        }>
-        {children}
-      </Text>
-      {menu.variant === "drawer" && isFocused ? <View className="h-2 w-2 rounded-full bg-navy" /> : null}
+      <Text className={isFocused ? "text-sm font-semibold text-navy" : "text-sm font-medium text-muted"}>{children}</Text>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
   const { role, setRole } = useLedger();
-  const { width, height } = useWindowDimensions();
-  const wide = width >= wideLayout;
-  const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  const menu: NavMenu = {
-    variant: wide ? "desktop" : "drawer",
-    close: () => setOpen(false),
-  };
+  const wide = useWindowDimensions().width >= wideLayout;
+  const insets = useSafeAreaInsets();
 
   return (
-    <NavMenuContext.Provider value={menu}>
+    <NavChromeContext.Provider value={wide ? "desktop" : "bottom"}>
       <View
         {...props}
         style={{
@@ -108,13 +97,14 @@ export function CustomTabList(props: TabListProps) {
           top: 0,
           left: 0,
           right: 0,
-          height: !wide && open ? height : undefined,
+          bottom: wide ? undefined : 0,
           zIndex: 20,
+          pointerEvents: "box-none",
         }}>
         <View
           style={{
             backgroundColor: palette.card,
-            borderBottomWidth: !wide && open ? 0 : 1,
+            borderBottomWidth: 1,
             borderBottomColor: palette.line,
             height: wide ? desktopBarHeight : mobileBarHeight,
             justifyContent: "center",
@@ -127,7 +117,7 @@ export function CustomTabList(props: TabListProps) {
               paddingHorizontal: 16,
               flexDirection: "row",
               alignItems: "center",
-              gap: 28,
+              gap: wide ? 28 : 12,
             }}>
             <Brand />
             {wide ? (
@@ -140,111 +130,68 @@ export function CustomTabList(props: TabListProps) {
               </ScrollView>
             ) : null}
             <View style={{ marginLeft: "auto" }}>
-              {wide ? (
-                <RoleSwitch role={role} onChange={setRole} />
-              ) : (
-                <MenuButton open={open} onPress={() => setOpen((current) => !current)} />
-              )}
+              <RoleSwitch role={role} onChange={setRole} />
             </View>
           </View>
         </View>
 
         {wide ? null : (
           <View
-            accessibilityElementsHidden={!open}
             style={{
-              display: open ? "flex" : "none",
               position: "absolute",
-              top: mobileBarHeight,
               left: 0,
               right: 0,
               bottom: 0,
+              flexDirection: "row",
+              alignItems: "center",
               backgroundColor: palette.card,
-              pointerEvents: open ? "auto" : "none",
+              borderTopWidth: 1,
+              borderTopColor: palette.line,
+              paddingTop: 8,
+              paddingBottom: Math.max(8, insets.bottom),
+              paddingHorizontal: 4,
             }}>
-            <View className="flex-1 px-3 pt-2" style={{ gap: 4 }}>
-              <Text className="px-4 pb-1 text-xs font-medium text-muted">Navegación</Text>
-              {props.children}
-            </View>
-            <View className="gap-2 border-t border-line px-3 pb-8 pt-4">
-              <Text className="px-4 text-xs font-medium text-muted">Vista</Text>
-              <RoleSwitch role={role} onChange={setRole} fill />
-            </View>
+            {props.children}
           </View>
         )}
       </View>
-    </NavMenuContext.Provider>
+    </NavChromeContext.Provider>
   );
 }
 
 function Brand() {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
       <View className="h-9 w-9 items-center justify-center rounded-lg bg-navy">
         <Text className="text-base font-bold text-white">H</Text>
       </View>
-      <View>
-        <Text className="text-sm font-semibold text-ink">HIPPO Pro</Text>
-        <Text className="text-xs text-muted">Agencia Dolores</Text>
+      <View style={{ flexShrink: 1 }}>
+        <Text className="text-sm font-semibold text-ink" numberOfLines={1}>
+          HIPPO Pro
+        </Text>
+        <Text className="text-xs text-muted" numberOfLines={1}>
+          Agencia Dolores
+        </Text>
       </View>
     </View>
   );
 }
 
-function MenuButton({ open, onPress }: { open: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={open ? "Cerrar menú" : "Abrir menú"}
-      accessibilityState={{ expanded: open }}
-      onPress={onPress}
-      className="h-10 w-10 items-center justify-center rounded-lg border border-line bg-card">
-      {open ? (
-        <Text className="text-lg font-semibold text-navy">×</Text>
-      ) : (
-        <View className="gap-1">
-          <View className="h-0.5 w-4 rounded-full bg-navy" />
-          <View className="h-0.5 w-4 rounded-full bg-navy" />
-          <View className="h-0.5 w-4 rounded-full bg-navy" />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-function RoleSwitch({
-  role,
-  onChange,
-  fill = false,
-}: {
-  role: ViewerRole;
-  onChange: (role: ViewerRole) => void;
-  fill?: boolean;
-}) {
+function RoleSwitch({ role, onChange }: { role: ViewerRole; onChange: (role: ViewerRole) => void }) {
   return (
     <View className="flex-row rounded-lg border border-line bg-canvas p-0.5">
-      <RoleOption label="Dueño" selected={role === "owner"} fill={fill} onPress={() => onChange("owner")} />
-      <RoleOption label="Operador" selected={role === "operator"} fill={fill} onPress={() => onChange("operator")} />
+      <RoleOption label="Dueño" selected={role === "owner"} onPress={() => onChange("owner")} />
+      <RoleOption label="Operador" selected={role === "operator"} onPress={() => onChange("operator")} />
     </View>
   );
 }
 
-function RoleOption({
-  label,
-  selected,
-  fill,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  fill: boolean;
-  onPress: () => void;
-}) {
+function RoleOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className={`${fill ? "flex-1 items-center py-2.5" : "px-3 py-1.5"} ${selected ? "rounded-md bg-navy" : "rounded-md"}`}>
+      className={selected ? "rounded-md bg-navy px-3 py-1.5" : "rounded-md px-3 py-1.5"}>
       <Text className={selected ? "text-sm font-semibold text-white" : "text-sm text-muted"}>{label}</Text>
     </Pressable>
   );

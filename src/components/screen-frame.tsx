@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { desktopBarHeight, mobileBarHeight, wideLayout } from "@/constants/layout";
+import { desktopBarHeight, mobileBarHeight, mobileTabBarHeight, wideLayout } from "@/constants/layout";
 
 export function ScreenFrame({
   title,
@@ -14,6 +14,7 @@ export function ScreenFrame({
   children: ReactNode;
 }) {
   const wide = useWindowDimensions().width >= wideLayout;
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -25,7 +26,7 @@ export function ScreenFrame({
           alignSelf: "center",
           paddingHorizontal: 20,
           paddingTop: (wide ? desktopBarHeight : mobileBarHeight) + 20,
-          paddingBottom: 48,
+          paddingBottom: wide ? 48 : mobileTabBarHeight + insets.bottom + 24,
         }}>
         <View className="flex-row flex-wrap items-center gap-3">
           <Text className="text-3xl font-semibold text-ink">{title}</Text>
