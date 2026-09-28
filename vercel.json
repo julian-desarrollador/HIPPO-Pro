@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/((?!_expo/|assets/|favicon\\.ico).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
