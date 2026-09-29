@@ -22,6 +22,21 @@ describe("settleDay", () => {
     assert.equal(day.depositAdjustmentBasisPoints, -500);
   });
 
+  it("si el día trae su comisión, no usa la de la tabla, y el ajuste sigue fijo", () => {
+    const day = settleDay({
+      racetrackId: "san-isidro",
+      soldCents: 10_000,
+      cancelledCents: 0,
+      paidCents: 0,
+      commissionBasisPoints: 2000,
+    });
+
+    assert.equal(day.commissionCents, 2_000);
+    assert.equal(day.adjustmentCents, -500);
+    assert.equal(day.commissionBasisPoints, 2000);
+    assert.equal(day.depositAdjustmentBasisPoints, -500);
+  });
+
   it("en Palermo cobra el 9% y suma el 1% del neto al depositar", () => {
     const day = settleDay({
       racetrackId: "palermo",

@@ -2,7 +2,7 @@
 
 Sistema para agencias hípicas. Carga el día por hipódromo, lleva la cuenta corriente con cada hipódromo, registra gastos y muestra el resultado del mes. La agencia piloto es Agencia Dolores, de Federico y Mati.
 
-Esta versión reproduce agosto 2026 de la planilla de Federico. En la web, el libro se guarda en este navegador: recargar conserva lo cargado. Otro dispositivo no lo ve. “Volver a los datos de agosto” restaura la semilla.
+Esta versión reproduce agosto 2026 de la planilla de Federico. Sin claves de Supabase, el libro se guarda en este navegador: recargar conserva lo cargado y otro dispositivo no lo ve. Con las claves públicas, el celular y la computadora comparten el mismo libro. Cómo conectarlas está en [docs/10-development.md](docs/10-development.md).
 
 - Producción: [https://hippo-pro.vercel.app](https://hippo-pro.vercel.app)
 - Repositorio: [github.com/julian-desarrollador/HIPPO-Pro](https://github.com/julian-desarrollador/HIPPO-Pro)

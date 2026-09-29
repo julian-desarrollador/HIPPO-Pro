@@ -19,6 +19,7 @@ import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
   RACETRACKS,
+  currentCommissionBasisPoints,
   formatAmountInput,
   formatSignedPercent,
   ledgerErrorMessage,
@@ -46,9 +47,20 @@ export default function CargaScreen() {
   const soldCents = readAmount(sold, true);
   const cancelledCents = readAmount(cancelled, true);
   const paidCents = readAmount(paid, true);
+  const editingDay = editingId ? days.find((day) => day.id === editingId) : undefined;
+  const previewCommission =
+    editingDay && editingDay.racetrackId === racetrackId
+      ? editingDay.commissionBasisPoints
+      : currentCommissionBasisPoints(racetrackId, snapshot.commissions);
   const preview =
     soldCents !== null && cancelledCents !== null && paidCents !== null
-      ? settleDay({ racetrackId, soldCents, cancelledCents, paidCents })
+      ? settleDay({
+          racetrackId,
+          soldCents,
+          cancelledCents,
+          paidCents,
+          commissionBasisPoints: previewCommission,
+        })
       : null;
 
   function clearAmounts() {
@@ -75,37 +87,40 @@ export default function CargaScreen() {
     setMessage("");
   }
 
-  function onSave() {
+  async function onSave() {
     if (soldCents === null || cancelledCents === null || paidCents === null) {
       setError("Revisá los importes. Usá 1234,50.");
       setMessage("");
       return;
     }
 
+    setMessage("Guardando…");
+    setError("");
     try {
       if (editingId) {
-        updateDay({ id: editingId, date, racetrackId, soldCents, cancelledCents, paidCents });
+        await updateDay({ id: editingId, date, racetrackId, soldCents, cancelledCents, paidCents });
         setEditingId(null);
         setMessage("Día actualizado.");
       } else {
-        recordDay({ date, racetrackId, soldCents, cancelledCents, paidCents });
+        await recordDay({ date, racetrackId, soldCents, cancelledCents, paidCents });
         setMessage("Día cargado.");
       }
       clearAmounts();
-      setError("");
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
   }
 
-  function confirmRemove() {
+  async function confirmRemove() {
     if (!pendingRemoveId) {
       return;
     }
+    const id = pendingRemoveId;
+    setPendingRemoveId(null);
     try {
-      removeDay(pendingRemoveId);
-      if (editingId === pendingRemoveId) {
+      await removeDay(id);
+      if (editingId === id) {
         cancelEdit();
       }
       setMessage("Movimiento quitado.");
@@ -114,7 +129,6 @@ export default function CargaScreen() {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
-    setPendingRemoveId(null);
   }
 
   return (

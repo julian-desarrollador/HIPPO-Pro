@@ -13,10 +13,12 @@ import {
   type RecordExpenseInput,
 } from "../../application/use-cases/record-expense";
 import { removeDay as deleteDay, removeDeposit as deleteDeposit, removeExpense as deleteExpense } from "../../application/use-cases/remove-entry";
+import { updateCommission as saveCommission } from "../../application/use-cases/update-commission";
 import { updateDay as saveUpdatedDay, type UpdateDayInput } from "../../application/use-cases/update-day";
 import { updateDeposit as saveUpdatedDeposit, type UpdateDepositInput } from "../../application/use-cases/update-deposit";
 import { updateExpense as saveUpdatedExpense, type UpdateExpenseInput } from "../../application/use-cases/update-expense";
 import { listSettledDays, summarizeMonth, type MonthSummary, type SettledDay } from "../../application/use-cases/summarize-month";
+import { ledgerSync } from "../outbound/agency-ledger";
 import { createInMemoryLedgerRepository } from "../outbound/in-memory-ledger-repository";
 import { createLocalStorageLedgerRepository } from "../outbound/local-storage-ledger-repository";
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
@@ -25,21 +27,24 @@ import type { LedgerSnapshot } from "../../domain/types";
 type LedgerContextValue = {
   role: ViewerRole;
   setRole: (role: ViewerRole) => void;
+  persistence: "browser" | "agency";
+  signOut: (() => void) | null;
   canViewBalances: boolean;
   snapshot: LedgerSnapshot;
   summary: MonthSummary;
   days: SettledDay[];
   reportText: string;
-  recordDay: (input: RecordDayInput) => void;
-  recordDeposit: (input: RecordDepositInput) => void;
-  recordExpense: (input: RecordExpenseInput) => void;
-  updateDay: (input: UpdateDayInput) => void;
-  updateDeposit: (input: UpdateDepositInput) => void;
-  updateExpense: (input: UpdateExpenseInput) => void;
-  removeDay: (id: string) => void;
-  removeDeposit: (id: string) => void;
-  removeExpense: (id: string) => void;
-  reset: () => void;
+  recordDay: (input: RecordDayInput) => Promise<void>;
+  recordDeposit: (input: RecordDepositInput) => Promise<void>;
+  recordExpense: (input: RecordExpenseInput) => Promise<void>;
+  updateDay: (input: UpdateDayInput) => Promise<void>;
+  updateCommission: (racetrackId: string, commissionBasisPoints: number) => Promise<void>;
+  updateDeposit: (input: UpdateDepositInput) => Promise<void>;
+  updateExpense: (input: UpdateExpenseInput) => Promise<void>;
+  removeDay: (id: string) => Promise<void>;
+  removeDeposit: (id: string) => Promise<void>;
+  removeExpense: (id: string) => Promise<void>;
+  reset: () => Promise<void>;
 };
 
 function createAppLedgerRepository(): LedgerRepository {
@@ -56,65 +61,73 @@ function createAppLedgerRepository(): LedgerRepository {
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
 
-export function LedgerProvider({ children }: { children: ReactNode }) {
-  const repository = useRef<LedgerRepository>(createAppLedgerRepository());
+export function LedgerProvider({
+  children,
+  repository: externalRepository,
+  role: lockedRole,
+  persistence = "browser",
+  signOut = null,
+}: {
+  children: ReactNode;
+  repository?: LedgerRepository;
+  role?: ViewerRole;
+  persistence?: "browser" | "agency";
+  signOut?: (() => void) | null;
+}) {
+  const fallback = useRef<LedgerRepository | null>(null);
+  if (!externalRepository && fallback.current === null) {
+    fallback.current = createAppLedgerRepository();
+  }
+  const repository = externalRepository ?? fallback.current!;
   const [version, setVersion] = useState(0);
-  const [role, setRole] = useState<ViewerRole>("owner");
+  const [previewRole, setPreviewRole] = useState<ViewerRole>("owner");
+  const role = lockedRole ?? previewRole;
 
   const value = useMemo<LedgerContextValue>(() => {
-    const snapshot = repository.current.load();
+    const snapshot = repository.load();
     const summary = summarizeMonth(snapshot);
+
+    function publish(action: () => void): Promise<void> {
+      return (async () => {
+        action();
+        try {
+          await ledgerSync(repository);
+        } catch (error) {
+          setVersion((current) => current + 1);
+          throw error;
+        }
+        setVersion((current) => current + 1);
+      })();
+    }
 
     return {
       role,
-      setRole,
+      setRole: (next) => {
+        if (!lockedRole) {
+          setPreviewRole(next);
+        }
+      },
+      persistence,
+      signOut,
       canViewBalances: canViewAgencyBalances(role),
       snapshot,
       summary,
       days: listSettledDays(snapshot),
       reportText: buildMonthReport(summary),
-      recordDay: (input) => {
-        saveDay(repository.current, input);
-        setVersion((current) => current + 1);
-      },
-      recordDeposit: (input) => {
-        saveDeposit(repository.current, input);
-        setVersion((current) => current + 1);
-      },
-      recordExpense: (input) => {
-        saveExpense(repository.current, input);
-        setVersion((current) => current + 1);
-      },
-      updateDay: (input) => {
-        saveUpdatedDay(repository.current, input);
-        setVersion((current) => current + 1);
-      },
-      updateDeposit: (input) => {
-        saveUpdatedDeposit(repository.current, input);
-        setVersion((current) => current + 1);
-      },
-      updateExpense: (input) => {
-        saveUpdatedExpense(repository.current, input);
-        setVersion((current) => current + 1);
-      },
-      removeDay: (id) => {
-        deleteDay(repository.current, id);
-        setVersion((current) => current + 1);
-      },
-      removeDeposit: (id) => {
-        deleteDeposit(repository.current, id);
-        setVersion((current) => current + 1);
-      },
-      removeExpense: (id) => {
-        deleteExpense(repository.current, id);
-        setVersion((current) => current + 1);
-      },
-      reset: () => {
-        repository.current.reset();
-        setVersion((current) => current + 1);
-      },
+      recordDay: (input) => publish(() => saveDay(repository, input)),
+      recordDeposit: (input) => publish(() => saveDeposit(repository, input)),
+      recordExpense: (input) => publish(() => saveExpense(repository, input)),
+      updateDay: (input) => publish(() => saveUpdatedDay(repository, input)),
+      updateCommission: (racetrackId, commissionBasisPoints) =>
+        publish(() => saveCommission(repository, { racetrackId, commissionBasisPoints })),
+      updateDeposit: (input) => publish(() => saveUpdatedDeposit(repository, input)),
+      updateExpense: (input) => publish(() => saveUpdatedExpense(repository, input)),
+      removeDay: (id) => publish(() => deleteDay(repository, id)),
+      removeDeposit: (id) => publish(() => deleteDeposit(repository, id)),
+      removeExpense: (id) => publish(() => deleteExpense(repository, id)),
+      reset: () => publish(() => repository.reset()),
     };
-  }, [role, version]);
+  }, [lockedRole, persistence, repository, role, signOut, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }

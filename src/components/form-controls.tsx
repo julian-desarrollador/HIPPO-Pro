@@ -63,7 +63,7 @@ export function ChoiceChips<T extends string>({
             key={option.id}
             accessibilityRole="button"
             onPress={() => onChange(option.id)}
-            className={selected ? "rounded-full bg-tint px-3 py-1.5" : "rounded-full border border-line bg-card px-3 py-1.5"}>
+            className={selected ? "rounded-full border border-accent bg-tint px-3 py-1.5" : "rounded-full border border-line bg-card px-3 py-1.5"}>
             <Text className={selected ? "text-[13px] font-semibold text-navy" : "text-[13px] text-muted"}>{option.label}</Text>
           </Pressable>
         );
@@ -72,21 +72,21 @@ export function ChoiceChips<T extends string>({
   );
 }
 
-export function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function PrimaryButton({ label, onPress, className = "" }: { label: string; onPress: () => void; className?: string }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} className="cursor-pointer items-center rounded-[10px] bg-navy px-5 py-2.5">
+    <Pressable accessibilityRole="button" onPress={onPress} className={`cursor-pointer items-center rounded-[10px] bg-accent px-5 py-2.5 ${className}`}>
       <Text className="text-[14px] font-semibold text-white">{label}</Text>
     </Pressable>
   );
 }
 
-export function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function SecondaryButton({ label, onPress, className = "" }: { label: string; onPress: () => void; className?: string }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="cursor-pointer items-center rounded-[10px] border border-navy bg-card px-5 py-2.5">
-      <Text className="text-[14px] font-semibold text-navy">{label}</Text>
+      className={`cursor-pointer items-center rounded-[10px] border border-accent bg-card px-5 py-2.5 ${className}`}>
+      <Text className="text-[14px] font-semibold text-accent">{label}</Text>
     </Pressable>
   );
 }
@@ -95,7 +95,7 @@ export function RowActions({ onEdit, onRemove }: { onEdit: () => void; onRemove:
   return (
     <View className="flex-row items-center gap-3">
       <Pressable accessibilityRole="button" accessibilityLabel="Editar" onPress={onEdit} className="cursor-pointer">
-        <Text className="text-[15px] font-semibold text-navy">Editar</Text>
+        <Text className="text-[15px] font-semibold text-accent">Editar</Text>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Quitar" onPress={onRemove} className="cursor-pointer">
         <Text className="text-[15px] font-semibold text-negative">Quitar</Text>

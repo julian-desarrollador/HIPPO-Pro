@@ -1,5 +1,5 @@
 import { LedgerError } from "./errors";
-import type { RacetrackId } from "./types";
+import type { RacetrackCommission, RacetrackId } from "./types";
 
 export type RacetrackRule = {
   id: RacetrackId;
@@ -39,4 +39,17 @@ export function getRacetrack(id: string): RacetrackRule {
     throw new LedgerError("unknown-racetrack");
   }
   return found;
+}
+
+export function currentCommissionBasisPoints(
+  racetrackId: RacetrackId,
+  commissions: readonly RacetrackCommission[] | undefined,
+): number {
+  const stored = Array.isArray(commissions)
+    ? commissions.find((item) => item.racetrackId === racetrackId)
+    : undefined;
+  if (stored && Number.isInteger(stored.commissionBasisPoints)) {
+    return stored.commissionBasisPoints;
+  }
+  return getRacetrack(racetrackId).commissionBasisPoints;
 }

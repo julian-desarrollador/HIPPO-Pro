@@ -59,7 +59,7 @@ export function DateField({
                 accessibilityLabel="Mes anterior"
                 onPress={() => setVisibleMonth(shiftMonth(visibleMonth, -1))}
                 className="h-10 w-10 cursor-pointer items-center justify-center">
-                <Ionicons name="chevron-back" size={22} color={palette.navy} />
+                <Ionicons name="chevron-back" size={22} color={palette.accent} />
               </Pressable>
               <Text className="text-[15px] font-semibold text-navy">{monthTitle(visibleMonth)}</Text>
               <Pressable
@@ -67,7 +67,7 @@ export function DateField({
                 accessibilityLabel="Mes siguiente"
                 onPress={() => setVisibleMonth(shiftMonth(visibleMonth, 1))}
                 className="h-10 w-10 cursor-pointer items-center justify-center">
-                <Ionicons name="chevron-forward" size={22} color={palette.navy} />
+                <Ionicons name="chevron-forward" size={22} color={palette.accent} />
               </Pressable>
             </View>
             <View className="mt-4 flex-row">
@@ -90,7 +90,7 @@ export function DateField({
                         accessibilityState={{ selected }}
                         onPress={() => pick(cell.iso)}
                         className="h-10 flex-1 items-center justify-center">
-                        <View className={`h-9 w-9 items-center justify-center rounded-full ${selected ? "bg-navy" : ""}`}>
+                        <View className={`h-9 w-9 items-center justify-center rounded-full ${selected ? "bg-accent" : ""}`}>
                           <Text
                             className={`text-[15px] ${
                               selected ? "font-semibold text-white" : cell.inMonth ? "text-ink" : "text-muted"
@@ -109,7 +109,7 @@ export function DateField({
               accessibilityLabel="Cerrar"
               onPress={() => setOpen(false)}
               className="mt-4 cursor-pointer items-center py-2">
-              <Text className="text-[14px] font-semibold text-navy">Cerrar</Text>
+              <Text className="text-[14px] font-semibold text-accent">Cerrar</Text>
             </Pressable>
           </View>
         </View>

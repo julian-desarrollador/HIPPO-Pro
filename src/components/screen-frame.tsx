@@ -3,6 +3,7 @@ import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { desktopTopbarHeight, mobileBarHeight, mobileTabBarHeight, sidebarWidth, wideLayout } from "@/constants/layout";
+import { useLedger } from "@/modules/ledger";
 
 export function ScreenFrame({
   title,
@@ -13,6 +14,8 @@ export function ScreenFrame({
 }) {
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
+  const { persistence } = useLedger();
+  const persistenceLabel = persistence === "agency" ? "Se guarda en la agencia · agosto 2026" : "Se guarda en este navegador · agosto 2026";
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" accessibilityLabel={title}>
@@ -29,7 +32,7 @@ export function ScreenFrame({
         <View style={{ width: "100%", maxWidth: 1100 }}>
           <View className="flex-row flex-wrap items-center gap-2">
             <View className="rounded-full border border-line bg-card px-3 py-1">
-              <Text className="text-[11px] font-medium text-muted">Se guarda en este navegador · agosto 2026</Text>
+              <Text className="text-[11px] font-medium text-muted">{persistenceLabel}</Text>
             </View>
           </View>
           <View className="mt-5 gap-4">{children}</View>

@@ -7,13 +7,17 @@
 @theme {
   --font-sans: "DMSans_400Regular", "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "PlayfairDisplay_700Bold", "Playfair Display", ui-serif, Georgia, serif;
-  --color-canvas: #e4e8ee;
-  --color-card: #eef1f5;
-  --color-line: #d3d9e1;
+  --color-canvas: #d9eaf5;
+  --color-card: #f3f8fc;
+  --color-line: #acc5d8;
   --color-ink: #0f172a;
-  --color-muted: #56637a;
-  --color-navy: #0f2a4a;
-  --color-tint: #dce3ed;
+  --color-muted: #406077;
+  --color-navy: #1c517d;
+  --color-tint: #d7e8f4;
+  --color-accent: #186daa;
+  --color-celeste: #99cff5;
+  --color-chrome-active: #2f6d9d;
+  --color-chrome-muted: #ccdeea;
   --color-negative: #b42318;
   --color-amber-soft: #fef6e7;
   --color-amber-ink: #8a5a00;

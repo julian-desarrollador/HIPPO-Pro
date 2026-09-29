@@ -17,7 +17,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 import AppTabs from "@/components/app-tabs";
-import { LedgerProvider } from "@/modules/ledger";
+import { AppShell } from "@/modules/ledger";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,13 +41,13 @@ export default function RootLayout() {
   }
 
   return (
-    <LedgerProvider>
-      <ThemeProvider value={DefaultTheme}>
-        <StatusBar style="dark" />
-        <View className="flex-1 bg-canvas font-sans">
+    <ThemeProvider value={DefaultTheme}>
+      <StatusBar style="light" />
+      <View className="flex-1 bg-canvas font-sans">
+        <AppShell>
           <AppTabs />
-        </View>
-      </ThemeProvider>
-    </LedgerProvider>
+        </AppShell>
+      </View>
+    </ThemeProvider>
   );
 }

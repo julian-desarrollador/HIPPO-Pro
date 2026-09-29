@@ -1,4 +1,5 @@
 import { createAugust2026Snapshot } from "./august-2026-seed";
+import { isLedgerSnapshot } from "./ledger-snapshot";
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
 import type { LedgerSnapshot } from "../../domain/types";
 
@@ -8,22 +9,6 @@ export type JsonStorage = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 };
-
-function isLedgerSnapshot(value: unknown): value is LedgerSnapshot {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const snapshot = value as LedgerSnapshot;
-  return (
-    typeof snapshot.agencyId === "string" &&
-    typeof snapshot.month === "string" &&
-    Array.isArray(snapshot.days) &&
-    Array.isArray(snapshot.deposits) &&
-    Array.isArray(snapshot.expenses) &&
-    Array.isArray(snapshot.openingBalances)
-  );
-}
 
 function readStored(storage: JsonStorage, fallback: LedgerSnapshot): LedgerSnapshot {
   try {

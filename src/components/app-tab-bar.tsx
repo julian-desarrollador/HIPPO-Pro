@@ -75,10 +75,10 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
         accessibilityRole="link"
         className="min-w-0 flex-1 items-center gap-1 py-1"
         style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}>
-        <Ionicons name={TAB_ICONS[icon]} size={24} color={isFocused ? palette.navy : palette.muted} />
+        <Ionicons name={TAB_ICONS[icon]} size={24} color={isFocused ? palette.celeste : palette.chromeMuted} />
         <Text
           numberOfLines={1}
-          className={isFocused ? "text-[12px] font-semibold text-navy" : "text-[12px] font-medium text-muted"}>
+          className={isFocused ? "text-[12px] font-semibold text-white" : "text-[12px] font-medium text-chrome-muted"}>
           {children}
         </Text>
       </Pressable>
@@ -93,21 +93,21 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
       style={({ pressed }) => [
         {
           borderLeftWidth: 3,
-          borderLeftColor: isFocused ? palette.navy : "transparent",
-          backgroundColor: isFocused ? palette.tint : "transparent",
+          borderLeftColor: isFocused ? palette.celeste : "transparent",
+          backgroundColor: isFocused ? palette.chromeActive : "transparent",
           paddingLeft: 17,
         },
         pressed ? { opacity: 0.7 } : undefined,
       ]}>
-      <Ionicons name={TAB_ICONS[icon]} size={20} color={isFocused ? palette.navy : palette.muted} />
-      <Text className={isFocused ? "text-[15px] font-medium text-navy" : "text-[15px] font-medium text-ink"}>{children}</Text>
+      <Ionicons name={TAB_ICONS[icon]} size={20} color={isFocused ? palette.celeste : palette.chromeMuted} />
+      <Text className={isFocused ? "text-[15px] font-medium text-white" : "text-[15px] font-medium text-chrome-muted"}>{children}</Text>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, setRole } = useLedger();
+  const { role, setRole, signOut } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
@@ -138,9 +138,9 @@ export function CustomTabList(props: TabListProps) {
               left: 0,
               bottom: 0,
               width: sidebarWidth,
-              backgroundColor: palette.card,
+              backgroundColor: palette.navy,
               borderRightWidth: 1,
-              borderRightColor: palette.line,
+              borderRightColor: palette.chromeActive,
               pointerEvents: "auto",
             }}>
             <View
@@ -148,12 +148,12 @@ export function CustomTabList(props: TabListProps) {
                 paddingHorizontal: 20,
                 paddingVertical: 24,
                 borderBottomWidth: 1,
-                borderBottomColor: palette.line,
+                borderBottomColor: palette.chromeActive,
               }}>
               <Brand />
             </View>
             <Text
-              className="px-5 pb-1 pt-3 text-[10px] font-semibold uppercase text-muted"
+              className="px-5 pb-1 pt-3 text-[10px] font-semibold uppercase text-chrome-muted"
               style={{ letterSpacing: 1.5 }}>
               Agencia
             </Text>
@@ -168,22 +168,22 @@ export function CustomTabList(props: TabListProps) {
             left: wide ? sidebarWidth : 0,
             right: 0,
             height: wide ? desktopTopbarHeight : mobileBarHeight,
-            backgroundColor: palette.card,
+            backgroundColor: palette.navy,
             borderBottomWidth: 1,
-            borderBottomColor: palette.line,
+            borderBottomColor: palette.chromeActive,
             justifyContent: "center",
             paddingHorizontal: 16,
             pointerEvents: "auto",
           }}>
           <View className="flex-row items-center justify-between gap-3">
             {wide ? (
-              <Text className="font-serif text-[22px] text-navy" numberOfLines={1}>
+              <Text className="font-serif text-[22px] text-white" numberOfLines={1}>
                 {pageTitle}
               </Text>
             ) : (
               <Brand />
             )}
-            <RoleSwitch role={role} onChange={setRole} />
+            {signOut ? <AccountMenu role={role} onSignOut={signOut} /> : <RoleSwitch role={role} onChange={setRole} />}
           </View>
         </View>
 
@@ -197,9 +197,9 @@ export function CustomTabList(props: TabListProps) {
               zIndex: 20,
               flexDirection: "row",
               alignItems: "center",
-              backgroundColor: palette.card,
+              backgroundColor: palette.navy,
               borderTopWidth: 1,
-              borderTopColor: palette.line,
+              borderTopColor: palette.chromeActive,
               paddingTop: 8,
               paddingBottom: Math.max(8, insets.bottom),
               paddingHorizontal: 4,
@@ -216,14 +216,14 @@ export function CustomTabList(props: TabListProps) {
 function Brand() {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
-      <View className="h-10 w-10 items-center justify-center rounded-lg bg-navy">
-        <Text className="font-serif text-lg text-white">H</Text>
+      <View className="h-10 w-10 items-center justify-center rounded-lg bg-celeste">
+        <Text className="font-serif text-lg text-navy">H</Text>
       </View>
       <View style={{ flexShrink: 1 }}>
-        <Text className="font-serif text-base text-navy" numberOfLines={1}>
+        <Text className="font-serif text-base text-white" numberOfLines={1}>
           HIPPO Pro
         </Text>
-        <Text className="text-[11px] text-muted" numberOfLines={1}>
+        <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
           Agencia Dolores
         </Text>
       </View>
@@ -231,9 +231,23 @@ function Brand() {
   );
 }
 
+function AccountMenu({ role, onSignOut }: { role: ViewerRole; onSignOut: () => void }) {
+  const label = role === "owner" ? "Dueño" : "Operador";
+  return (
+    <View className="flex-row items-center gap-2">
+      <View className="rounded-md bg-chrome-active px-3 py-1.5">
+        <Text className="text-[13px] font-semibold text-white">{label}</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Salir" onPress={onSignOut} className="rounded-md px-2 py-1.5">
+        <Text className="text-[13px] font-semibold text-white">Salir</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function RoleSwitch({ role, onChange }: { role: ViewerRole; onChange: (role: ViewerRole) => void }) {
   return (
-    <View className="flex-row rounded-lg border border-line bg-canvas p-0.5">
+    <View className="flex-row rounded-lg bg-chrome-active p-0.5">
       <RoleOption label="Dueño" selected={role === "owner"} onPress={() => onChange("owner")} />
       <RoleOption label="Operador" selected={role === "operator"} onPress={() => onChange("operator")} />
     </View>
@@ -245,8 +259,8 @@ function RoleOption({ label, selected, onPress }: { label: string; selected: boo
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className={selected ? "rounded-md bg-navy px-3 py-1.5" : "rounded-md px-3 py-1.5"}>
-      <Text className={selected ? "text-[13px] font-semibold text-white" : "text-[13px] text-muted"}>{label}</Text>
+      className={selected ? "rounded-md bg-celeste px-3 py-1.5" : "rounded-md px-3 py-1.5"}>
+      <Text className={selected ? "text-[13px] font-semibold text-navy" : "text-[13px] text-chrome-muted"}>{label}</Text>
     </Pressable>
   );
 }

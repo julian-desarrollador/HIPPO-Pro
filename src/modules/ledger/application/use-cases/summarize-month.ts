@@ -16,7 +16,13 @@ export function listSettledDays(snapshot: LedgerSnapshot): SettledDay[] {
     .map((day) => ({
       ...day,
       racetrackName: getRacetrack(day.racetrackId).name,
-      ...settleDay(day),
+      ...settleDay({
+        racetrackId: day.racetrackId,
+        soldCents: day.soldCents,
+        cancelledCents: day.cancelledCents,
+        paidCents: day.paidCents,
+        commissionBasisPoints: day.commissionBasisPoints,
+      }),
     }))
     .sort((left, right) => left.date.localeCompare(right.date) || left.racetrackId.localeCompare(right.racetrackId));
 }

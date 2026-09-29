@@ -10,6 +10,9 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "invalid-date": "La fecha tiene que ser AAAA-MM-DD.",
   "outside-month": "La fecha no pertenece a agosto 2026.",
   "unknown-entry": "Ese movimiento no está.",
+  "invalid-percent": "El porcentaje tiene que estar entre 0 y 100.",
+  "save-failed": "No se pudo guardar. Revisá la conexión.",
+  "save-conflict": "Alguien guardó este libro antes. Volvé a intentar.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

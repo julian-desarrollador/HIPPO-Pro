@@ -68,7 +68,7 @@ export default function DepositosScreen() {
     setMessage("");
   }
 
-  function onSave() {
+  async function onSave() {
     const amountCents = readAmount(amount, false);
     if (amountCents === null) {
       setError("Revisá el importe. Usá 1234,50.");
@@ -76,30 +76,33 @@ export default function DepositosScreen() {
       return;
     }
 
+    setMessage("Guardando…");
+    setError("");
     try {
       if (editingId) {
-        updateDeposit({ id: editingId, date, racetrackId, amountCents });
+        await updateDeposit({ id: editingId, date, racetrackId, amountCents });
         setEditingId(null);
         setMessage("Depósito actualizado.");
       } else {
-        recordDeposit({ date, racetrackId, amountCents });
+        await recordDeposit({ date, racetrackId, amountCents });
         setMessage("Depósito cargado.");
       }
       setAmount("");
-      setError("");
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
   }
 
-  function confirmRemove() {
+  async function confirmRemove() {
     if (!pendingRemoveId) {
       return;
     }
+    const id = pendingRemoveId;
+    setPendingRemoveId(null);
     try {
-      removeDeposit(pendingRemoveId);
-      if (editingId === pendingRemoveId) {
+      await removeDeposit(id);
+      if (editingId === id) {
         cancelEdit();
       }
       setMessage("Movimiento quitado.");
@@ -108,7 +111,6 @@ export default function DepositosScreen() {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
-    setPendingRemoveId(null);
   }
 
   return (

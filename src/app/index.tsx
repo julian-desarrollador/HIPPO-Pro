@@ -8,7 +8,7 @@ import { wideLayout } from "@/constants/layout";
 import { useLedger } from "@/modules/ledger";
 
 export default function HomeScreen() {
-  const { canViewBalances, summary, reset } = useLedger();
+  const { canViewBalances, summary, reset, persistence } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
 
   return (
@@ -41,7 +41,7 @@ export default function HomeScreen() {
           </Text>
         </Card>
       )}
-      <SecondaryButton label="Volver a los datos de agosto" onPress={reset} />
+      {persistence === "browser" ? <SecondaryButton label="Volver a los datos de agosto" onPress={() => void reset()} /> : null}
     </ScreenFrame>
   );
 }

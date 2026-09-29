@@ -13,6 +13,12 @@ export function assertCents(value: Cents, options: { allowZero: boolean }): void
   }
 }
 
+export function assertCommissionBasisPoints(value: number): void {
+  if (!Number.isInteger(value) || value < 0 || value > 10_000) {
+    throw new LedgerError("invalid-percent");
+  }
+}
+
 export function assertIsoDate(date: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new LedgerError("invalid-date");

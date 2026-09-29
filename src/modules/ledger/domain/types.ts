@@ -14,6 +14,13 @@ export type DailySale = {
   soldCents: Cents;
   cancelledCents: Cents;
   paidCents: Cents;
+  /** Copied from the racetrack when the day is recorded. Missing on the August seed. */
+  commissionBasisPoints?: number;
+};
+
+export type RacetrackCommission = {
+  racetrackId: RacetrackId;
+  commissionBasisPoints: number;
 };
 
 export type HippodromeDeposit = {
@@ -47,4 +54,6 @@ export type LedgerSnapshot = {
   deposits: HippodromeDeposit[];
   expenses: Expense[];
   openingBalances: OpeningBalance[];
+  /** Current commission per racetrack. Missing means the fixed table in racetracks.ts. */
+  commissions?: RacetrackCommission[];
 };

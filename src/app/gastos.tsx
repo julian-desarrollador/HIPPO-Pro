@@ -67,7 +67,7 @@ export default function GastosScreen() {
     setMessage("");
   }
 
-  function onSave() {
+  async function onSave() {
     const amountCents = readAmount(amount, false);
     if (amountCents === null) {
       setError("Revisá el importe. Usá 1234,50.");
@@ -75,31 +75,34 @@ export default function GastosScreen() {
       return;
     }
 
+    setMessage("Guardando…");
+    setError("");
     try {
       if (editingId) {
-        updateExpense({ id: editingId, paidOn, categoryId, detail, amountCents });
+        await updateExpense({ id: editingId, paidOn, categoryId, detail, amountCents });
         setEditingId(null);
         setMessage("Gasto actualizado.");
       } else {
-        recordExpense({ paidOn, categoryId, detail, amountCents });
+        await recordExpense({ paidOn, categoryId, detail, amountCents });
         setMessage("Gasto cargado.");
       }
       setAmount("");
       setDetail("");
-      setError("");
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
   }
 
-  function confirmRemove() {
+  async function confirmRemove() {
     if (!pendingRemoveId) {
       return;
     }
+    const id = pendingRemoveId;
+    setPendingRemoveId(null);
     try {
-      removeExpense(pendingRemoveId);
-      if (editingId === pendingRemoveId) {
+      await removeExpense(id);
+      if (editingId === id) {
         cancelEdit();
       }
       setMessage("Movimiento quitado.");
@@ -108,7 +111,6 @@ export default function GastosScreen() {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
-    setPendingRemoveId(null);
   }
 
   return (

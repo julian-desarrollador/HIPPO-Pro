@@ -1,5 +1,5 @@
 import { LedgerError } from "../../domain/errors";
-import { getRacetrack } from "../../domain/racetracks";
+import { currentCommissionBasisPoints, getRacetrack } from "../../domain/racetracks";
 import type { DailySale, RacetrackId } from "../../domain/types";
 import { assertCents, assertDateInMonth } from "../../domain/validation";
 import type { LedgerRepository } from "../ports/ledger-repository";
@@ -47,6 +47,10 @@ export function updateDay(repository: LedgerRepository, input: UpdateDayInput): 
     soldCents: input.soldCents,
     cancelledCents: input.cancelledCents,
     paidCents: input.paidCents,
+    commissionBasisPoints:
+      current.racetrackId === racetrackId
+        ? current.commissionBasisPoints
+        : currentCommissionBasisPoints(racetrackId, snapshot.commissions),
   };
   const days = snapshot.days.slice();
   days[index] = updated;

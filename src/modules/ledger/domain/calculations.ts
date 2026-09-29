@@ -16,10 +16,12 @@ export function settleDay(input: {
   soldCents: Cents;
   cancelledCents: Cents;
   paidCents: Cents;
+  commissionBasisPoints?: number;
 }): DaySettlement {
   const rule = getRacetrack(input.racetrackId);
+  const commissionBasisPoints = input.commissionBasisPoints ?? rule.commissionBasisPoints;
   const netCents = input.soldCents - input.cancelledCents;
-  const commissionCents = applyBasisPoints(netCents, rule.commissionBasisPoints);
+  const commissionCents = applyBasisPoints(netCents, commissionBasisPoints);
   const adjustmentCents = applyBasisPoints(netCents, rule.depositAdjustmentBasisPoints);
 
   return {
@@ -27,7 +29,7 @@ export function settleDay(input: {
     commissionCents,
     adjustmentCents,
     amountToDepositCents: netCents - input.paidCents + adjustmentCents,
-    commissionBasisPoints: rule.commissionBasisPoints,
+    commissionBasisPoints,
     depositAdjustmentBasisPoints: rule.depositAdjustmentBasisPoints,
   };
 }

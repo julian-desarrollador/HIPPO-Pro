@@ -1,5 +1,5 @@
 import { LedgerError } from "../../domain/errors";
-import { getRacetrack } from "../../domain/racetracks";
+import { currentCommissionBasisPoints, getRacetrack } from "../../domain/racetracks";
 import type { DailySale, RacetrackId } from "../../domain/types";
 import { assertCents, assertDateInMonth } from "../../domain/validation";
 import { createId } from "../create-id";
@@ -41,6 +41,7 @@ export function recordDay(repository: LedgerRepository, input: RecordDayInput): 
     soldCents: input.soldCents,
     cancelledCents: input.cancelledCents,
     paidCents: input.paidCents,
+    commissionBasisPoints: currentCommissionBasisPoints(racetrackId, snapshot.commissions),
   };
 
   repository.save({ ...snapshot, days: [...snapshot.days, day] });

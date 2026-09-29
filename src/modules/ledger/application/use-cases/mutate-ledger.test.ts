@@ -6,6 +6,8 @@ import { recordDay } from "./record-day";
 import { recordDeposit } from "./record-deposit";
 import { recordExpense } from "./record-expense";
 import { removeDay, removeDeposit, removeExpense } from "./remove-entry";
+import { listSettledDays, summarizeMonth } from "./summarize-month";
+import { updateCommission } from "./update-commission";
 import { updateDay } from "./update-day";
 import { updateDeposit } from "./update-deposit";
 import { updateExpense } from "./update-expense";
@@ -185,5 +187,90 @@ describe("editar movimientos", () => {
         }),
       (error: unknown) => error instanceof LedgerError && error.code === "unknown-entry",
     );
+  });
+});
+
+describe("comisión del hipódromo", () => {
+  it("un día cargado con 15% sigue en 15% aunque después cambie la comisión", () => {
+    const repository = createInMemoryLedgerRepository();
+    const day = recordDay(repository, {
+      date: "2026-08-16",
+      racetrackId: "san-isidro",
+      soldCents: 1_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    assert.equal(day.commissionBasisPoints, 1500);
+
+    updateCommission(repository, { racetrackId: "san-isidro", commissionBasisPoints: 2000 });
+
+    const settled = listSettledDays(repository.load()).find((entry) => entry.id === day.id);
+    assert.equal(settled?.commissionBasisPoints, 1500);
+    assert.equal(settled?.commissionCents, 150_000);
+    const sanIsidroLater = recordDay(repository, {
+      date: "2026-08-18",
+      racetrackId: "san-isidro",
+      soldCents: 1_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    assert.equal(sanIsidroLater.commissionBasisPoints, 2000);
+  });
+
+  it("editar importes conserva el porcentaje y cambiar de hipódromo toma el vigente", () => {
+    const repository = createInMemoryLedgerRepository();
+    updateCommission(repository, { racetrackId: "palermo", commissionBasisPoints: 1200 });
+    const day = recordDay(repository, {
+      date: "2026-08-16",
+      racetrackId: "san-isidro",
+      soldCents: 1_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+
+    const edited = updateDay(repository, {
+      id: day.id,
+      date: "2026-08-16",
+      racetrackId: "san-isidro",
+      soldCents: 2_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    assert.equal(edited.commissionBasisPoints, 1500);
+
+    const moved = updateDay(repository, {
+      id: day.id,
+      date: "2026-08-16",
+      racetrackId: "palermo",
+      soldCents: 2_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    assert.equal(moved.commissionBasisPoints, 1200);
+  });
+
+  it("un porcentaje inválido no se guarda", () => {
+    const repository = createInMemoryLedgerRepository();
+    assert.throws(
+      () => updateCommission(repository, { racetrackId: "san-isidro", commissionBasisPoints: 10_001 }),
+      (error: unknown) => error instanceof LedgerError && error.code === "invalid-percent",
+    );
+    assert.throws(
+      () => updateCommission(repository, { racetrackId: "san-isidro", commissionBasisPoints: 15.5 }),
+      (error: unknown) => error instanceof LedgerError && error.code === "invalid-percent",
+    );
+    assert.equal(repository.load().commissions, undefined);
+  });
+
+  it("agosto no cambia aunque se modifique la comisión vigente", () => {
+    const repository = createInMemoryLedgerRepository();
+    const before = summarizeMonth(repository.load());
+    updateCommission(repository, { racetrackId: "san-isidro", commissionBasisPoints: 2000 });
+    const after = summarizeMonth(repository.load());
+
+    assert.equal(after.billingCents, before.billingCents);
+    const beforeSanIsidro = before.racetracks.find((track) => track.racetrackId === "san-isidro");
+    const afterSanIsidro = after.racetracks.find((track) => track.racetrackId === "san-isidro");
+    assert.equal(afterSanIsidro?.commissionCents, beforeSanIsidro?.commissionCents);
   });
 });

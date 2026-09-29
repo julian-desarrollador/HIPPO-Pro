@@ -36,7 +36,7 @@ export function MoneyText({
 export function StatCard({ label, cents, emphasis }: { label: string; cents: number; emphasis?: boolean }) {
   return (
     <View
-      className={`min-w-[160px] flex-1 items-center rounded-[12px] border bg-card p-4 ${emphasis ? "border-navy" : "border-line"}`}>
+      className={`min-w-[160px] flex-1 items-center rounded-[12px] border bg-card p-4 ${emphasis ? "border-accent" : "border-line"}`}>
       <Text className="text-[12px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
         {label}
       </Text>
