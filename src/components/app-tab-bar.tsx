@@ -106,7 +106,7 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
 }
 
 export function CustomTabList(props: TabListProps) {
-  const { children, ...rest } = props;
+  const { children, style: listStyle, ...rest } = props;
   const { role, setRole } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
@@ -117,15 +117,19 @@ export function CustomTabList(props: TabListProps) {
     <NavChromeContext.Provider value={wide ? "sidebar" : "bottom"}>
       <View
         {...rest}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 20,
-          pointerEvents: "box-none",
-        }}>
+        pointerEvents="box-none"
+        style={[
+          listStyle,
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 20,
+            pointerEvents: "none",
+          },
+        ]}>
         {wide ? (
           <View
             style={{

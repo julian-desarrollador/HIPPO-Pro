@@ -141,7 +141,7 @@ export default function DepositosScreen() {
       <Card>
         <View className="gap-4">
           <Field label="Fecha">
-            <DateField value={date} onChange={setDate} lockedMonth={snapshot.month} />
+            <DateField value={date} onChange={setDate} />
           </Field>
           <Field label="Hipódromo">
             <ChoiceChips

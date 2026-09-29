@@ -5,7 +5,10 @@ import type { RacetrackId } from "./types";
 export type DaySettlement = {
   netCents: Cents;
   commissionCents: Cents;
+  adjustmentCents: Cents;
   amountToDepositCents: Cents;
+  commissionBasisPoints: number;
+  depositAdjustmentBasisPoints: number;
 };
 
 export function settleDay(input: {
@@ -22,6 +25,9 @@ export function settleDay(input: {
   return {
     netCents,
     commissionCents,
+    adjustmentCents,
     amountToDepositCents: netCents - input.paidCents + adjustmentCents,
+    commissionBasisPoints: rule.commissionBasisPoints,
+    depositAdjustmentBasisPoints: rule.depositAdjustmentBasisPoints,
   };
 }

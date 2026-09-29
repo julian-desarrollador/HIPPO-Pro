@@ -9,28 +9,22 @@ import { palette } from "@/constants/palette";
 export function DateField({
   value,
   onChange,
-  lockedMonth,
 }: {
   value: string;
   onChange: (iso: string) => void;
-  lockedMonth?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [visibleMonth, setVisibleMonth] = useState(lockedMonth ?? value.slice(0, 7));
+  const [visibleMonth, setVisibleMonth] = useState(value.slice(0, 7));
 
   useEffect(() => {
     if (open) {
-      setVisibleMonth(lockedMonth ?? value.slice(0, 7));
+      setVisibleMonth(value.slice(0, 7));
     }
-  }, [open, lockedMonth, value]);
+  }, [open, value]);
 
   const cells = buildMonthGrid(visibleMonth);
-  const canNavigate = lockedMonth === undefined;
 
-  function pick(iso: string, inMonth: boolean) {
-    if (lockedMonth && !inMonth) {
-      return;
-    }
+  function pick(iso: string) {
     onChange(iso);
     setOpen(false);
   }
@@ -58,31 +52,23 @@ export function DateField({
             onPress={() => setOpen(false)}
             style={styles.dim}
           />
-          <View className="rounded-[14px] border border-line bg-card p-5" style={styles.card}>
+          <View className="rounded-[14px] border border-line bg-card p-5" pointerEvents="auto" style={styles.card}>
             <View className="flex-row items-center justify-between">
-              {canNavigate ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Mes anterior"
-                  onPress={() => setVisibleMonth(shiftMonth(visibleMonth, -1))}
-                  className="h-10 w-10 items-center justify-center">
-                  <Ionicons name="chevron-back" size={22} color={palette.navy} />
-                </Pressable>
-              ) : (
-                <View className="h-10 w-10" />
-              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mes anterior"
+                onPress={() => setVisibleMonth(shiftMonth(visibleMonth, -1))}
+                className="h-10 w-10 cursor-pointer items-center justify-center">
+                <Ionicons name="chevron-back" size={22} color={palette.navy} />
+              </Pressable>
               <Text className="text-[15px] font-semibold text-navy">{monthTitle(visibleMonth)}</Text>
-              {canNavigate ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Mes siguiente"
-                  onPress={() => setVisibleMonth(shiftMonth(visibleMonth, 1))}
-                  className="h-10 w-10 items-center justify-center">
-                  <Ionicons name="chevron-forward" size={22} color={palette.navy} />
-                </Pressable>
-              ) : (
-                <View className="h-10 w-10" />
-              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mes siguiente"
+                onPress={() => setVisibleMonth(shiftMonth(visibleMonth, 1))}
+                className="h-10 w-10 cursor-pointer items-center justify-center">
+                <Ionicons name="chevron-forward" size={22} color={palette.navy} />
+              </Pressable>
             </View>
             <View className="mt-4 flex-row">
               {WEEKDAYS.map((label, index) => (
@@ -96,15 +82,13 @@ export function DateField({
                 <View key={week} className="flex-row">
                   {cells.slice(week * 7, week * 7 + 7).map((cell) => {
                     const selected = cell.iso === value;
-                    const disabled = Boolean(lockedMonth) && !cell.inMonth;
                     return (
                       <Pressable
                         key={cell.iso}
                         accessibilityRole="button"
                         accessibilityLabel={formatIsoDate(cell.iso)}
-                        accessibilityState={{ selected, disabled }}
-                        disabled={disabled}
-                        onPress={() => pick(cell.iso, cell.inMonth)}
+                        accessibilityState={{ selected }}
+                        onPress={() => pick(cell.iso)}
                         className="h-10 flex-1 items-center justify-center">
                         <View className={`h-9 w-9 items-center justify-center rounded-full ${selected ? "bg-navy" : ""}`}>
                           <Text
@@ -124,7 +108,7 @@ export function DateField({
               accessibilityRole="button"
               accessibilityLabel="Cerrar"
               onPress={() => setOpen(false)}
-              className="mt-4 items-center py-2">
+              className="mt-4 cursor-pointer items-center py-2">
               <Text className="text-[14px] font-semibold text-navy">Cerrar</Text>
             </Pressable>
           </View>

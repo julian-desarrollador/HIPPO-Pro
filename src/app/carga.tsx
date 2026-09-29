@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
-import { DataTable, KeyValueList } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { DateField } from "@/components/date-field";
 import {
@@ -20,10 +20,12 @@ import { wideLayout } from "@/constants/layout";
 import {
   RACETRACKS,
   formatAmountInput,
+  formatSignedPercent,
   ledgerErrorMessage,
   readAmount,
   settleDay,
   useLedger,
+  type DaySettlement,
   type RacetrackId,
   type SettledDay,
 } from "@/modules/ledger";
@@ -122,7 +124,7 @@ export default function CargaScreen() {
           <Card>
             <View className="gap-4">
               <Field label="Fecha">
-                <DateField value={date} onChange={setDate} lockedMonth={snapshot.month} />
+                <DateField value={date} onChange={setDate} />
               </Field>
               <Field label="Hipódromo">
                 <ChoiceChips
@@ -146,21 +148,18 @@ export default function CargaScreen() {
             </View>
           </Card>
         </View>
-        <View className={wide ? "w-80" : ""}>
+        <View className={wide ? "w-96" : ""}>
           <Card>
-            <Text className="text-sm text-muted">Cálculo del día</Text>
-            {preview ? (
+            <Text className="font-sans text-[22px] font-semibold text-navy">Cálculo del día</Text>
+            <Text className="mt-1 text-[13px] text-muted">
+              {RACETRACKS.find((track) => track.id === racetrackId)?.name ?? racetrackId}
+            </Text>
+            {preview && soldCents !== null && cancelledCents !== null && paidCents !== null ? (
               <View className="mt-3">
-                <KeyValueList
-                  rows={[
-                    { label: "Neto", value: <MoneyText cents={preview.netCents} size="lg" /> },
-                    { label: "Comisión", value: <MoneyText cents={preview.commissionCents} /> },
-                    { label: "A depositar", value: <MoneyText cents={preview.amountToDepositCents} size="lg" tone="navy" /> },
-                  ]}
-                />
+                <DayBreakdown soldCents={soldCents} cancelledCents={cancelledCents} paidCents={paidCents} settlement={preview} />
               </View>
             ) : (
-              <Text className="mt-3 text-sm text-negative">Revisá los importes. Usá 1234,50.</Text>
+              <Text className="mt-3 text-[13px] text-negative">Revisá los importes. Usá 1234,50.</Text>
             )}
           </Card>
         </View>
@@ -190,5 +189,55 @@ export default function CargaScreen() {
       />
       <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
     </ScreenFrame>
+  );
+}
+
+function DayBreakdown({
+  soldCents,
+  cancelledCents,
+  paidCents,
+  settlement,
+}: {
+  soldCents: number;
+  cancelledCents: number;
+  paidCents: number;
+  settlement: DaySettlement;
+}) {
+  const commissionLabel = `Comisión (${formatSignedPercent(settlement.commissionBasisPoints)})`;
+  const adjustmentLabel = `Ajuste (${formatSignedPercent(settlement.depositAdjustmentBasisPoints)})`;
+
+  return (
+    <View>
+      <BreakdownLine label="Vendido" cents={soldCents} />
+      <BreakdownLine label="− Cancelados" cents={cancelledCents} />
+      <View className="my-2 h-px bg-line" />
+      <BreakdownLine label="Neto" cents={settlement.netCents} size="md" />
+      <View className="mt-2">
+        <BreakdownLine label={commissionLabel} cents={settlement.commissionCents} />
+      </View>
+      <BreakdownLine label="− Pagado" cents={paidCents} />
+      <BreakdownLine label={adjustmentLabel} cents={settlement.adjustmentCents} />
+      <View className="my-2 h-px bg-line" />
+      <BreakdownLine label="A depositar" cents={settlement.amountToDepositCents} size="md" tone="navy" />
+    </View>
+  );
+}
+
+function BreakdownLine({
+  label,
+  cents,
+  size = "sm",
+  tone,
+}: {
+  label: string;
+  cents: number;
+  size?: "sm" | "md";
+  tone?: "auto" | "navy";
+}) {
+  return (
+    <View className="flex-row items-center justify-between gap-3 py-0.5">
+      <Text className="shrink text-[13px] text-muted">{label}</Text>
+      <MoneyText cents={cents} size={size} tone={tone} />
+    </View>
   );
 }
