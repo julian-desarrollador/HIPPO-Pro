@@ -1,56 +1,41 @@
-# Welcome to your Expo app 👋
+# HIPPO Pro
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Sistema para agencias hípicas. Carga el día por hipódromo, lleva la cuenta corriente con cada hipódromo, registra gastos y muestra el resultado del mes. La agencia piloto es Agencia Dolores, de Federico y Mati.
 
-## Get started
+Esta versión reproduce agosto 2026 de la planilla de Federico, en memoria. No guarda datos: al recargar vuelve agosto.
 
-1. Install dependencies
+- Producción: [https://hippo-pro.vercel.app](https://hippo-pro.vercel.app)
+- Repositorio: [github.com/julian-desarrollador/HIPPO-Pro](https://github.com/julian-desarrollador/HIPPO-Pro)
 
-   ```bash
-   npm install
-   ```
+## Por dónde empezar
 
-2. Start the app
+Si llegás sin contexto, leé en este orden:
 
-   ```bash
-   npx expo start
-   ```
+1. [docs/20-status.md](docs/20-status.md): qué está hecho, qué pidió Federico y qué sigue.
+2. [docs/01-product.md](docs/01-product.md): qué es el producto y qué entra en esta entrega.
+3. [docs/19-domain-model.md](docs/19-domain-model.md): fórmulas y números de agosto que tienen que coincidir.
+4. [docs/03-architecture.md](docs/03-architecture.md) y [docs/05-folder-structure.md](docs/05-folder-structure.md): capas, reglas y dónde va cada archivo.
+5. [docs/14-design-system.md](docs/14-design-system.md): colores, piezas de pantalla y reglas visuales.
+6. [docs/10-development.md](docs/10-development.md): comandos, deploy y errores conocidos.
+7. [docs/15-decisions.md](docs/15-decisions.md): decisiones que no se revierten sin pensarlo.
 
-In the output, you'll find options to open the app in a
+[AGENTS.md](AGENTS.md) resume las reglas para un agente que vaya a cambiar código.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Correr el proyecto
 
 ```bash
-npm run reset-project
+npm install
+npx expo start --web --port 8081
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Abre en [http://localhost:8081](http://localhost:8081).
 
-### Other setup steps
+```bash
+npm test            # pruebas del dominio y de agosto
+npx tsc --noEmit    # tipos
+npm run build       # sitio web estático en dist/
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Stack
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Expo SDK 57, React Native 0.86, Expo Router, NativeWind 5 (RC) con Tailwind 4, TypeScript. Las pruebas corren con `tsx` y `node:test`. El sitio web se publica en Vercel como export estático.

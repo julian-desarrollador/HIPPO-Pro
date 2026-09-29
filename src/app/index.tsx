@@ -16,8 +16,8 @@ export default function HomeScreen() {
       {canViewBalances ? (
         <>
           <View className={wide ? "flex-row gap-3" : "gap-3"}>
-            <StatCard label="Facturación" cents={summary.billingCents} />
-            <StatCard label="Salidas" cents={summary.outflowCents} />
+            <StatCard label="Venta total" cents={summary.billingCents} />
+            <StatCard label="Ganancia bruta" cents={summary.outflowCents} />
             <StatCard label="Saldo del mes" cents={summary.balanceCents} emphasis />
           </View>
           <SectionTitle title="Por hipódromo" />
