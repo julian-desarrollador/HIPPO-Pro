@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
+import { monthTitle } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { DateField } from "@/components/date-field";
@@ -32,14 +33,20 @@ import {
 } from "@/modules/ledger";
 
 export default function CargaScreen() {
-  const { days, recordDay, updateDay, removeDay, snapshot } = useLedger();
+  const { days, recordDay, updateDay, removeDay, snapshot, viewMonth, setViewMonth } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
-  const [date, setDate] = useState("2026-08-16");
+  const [date, setDate] = useState(`${viewMonth}-01`);
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [sold, setSold] = useState("");
   const [cancelled, setCancelled] = useState("");
   const [paid, setPaid] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingId) {
+      setDate(`${viewMonth}-01`);
+    }
+  }, [editingId, viewMonth]);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -106,6 +113,7 @@ export default function CargaScreen() {
         setMessage("Día cargado.");
       }
       clearAmounts();
+      setViewMonth(date.slice(0, 7));
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
@@ -179,7 +187,7 @@ export default function CargaScreen() {
         </View>
       </View>
 
-      <SectionTitle title="Agosto 2026" />
+      <SectionTitle title={monthTitle(viewMonth)} />
       <DataTable
         columns={[
           { key: "date", header: "Fecha", compact: true, render: (row) => formatIsoDate(row.date) },

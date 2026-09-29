@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
+import { monthTitle } from "@/components/calendar-grid";
 import { DataTable, KeyValueList } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { DateField } from "@/components/date-field";
@@ -34,17 +35,23 @@ type DepositRow = {
 };
 
 export default function DepositosScreen() {
-  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit } = useLedger();
-  const [date, setDate] = useState("2026-08-16");
+  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit, viewMonth, setViewMonth } = useLedger();
+  const [date, setDate] = useState(`${viewMonth}-01`);
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [amount, setAmount] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingId) {
+      setDate(`${viewMonth}-01`);
+    }
+  }, [editingId, viewMonth]);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const deposits = snapshot.deposits
-    .filter((deposit) => deposit.date.startsWith(snapshot.month))
+    .filter((deposit) => deposit.date.startsWith(viewMonth))
     .slice()
     .sort((left, right) => left.date.localeCompare(right.date) || left.racetrackId.localeCompare(right.racetrackId))
     .map((deposit) => ({
@@ -88,6 +95,7 @@ export default function DepositosScreen() {
         setMessage("Depósito cargado.");
       }
       setAmount("");
+      setViewMonth(date.slice(0, 7));
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
@@ -161,7 +169,7 @@ export default function DepositosScreen() {
         </View>
       </Card>
 
-      <SectionTitle title="Movimientos de agosto" />
+      <SectionTitle title={`Movimientos de ${monthTitle(viewMonth)}`} />
       <DataTable
         columns={[
           { key: "date", header: "Fecha", compact: true, render: (row) => formatIsoDate(row.date) },

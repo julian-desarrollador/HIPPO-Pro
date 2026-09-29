@@ -1,7 +1,7 @@
 import { LedgerError } from "../../domain/errors";
 import { getRacetrack } from "../../domain/racetracks";
 import type { HippodromeDeposit, RacetrackId } from "../../domain/types";
-import { assertCents, assertDateInMonth } from "../../domain/validation";
+import { assertCents, assertIsoDate } from "../../domain/validation";
 import type { LedgerRepository } from "../ports/ledger-repository";
 import type { RecordDepositInput } from "./record-deposit";
 
@@ -16,7 +16,7 @@ export function updateDeposit(repository: LedgerRepository, input: UpdateDeposit
     throw new LedgerError("unknown-entry");
   }
 
-  assertDateInMonth(input.date, snapshot.month);
+  assertIsoDate(input.date);
   const racetrack = getRacetrack(input.racetrackId);
   assertCents(input.amountCents, { allowZero: false });
 

@@ -30,6 +30,8 @@ type LedgerContextValue = {
   persistence: "browser" | "agency";
   signOut: (() => void) | null;
   canViewBalances: boolean;
+  viewMonth: string;
+  setViewMonth: (month: string) => void;
   snapshot: LedgerSnapshot;
   summary: MonthSummary;
   days: SettledDay[];
@@ -81,11 +83,13 @@ export function LedgerProvider({
   const repository = externalRepository ?? fallback.current!;
   const [version, setVersion] = useState(0);
   const [previewRole, setPreviewRole] = useState<ViewerRole>("owner");
+  const [chosenMonth, setChosenMonth] = useState<string | null>(null);
   const role = lockedRole ?? previewRole;
 
   const value = useMemo<LedgerContextValue>(() => {
     const snapshot = repository.load();
-    const summary = summarizeMonth(snapshot);
+    const viewMonth = chosenMonth ?? snapshot.month;
+    const summary = summarizeMonth(snapshot, viewMonth);
 
     function publish(action: () => void): Promise<void> {
       return (async () => {
@@ -110,9 +114,11 @@ export function LedgerProvider({
       persistence,
       signOut,
       canViewBalances: canViewAgencyBalances(role),
+      viewMonth,
+      setViewMonth: setChosenMonth,
       snapshot,
       summary,
-      days: listSettledDays(snapshot),
+      days: listSettledDays(snapshot, viewMonth),
       reportText: buildMonthReport(summary),
       recordDay: (input) => publish(() => saveDay(repository, input)),
       recordDeposit: (input) => publish(() => saveDeposit(repository, input)),
@@ -127,7 +133,7 @@ export function LedgerProvider({
       removeExpense: (id) => publish(() => deleteExpense(repository, id)),
       reset: () => publish(() => repository.reset()),
     };
-  }, [lockedRole, persistence, repository, role, signOut, version]);
+  }, [chosenMonth, lockedRole, persistence, repository, role, signOut, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }

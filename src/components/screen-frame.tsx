@@ -1,8 +1,11 @@
 import { type ReactNode } from "react";
-import { ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
+import { monthTitle, shiftMonth } from "@/components/calendar-grid";
 import { desktopTopbarHeight, mobileBarHeight, mobileTabBarHeight, sidebarWidth, wideLayout } from "@/constants/layout";
+import { palette } from "@/constants/palette";
 import { useLedger } from "@/modules/ledger";
 
 export function ScreenFrame({
@@ -14,8 +17,8 @@ export function ScreenFrame({
 }) {
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
-  const { persistence } = useLedger();
-  const persistenceLabel = persistence === "agency" ? "Se guarda en la agencia · agosto 2026" : "Se guarda en este navegador · agosto 2026";
+  const { persistence, viewMonth, setViewMonth } = useLedger();
+  const persistenceLabel = persistence === "agency" ? "Se guarda en la agencia" : "Se guarda en este navegador";
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" accessibilityLabel={title}>
@@ -33,6 +36,23 @@ export function ScreenFrame({
           <View className="flex-row flex-wrap items-center gap-2">
             <View className="rounded-full border border-line bg-card px-3 py-1">
               <Text className="text-[11px] font-medium text-muted">{persistenceLabel}</Text>
+            </View>
+            <View className="flex-row items-center rounded-full border border-line bg-card">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mes anterior"
+                onPress={() => setViewMonth(shiftMonth(viewMonth, -1))}
+                className="h-8 w-8 cursor-pointer items-center justify-center">
+                <Ionicons name="chevron-back" size={18} color={palette.accent} />
+              </Pressable>
+              <Text className="min-w-[128px] text-center text-[13px] font-semibold text-navy">{monthTitle(viewMonth)}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mes siguiente"
+                onPress={() => setViewMonth(shiftMonth(viewMonth, 1))}
+                className="h-8 w-8 cursor-pointer items-center justify-center">
+                <Ionicons name="chevron-forward" size={18} color={palette.accent} />
+              </Pressable>
             </View>
           </View>
           <View className="mt-5 gap-4">{children}</View>

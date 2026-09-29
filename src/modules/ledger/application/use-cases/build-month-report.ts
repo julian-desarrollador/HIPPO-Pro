@@ -1,14 +1,31 @@
 import { formatCents } from "../../domain/money";
 import type { MonthSummary } from "./summarize-month";
 
-const MONTH_LABELS: Record<string, string> = {
-  "2026-08": "Agosto 2026",
-};
+const MONTH_NAMES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+] as const;
+
+function monthLabel(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const name = MONTH_NAMES[monthNumber - 1];
+  return name ? `${name} ${year}` : month;
+}
 
 export function buildMonthReport(summary: MonthSummary): string {
-  const monthLabel = MONTH_LABELS[summary.month] ?? summary.month;
+  const label = monthLabel(summary.month);
   const lines = [
-    `HIPPO Pro · Agencia Dolores · ${monthLabel}`,
+    `HIPPO Pro · Agencia Dolores · ${label}`,
     `Facturación: ${formatCents(summary.billingCents)}`,
     `Gastos de la agencia: ${formatCents(summary.agencyExpenseCents)}`,
     `Adelantos y retiros: ${formatCents(summary.partnerWithdrawalCents)}`,

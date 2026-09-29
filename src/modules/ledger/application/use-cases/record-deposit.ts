@@ -1,6 +1,6 @@
 import { getRacetrack } from "../../domain/racetracks";
 import type { HippodromeDeposit, RacetrackId } from "../../domain/types";
-import { assertCents, assertDateInMonth } from "../../domain/validation";
+import { assertCents, assertIsoDate } from "../../domain/validation";
 import { createId } from "../create-id";
 import type { LedgerRepository } from "../ports/ledger-repository";
 
@@ -12,7 +12,7 @@ export type RecordDepositInput = {
 
 export function recordDeposit(repository: LedgerRepository, input: RecordDepositInput): HippodromeDeposit {
   const snapshot = repository.load();
-  assertDateInMonth(input.date, snapshot.month);
+  assertIsoDate(input.date);
   const racetrack = getRacetrack(input.racetrackId);
   assertCents(input.amountCents, { allowZero: false });
 

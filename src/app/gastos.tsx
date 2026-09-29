@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { DataTable } from "@/components/data-table";
@@ -28,18 +28,24 @@ type ExpenseRow = {
 };
 
 export default function GastosScreen() {
-  const { snapshot, summary, recordExpense, updateExpense, removeExpense } = useLedger();
-  const [paidOn, setPaidOn] = useState("2026-08-16");
+  const { snapshot, summary, recordExpense, updateExpense, removeExpense, viewMonth } = useLedger();
+  const [paidOn, setPaidOn] = useState(`${viewMonth}-01`);
   const [categoryId, setCategoryId] = useState(EXPENSE_CATEGORIES[0].id);
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingId) {
+      setPaidOn(`${viewMonth}-01`);
+    }
+  }, [editingId, viewMonth]);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const expenses = snapshot.expenses
-    .filter((expense) => expense.month === snapshot.month)
+    .filter((expense) => expense.month === viewMonth)
     .slice()
     .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
     .map((expense) => ({
@@ -83,7 +89,7 @@ export default function GastosScreen() {
         setEditingId(null);
         setMessage("Gasto actualizado.");
       } else {
-        await recordExpense({ paidOn, categoryId, detail, amountCents });
+        await recordExpense({ paidOn, categoryId, detail, amountCents, month: viewMonth });
         setMessage("Gasto cargado.");
       }
       setAmount("");

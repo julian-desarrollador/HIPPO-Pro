@@ -29,6 +29,16 @@ export function assertIsoDate(date: string): void {
   }
 }
 
+export function assertYearMonth(month: string): void {
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new LedgerError("invalid-date");
+  }
+  const monthNumber = Number(month.slice(5, 7));
+  if (monthNumber < 1 || monthNumber > 12) {
+    throw new LedgerError("invalid-date");
+  }
+}
+
 export function assertDateInMonth(date: string, month: string): void {
   assertIsoDate(date);
   if (date.slice(0, 7) !== month) {

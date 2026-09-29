@@ -274,3 +274,38 @@ describe("comisión del hipódromo", () => {
     assert.equal(afterSanIsidro?.commissionCents, beforeSanIsidro?.commissionCents);
   });
 });
+
+describe("otros meses", () => {
+  it("un día de septiembre no mueve agosto y arrastra el saldo a pagar", () => {
+    const repository = createInMemoryLedgerRepository();
+    const augustBefore = summarizeMonth(repository.load());
+    recordDay(repository, {
+      date: "2026-09-02",
+      racetrackId: "san-isidro",
+      soldCents: 1_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    recordExpense(repository, {
+      paidOn: "2026-09-03",
+      categoryId: "luz",
+      detail: "Septiembre",
+      amountCents: 10_000,
+      month: "2026-09",
+    });
+
+    const augustAfter = summarizeMonth(repository.load());
+    assert.equal(augustAfter.billingCents, augustBefore.billingCents);
+    assert.equal(augustAfter.outflowCents, augustBefore.outflowCents);
+    const augustSanIsidro = augustBefore.racetracks.find((track) => track.racetrackId === "san-isidro");
+    const augustSanIsidroAfter = augustAfter.racetracks.find((track) => track.racetrackId === "san-isidro");
+    assert.equal(augustSanIsidroAfter?.owedCents, augustSanIsidro?.owedCents);
+
+    const september = summarizeMonth(repository.load(), "2026-09");
+    const septemberSanIsidro = september.racetracks.find((track) => track.racetrackId === "san-isidro");
+    assert.equal(septemberSanIsidro?.openingCents, augustSanIsidro?.owedCents);
+    assert.equal(septemberSanIsidro?.netCents, 1_000_000);
+    assert.equal(september.agencyExpenseCents, 10_000);
+    assert.equal(listSettledDays(repository.load(), "2026-09").length, 1);
+  });
+});

@@ -1,6 +1,6 @@
 import { getExpenseCategory } from "../../domain/expense-categories";
 import type { Expense } from "../../domain/types";
-import { assertCents, assertIsoDate } from "../../domain/validation";
+import { assertCents, assertIsoDate, assertYearMonth } from "../../domain/validation";
 import { createId } from "../create-id";
 import type { LedgerRepository } from "../ports/ledger-repository";
 
@@ -9,18 +9,21 @@ export type RecordExpenseInput = {
   categoryId: string;
   detail: string;
   amountCents: number;
+  month?: string;
 };
 
 export function recordExpense(repository: LedgerRepository, input: RecordExpenseInput): Expense {
   const snapshot = repository.load();
   assertIsoDate(input.paidOn);
+  const month = input.month ?? snapshot.month;
+  assertYearMonth(month);
   const category = getExpenseCategory(input.categoryId);
   assertCents(input.amountCents, { allowZero: false });
 
   const expense: Expense = {
     id: createId("expense"),
     agencyId: snapshot.agencyId,
-    month: snapshot.month,
+    month,
     paidOn: input.paidOn,
     categoryId: category.id,
     detail: input.detail.trim(),

@@ -1,7 +1,7 @@
 import { LedgerError } from "../../domain/errors";
 import { currentCommissionBasisPoints, getRacetrack } from "../../domain/racetracks";
 import type { DailySale, RacetrackId } from "../../domain/types";
-import { assertCents, assertDateInMonth } from "../../domain/validation";
+import { assertCents, assertIsoDate } from "../../domain/validation";
 import { createId } from "../create-id";
 import type { LedgerRepository } from "../ports/ledger-repository";
 
@@ -15,7 +15,7 @@ export type RecordDayInput = {
 
 export function recordDay(repository: LedgerRepository, input: RecordDayInput): DailySale {
   const snapshot = repository.load();
-  assertDateInMonth(input.date, snapshot.month);
+  assertIsoDate(input.date);
   const racetrack = getRacetrack(input.racetrackId);
   assertCents(input.soldCents, { allowZero: true });
   assertCents(input.cancelledCents, { allowZero: true });
