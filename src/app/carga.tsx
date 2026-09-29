@@ -3,27 +3,41 @@ import { Text, useWindowDimensions, View } from "react-native";
 
 import { DataTable, KeyValueList } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
-import { ChoiceChips, Feedback, Field, PrimaryButton, TextField } from "@/components/form-controls";
+import { DateField } from "@/components/date-field";
+import {
+  ChoiceChips,
+  ConfirmDialog,
+  Feedback,
+  Field,
+  PrimaryButton,
+  RowActions,
+  SecondaryButton,
+  TextField,
+} from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
   RACETRACKS,
+  formatAmountInput,
   ledgerErrorMessage,
   readAmount,
   settleDay,
   useLedger,
   type RacetrackId,
+  type SettledDay,
 } from "@/modules/ledger";
 
 export default function CargaScreen() {
-  const { days, recordDay } = useLedger();
+  const { days, recordDay, updateDay, removeDay, snapshot } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const [date, setDate] = useState("2026-08-16");
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [sold, setSold] = useState("");
   const [cancelled, setCancelled] = useState("");
   const [paid, setPaid] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -35,6 +49,30 @@ export default function CargaScreen() {
       ? settleDay({ racetrackId, soldCents, cancelledCents, paidCents })
       : null;
 
+  function clearAmounts() {
+    setSold("");
+    setCancelled("");
+    setPaid("");
+  }
+
+  function startEdit(row: SettledDay) {
+    setEditingId(row.id);
+    setDate(row.date);
+    setRacetrackId(row.racetrackId);
+    setSold(formatAmountInput(row.soldCents));
+    setCancelled(formatAmountInput(row.cancelledCents));
+    setPaid(formatAmountInput(row.paidCents));
+    setError("");
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    clearAmounts();
+    setError("");
+    setMessage("");
+  }
+
   function onSave() {
     if (soldCents === null || cancelledCents === null || paidCents === null) {
       setError("Revisá los importes. Usá 1234,50.");
@@ -43,28 +81,48 @@ export default function CargaScreen() {
     }
 
     try {
-      recordDay({ date, racetrackId, soldCents, cancelledCents, paidCents });
-      setSold("");
-      setCancelled("");
-      setPaid("");
+      if (editingId) {
+        updateDay({ id: editingId, date, racetrackId, soldCents, cancelledCents, paidCents });
+        setEditingId(null);
+        setMessage("Día actualizado.");
+      } else {
+        recordDay({ date, racetrackId, soldCents, cancelledCents, paidCents });
+        setMessage("Día cargado.");
+      }
+      clearAmounts();
       setError("");
-      setMessage("Día cargado.");
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
   }
 
+  function confirmRemove() {
+    if (!pendingRemoveId) {
+      return;
+    }
+    try {
+      removeDay(pendingRemoveId);
+      if (editingId === pendingRemoveId) {
+        cancelEdit();
+      }
+      setMessage("Movimiento quitado.");
+      setError("");
+    } catch (caught) {
+      setMessage("");
+      setError(ledgerErrorMessage(caught));
+    }
+    setPendingRemoveId(null);
+  }
+
   return (
-    <ScreenFrame
-      title="Carga del día"
-      subtitle="Un hipódromo por día, como en la planilla. El neto, la comisión y lo a depositar se calculan solos.">
+    <ScreenFrame title="Carga del día">
       <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
         <View className="flex-1">
           <Card>
             <View className="gap-4">
               <Field label="Fecha">
-                <TextField value={date} onChangeText={setDate} autoCapitalize="none" placeholder="2026-08-16" />
+                <DateField value={date} onChange={setDate} lockedMonth={snapshot.month} />
               </Field>
               <Field label="Hipódromo">
                 <ChoiceChips
@@ -83,7 +141,8 @@ export default function CargaScreen() {
                 <TextField value={paid} onChangeText={setPaid} keyboardType="decimal-pad" placeholder="0,00" />
               </Field>
               <Feedback error={error} message={message} />
-              <PrimaryButton label="Cargar día" onPress={onSave} />
+              <PrimaryButton label={editingId ? "Guardar cambios" : "Cargar día"} onPress={onSave} />
+              {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
             </View>
           </Card>
         </View>
@@ -118,10 +177,18 @@ export default function CargaScreen() {
           { key: "net", header: "Neto", align: "right", compact: true, cents: (row) => row.netCents },
           { key: "commission", header: "Comisión", align: "right", cents: (row) => row.commissionCents },
           { key: "deposit", header: "A depositar", align: "right", compact: true, cents: (row) => row.amountToDepositCents },
+          {
+            key: "actions",
+            header: "",
+            compact: true,
+            align: "right",
+            node: (row) => <RowActions onEdit={() => startEdit(row)} onRemove={() => setPendingRemoveId(row.id)} />,
+          },
         ]}
         rows={days}
         empty="Todavía no hay días cargados."
       />
+      <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
     </ScreenFrame>
   );
 }

@@ -1,0 +1,158 @@
+import { useEffect, useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+
+import { buildMonthGrid, monthTitle, shiftMonth, WEEKDAYS } from "@/components/calendar-grid";
+import { formatIsoDate } from "@/components/format-date";
+import { palette } from "@/constants/palette";
+
+export function DateField({
+  value,
+  onChange,
+  lockedMonth,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+  lockedMonth?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(lockedMonth ?? value.slice(0, 7));
+
+  useEffect(() => {
+    if (open) {
+      setVisibleMonth(lockedMonth ?? value.slice(0, 7));
+    }
+  }, [open, lockedMonth, value]);
+
+  const cells = buildMonthGrid(visibleMonth);
+  const canNavigate = lockedMonth === undefined;
+
+  function pick(iso: string, inMonth: boolean) {
+    if (lockedMonth && !inMonth) {
+      return;
+    }
+    onChange(iso);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Fecha ${formatIsoDate(value)}`}
+        accessibilityHint="Abre el calendario"
+        onPress={() => setOpen(true)}
+        className="cursor-pointer flex-row items-center justify-between rounded-[10px] border border-line bg-card px-3 py-2.5">
+        <Text pointerEvents="none" className="text-[15px] text-ink">
+          {formatIsoDate(value)}
+        </Text>
+        <View pointerEvents="none">
+          <Ionicons name="calendar" size={20} color={palette.navy} />
+        </View>
+      </Pressable>
+      <Modal transparent animationType="fade" visible={open} onRequestClose={() => setOpen(false)}>
+        <View style={styles.frame} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar calendario"
+            onPress={() => setOpen(false)}
+            style={styles.dim}
+          />
+          <View className="rounded-[14px] border border-line bg-card p-5" style={styles.card}>
+            <View className="flex-row items-center justify-between">
+              {canNavigate ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mes anterior"
+                  onPress={() => setVisibleMonth(shiftMonth(visibleMonth, -1))}
+                  className="h-10 w-10 items-center justify-center">
+                  <Ionicons name="chevron-back" size={22} color={palette.navy} />
+                </Pressable>
+              ) : (
+                <View className="h-10 w-10" />
+              )}
+              <Text className="text-[15px] font-semibold text-navy">{monthTitle(visibleMonth)}</Text>
+              {canNavigate ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mes siguiente"
+                  onPress={() => setVisibleMonth(shiftMonth(visibleMonth, 1))}
+                  className="h-10 w-10 items-center justify-center">
+                  <Ionicons name="chevron-forward" size={22} color={palette.navy} />
+                </Pressable>
+              ) : (
+                <View className="h-10 w-10" />
+              )}
+            </View>
+            <View className="mt-4 flex-row">
+              {WEEKDAYS.map((label, index) => (
+                <Text key={index} className="flex-1 text-center text-[12px] font-semibold uppercase text-muted">
+                  {label}
+                </Text>
+              ))}
+            </View>
+            <View className="mt-2">
+              {Array.from({ length: 6 }, (_, week) => (
+                <View key={week} className="flex-row">
+                  {cells.slice(week * 7, week * 7 + 7).map((cell) => {
+                    const selected = cell.iso === value;
+                    const disabled = Boolean(lockedMonth) && !cell.inMonth;
+                    return (
+                      <Pressable
+                        key={cell.iso}
+                        accessibilityRole="button"
+                        accessibilityLabel={formatIsoDate(cell.iso)}
+                        accessibilityState={{ selected, disabled }}
+                        disabled={disabled}
+                        onPress={() => pick(cell.iso, cell.inMonth)}
+                        className="h-10 flex-1 items-center justify-center">
+                        <View className={`h-9 w-9 items-center justify-center rounded-full ${selected ? "bg-navy" : ""}`}>
+                          <Text
+                            className={`text-[15px] ${
+                              selected ? "font-semibold text-white" : cell.inMonth ? "text-ink" : "text-muted"
+                            }`}>
+                            {cell.day}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+              onPress={() => setOpen(false)}
+              className="mt-4 items-center py-2">
+              <Text className="text-[14px] font-semibold text-navy">Cerrar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  frame: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  dim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: palette.navy,
+    opacity: 0.4,
+  },
+  card: {
+    width: 320,
+    maxWidth: "100%",
+    zIndex: 1,
+  },
+});

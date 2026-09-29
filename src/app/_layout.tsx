@@ -1,9 +1,20 @@
 import "../../global.css";
 
-import { useEffect } from "react";
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+} from "@expo-google-fonts/dm-sans";
+import {
+  PlayfairDisplay_600SemiBold,
+  PlayfairDisplay_700Bold,
+} from "@expo-google-fonts/playfair-display";
 import { DefaultTheme, ThemeProvider } from "expo-router";
+import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { View } from "react-native";
 
 import AppTabs from "@/components/app-tabs";
 import { LedgerProvider } from "@/modules/ledger";
@@ -11,15 +22,31 @@ import { LedgerProvider } from "@/modules/ledger";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const [loaded, error] = useFonts({
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    PlayfairDisplay_600SemiBold,
+    PlayfairDisplay_700Bold,
+  });
+
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  if (!loaded && !error) {
+    return null;
+  }
 
   return (
     <LedgerProvider>
       <ThemeProvider value={DefaultTheme}>
         <StatusBar style="dark" />
-        <AppTabs />
+        <View className="flex-1 bg-canvas font-sans">
+          <AppTabs />
+        </View>
       </ThemeProvider>
     </LedgerProvider>
   );

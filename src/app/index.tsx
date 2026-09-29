@@ -12,10 +12,13 @@ export default function HomeScreen() {
   const wide = useWindowDimensions().width >= wideLayout;
 
   return (
-    <ScreenFrame title="Inicio" subtitle="Agosto 2026 · Agencia Dolores. Ventas, depósitos, gastos y resultado.">
+    <ScreenFrame title="Inicio">
+      <Card>
+        <Text className="font-sans text-[22px] font-semibold text-navy">Bienvenido a HIPPO Pro</Text>
+      </Card>
       {canViewBalances ? (
         <>
-          <View className={wide ? "flex-row gap-3" : "gap-3"}>
+          <View className={wide ? "flex-row flex-wrap gap-4" : "gap-4"}>
             <StatCard label="Venta total" cents={summary.billingCents} />
             <StatCard label="Ganancia bruta" cents={summary.outflowCents} />
             <StatCard label="Saldo del mes" cents={summary.balanceCents} emphasis />
@@ -34,7 +37,7 @@ export default function HomeScreen() {
       ) : (
         <Card>
           <Text className="text-base leading-6 text-ink">
-            Estás viendo la agencia como operador. Podés cargar el día, los depósitos y los gastos. El resultado queda para el dueño.
+            Estás viendo la agencia como operador. Podés cargar el día, los depósitos, los gastos y las cuentas corrientes. El resultado queda para el dueño.
           </Text>
         </Card>
       )}

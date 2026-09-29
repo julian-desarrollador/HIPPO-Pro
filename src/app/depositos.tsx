@@ -3,16 +3,43 @@ import { Text, View } from "react-native";
 
 import { DataTable, KeyValueList } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
-import { ChoiceChips, Feedback, Field, PrimaryButton, TextField } from "@/components/form-controls";
+import { DateField } from "@/components/date-field";
+import {
+  ChoiceChips,
+  ConfirmDialog,
+  Feedback,
+  Field,
+  PrimaryButton,
+  RowActions,
+  SecondaryButton,
+  TextField,
+} from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
-import { RACETRACKS, ledgerErrorMessage, readAmount, useLedger, type RacetrackId } from "@/modules/ledger";
+import {
+  RACETRACKS,
+  formatAmountInput,
+  ledgerErrorMessage,
+  readAmount,
+  useLedger,
+  type RacetrackId,
+} from "@/modules/ledger";
+
+type DepositRow = {
+  id: string;
+  date: string;
+  racetrackId: RacetrackId;
+  amountCents: number;
+  racetrackName: string;
+};
 
 export default function DepositosScreen() {
-  const { snapshot, summary, canViewBalances, recordDeposit } = useLedger();
+  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit } = useLedger();
   const [date, setDate] = useState("2026-08-16");
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [amount, setAmount] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -25,6 +52,22 @@ export default function DepositosScreen() {
       racetrackName: RACETRACKS.find((track) => track.id === deposit.racetrackId)?.name ?? deposit.racetrackId,
     }));
 
+  function startEdit(row: DepositRow) {
+    setEditingId(row.id);
+    setDate(row.date);
+    setRacetrackId(row.racetrackId);
+    setAmount(formatAmountInput(row.amountCents));
+    setError("");
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setAmount("");
+    setError("");
+    setMessage("");
+  }
+
   function onSave() {
     const amountCents = readAmount(amount, false);
     if (amountCents === null) {
@@ -34,22 +77,46 @@ export default function DepositosScreen() {
     }
 
     try {
-      recordDeposit({ date, racetrackId, amountCents });
+      if (editingId) {
+        updateDeposit({ id: editingId, date, racetrackId, amountCents });
+        setEditingId(null);
+        setMessage("Depósito actualizado.");
+      } else {
+        recordDeposit({ date, racetrackId, amountCents });
+        setMessage("Depósito cargado.");
+      }
       setAmount("");
       setError("");
-      setMessage("Depósito cargado.");
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
   }
 
+  function confirmRemove() {
+    if (!pendingRemoveId) {
+      return;
+    }
+    try {
+      removeDeposit(pendingRemoveId);
+      if (editingId === pendingRemoveId) {
+        cancelEdit();
+      }
+      setMessage("Movimiento quitado.");
+      setError("");
+    } catch (caught) {
+      setMessage("");
+      setError(ledgerErrorMessage(caught));
+    }
+    setPendingRemoveId(null);
+  }
+
   return (
-    <ScreenFrame title="Depósitos" subtitle="Lo que la agencia le transfiere a cada hipódromo. Resta del saldo a pagar.">
+    <ScreenFrame title="Depósitos">
       {canViewBalances ? (
         summary.racetracks.map((track) => (
           <Card key={track.racetrackId}>
-            <Text className="text-lg font-semibold text-ink">{track.name}</Text>
+            <Text className="font-sans text-[22px] font-semibold text-navy">{track.name}</Text>
             <Text className="mt-3 text-sm text-muted">Saldo a pagar</Text>
             <View className="mt-1">
               <MoneyText cents={track.owedCents} size="lg" tone="navy" />
@@ -74,7 +141,7 @@ export default function DepositosScreen() {
       <Card>
         <View className="gap-4">
           <Field label="Fecha">
-            <TextField value={date} onChangeText={setDate} autoCapitalize="none" placeholder="2026-08-16" />
+            <DateField value={date} onChange={setDate} lockedMonth={snapshot.month} />
           </Field>
           <Field label="Hipódromo">
             <ChoiceChips
@@ -87,7 +154,8 @@ export default function DepositosScreen() {
             <TextField value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0,00" />
           </Field>
           <Feedback error={error} message={message} />
-          <PrimaryButton label="Registrar depósito" onPress={onSave} />
+          <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar depósito"} onPress={onSave} />
+          {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
         </View>
       </Card>
 
@@ -97,9 +165,17 @@ export default function DepositosScreen() {
           { key: "date", header: "Fecha", compact: true, render: (row) => formatIsoDate(row.date) },
           { key: "track", header: "Hipódromo", compact: true, render: (row) => row.racetrackName },
           { key: "amount", header: "Monto", align: "right", compact: true, cents: (row) => row.amountCents },
+          {
+            key: "actions",
+            header: "",
+            compact: true,
+            align: "right",
+            node: (row) => <RowActions onEdit={() => startEdit(row)} onRemove={() => setPendingRemoveId(row.id)} />,
+          },
         ]}
         rows={deposits}
       />
+      <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
     </ScreenFrame>
   );
 }

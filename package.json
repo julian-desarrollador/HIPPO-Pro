@@ -3,6 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.4.2",
+    "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo/ui": "~57.0.20",
     "@expo/vector-icons": "^15.0.2",
     "expo": "~57.0.25",
@@ -49,7 +51,7 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "lint": "expo lint",
-    "test": "tsx --test src/modules/ledger/domain/calculations.test.ts src/modules/ledger/adapters/outbound/august-2026-seed.test.ts"
+    "test": "tsx --test src/modules/ledger/domain/calculations.test.ts src/modules/ledger/adapters/outbound/august-2026-seed.test.ts src/modules/ledger/adapters/outbound/local-storage-ledger-repository.test.ts src/modules/ledger/application/use-cases/mutate-ledger.test.ts src/modules/ledger/adapters/inbound/parse-amount.test.ts src/components/calendar-grid.test.ts"
   },
   "private": true,
   "overrides": {

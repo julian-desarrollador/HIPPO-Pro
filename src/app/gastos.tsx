@@ -3,17 +3,38 @@ import { View } from "react-native";
 
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
-import { ChoiceChips, Feedback, Field, PrimaryButton, TextField } from "@/components/form-controls";
+import { DateField } from "@/components/date-field";
+import {
+  ChoiceChips,
+  ConfirmDialog,
+  Feedback,
+  Field,
+  PrimaryButton,
+  RowActions,
+  SecondaryButton,
+  TextField,
+} from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
-import { EXPENSE_CATEGORIES, ledgerErrorMessage, readAmount, useLedger } from "@/modules/ledger";
+import { EXPENSE_CATEGORIES, formatAmountInput, ledgerErrorMessage, readAmount, useLedger } from "@/modules/ledger";
+
+type ExpenseRow = {
+  id: string;
+  paidOn: string;
+  categoryId: string;
+  categoryLabel: string;
+  detail: string;
+  amountCents: number;
+};
 
 export default function GastosScreen() {
-  const { snapshot, summary, recordExpense } = useLedger();
+  const { snapshot, summary, recordExpense, updateExpense, removeExpense } = useLedger();
   const [paidOn, setPaidOn] = useState("2026-08-16");
   const [categoryId, setCategoryId] = useState(EXPENSE_CATEGORIES[0].id);
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -28,6 +49,24 @@ export default function GastosScreen() {
   const agency = expenses.filter((expense) => expense.kind === "agency");
   const partners = expenses.filter((expense) => expense.kind === "partner-withdrawal");
 
+  function startEdit(row: ExpenseRow) {
+    setEditingId(row.id);
+    setPaidOn(row.paidOn);
+    setCategoryId(row.categoryId);
+    setDetail(row.detail);
+    setAmount(formatAmountInput(row.amountCents));
+    setError("");
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setAmount("");
+    setDetail("");
+    setError("");
+    setMessage("");
+  }
+
   function onSave() {
     const amountCents = readAmount(amount, false);
     if (amountCents === null) {
@@ -37,25 +76,47 @@ export default function GastosScreen() {
     }
 
     try {
-      recordExpense({ paidOn, categoryId, detail, amountCents });
+      if (editingId) {
+        updateExpense({ id: editingId, paidOn, categoryId, detail, amountCents });
+        setEditingId(null);
+        setMessage("Gasto actualizado.");
+      } else {
+        recordExpense({ paidOn, categoryId, detail, amountCents });
+        setMessage("Gasto cargado.");
+      }
       setAmount("");
       setDetail("");
       setError("");
-      setMessage("Gasto cargado.");
     } catch (caught) {
       setMessage("");
       setError(ledgerErrorMessage(caught));
     }
   }
 
+  function confirmRemove() {
+    if (!pendingRemoveId) {
+      return;
+    }
+    try {
+      removeExpense(pendingRemoveId);
+      if (editingId === pendingRemoveId) {
+        cancelEdit();
+      }
+      setMessage("Movimiento quitado.");
+      setError("");
+    } catch (caught) {
+      setMessage("");
+      setError(ledgerErrorMessage(caught));
+    }
+    setPendingRemoveId(null);
+  }
+
   return (
-    <ScreenFrame
-      title="Gastos"
-      subtitle="Los gastos de la agencia van aparte de los adelantos y retiros de socios. El total de salidas los suma, como la planilla.">
+    <ScreenFrame title="Gastos">
       <Card>
         <View className="gap-4">
           <Field label="Fecha de pago">
-            <TextField value={paidOn} onChangeText={setPaidOn} autoCapitalize="none" placeholder="2026-08-16" />
+            <DateField value={paidOn} onChange={setPaidOn} />
           </Field>
           <Field label="Categoría">
             <ChoiceChips options={EXPENSE_CATEGORIES} value={categoryId} onChange={setCategoryId} />
@@ -67,12 +128,26 @@ export default function GastosScreen() {
             <TextField value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0,00" />
           </Field>
           <Feedback error={error} message={message} />
-          <PrimaryButton label="Registrar gasto" onPress={onSave} />
+          <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar gasto"} onPress={onSave} />
+          {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
         </View>
       </Card>
 
-      <ExpenseTable title="Gastos de la agencia" total={summary.agencyExpenseCents} rows={agency} />
-      <ExpenseTable title="Adelantos y retiros" total={summary.partnerWithdrawalCents} rows={partners} />
+      <ExpenseTable
+        title="Gastos de la agencia"
+        total={summary.agencyExpenseCents}
+        rows={agency}
+        onEdit={startEdit}
+        onRemove={setPendingRemoveId}
+      />
+      <ExpenseTable
+        title="Adelantos y retiros"
+        total={summary.partnerWithdrawalCents}
+        rows={partners}
+        onEdit={startEdit}
+        onRemove={setPendingRemoveId}
+      />
+      <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
     </ScreenFrame>
   );
 }
@@ -81,10 +156,14 @@ function ExpenseTable({
   title,
   total,
   rows,
+  onEdit,
+  onRemove,
 }: {
   title: string;
   total: number;
-  rows: { id: string; paidOn: string; categoryLabel: string; detail: string; amountCents: number }[];
+  rows: ExpenseRow[];
+  onEdit: (row: ExpenseRow) => void;
+  onRemove: (id: string) => void;
 }) {
   return (
     <>
@@ -95,6 +174,13 @@ function ExpenseTable({
           { key: "category", header: "Categoría", compact: true, render: (row) => row.categoryLabel },
           { key: "detail", header: "Detalle", render: (row) => row.detail || "—" },
           { key: "amount", header: "Monto", align: "right", compact: true, cents: (row) => row.amountCents },
+          {
+            key: "actions",
+            header: "",
+            compact: true,
+            align: "right",
+            node: (row) => <RowActions onEdit={() => onEdit(row)} onRemove={() => onRemove(row.id)} />,
+          },
         ]}
         rows={rows}
       />

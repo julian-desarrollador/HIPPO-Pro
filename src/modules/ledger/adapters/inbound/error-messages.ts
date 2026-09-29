@@ -9,6 +9,7 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "duplicate-day": "Ese día y ese hipódromo ya están cargados.",
   "invalid-date": "La fecha tiene que ser AAAA-MM-DD.",
   "outside-month": "La fecha no pertenece a agosto 2026.",
+  "unknown-entry": "Ese movimiento no está.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

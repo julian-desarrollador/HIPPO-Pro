@@ -11,10 +11,10 @@ export default function ResultadoScreen() {
 
   if (!canViewBalances) {
     return (
-      <ScreenFrame title="Resultado" subtitle="Agosto 2026 · Agencia Dolores">
+      <ScreenFrame title="Resultado">
         <Card>
           <Text className="text-base leading-6 text-ink">
-            El resultado y el saldo de la agencia los ve el dueño. Cambiá a Dueño en la barra de arriba para verlos.
+            El resultado y el saldo de la agencia los ve el dueño. Cambiá a Dueño para verlos.
           </Text>
         </Card>
       </ScreenFrame>
@@ -22,11 +22,13 @@ export default function ResultadoScreen() {
   }
 
   return (
-    <ScreenFrame title="Resultado" subtitle="Agosto 2026 · Agencia Dolores. Facturación menos salidas.">
-      <View className="rounded-2xl bg-navy p-6">
-        <Text className="text-sm text-white">Saldo del mes</Text>
-        <View className="mt-2">
-          <MoneyText cents={summary.balanceCents} size="xl" tone="white" fill />
+    <ScreenFrame title="Resultado">
+      <View className="items-center rounded-[14px] border border-line bg-card p-6">
+        <Text className="text-[12px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
+          Saldo del mes
+        </Text>
+        <View className="mt-2 w-full">
+          <MoneyText cents={summary.balanceCents} size="md" tone="navy" align="center" fill />
         </View>
       </View>
       <Card>

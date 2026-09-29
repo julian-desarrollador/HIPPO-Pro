@@ -5,13 +5,15 @@
 @import "nativewind/theme";
 
 @theme {
-  --color-canvas: #f5f7fa;
-  --color-card: #ffffff;
-  --color-line: #e3e8ef;
+  --font-sans: "DMSans_400Regular", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "PlayfairDisplay_700Bold", "Playfair Display", ui-serif, Georgia, serif;
+  --color-canvas: #e4e8ee;
+  --color-card: #eef1f5;
+  --color-line: #d3d9e1;
   --color-ink: #0f172a;
-  --color-muted: #64748b;
+  --color-muted: #56637a;
   --color-navy: #0f2a4a;
-  --color-tint: #e8eef7;
+  --color-tint: #dce3ed;
   --color-negative: #b42318;
   --color-amber-soft: #fef6e7;
   --color-amber-ink: #8a5a00;

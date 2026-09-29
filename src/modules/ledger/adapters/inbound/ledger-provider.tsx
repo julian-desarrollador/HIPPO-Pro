@@ -12,8 +12,13 @@ import {
   recordExpense as saveExpense,
   type RecordExpenseInput,
 } from "../../application/use-cases/record-expense";
+import { removeDay as deleteDay, removeDeposit as deleteDeposit, removeExpense as deleteExpense } from "../../application/use-cases/remove-entry";
+import { updateDay as saveUpdatedDay, type UpdateDayInput } from "../../application/use-cases/update-day";
+import { updateDeposit as saveUpdatedDeposit, type UpdateDepositInput } from "../../application/use-cases/update-deposit";
+import { updateExpense as saveUpdatedExpense, type UpdateExpenseInput } from "../../application/use-cases/update-expense";
 import { listSettledDays, summarizeMonth, type MonthSummary, type SettledDay } from "../../application/use-cases/summarize-month";
 import { createInMemoryLedgerRepository } from "../outbound/in-memory-ledger-repository";
+import { createLocalStorageLedgerRepository } from "../outbound/local-storage-ledger-repository";
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
 import type { LedgerSnapshot } from "../../domain/types";
 
@@ -28,13 +33,31 @@ type LedgerContextValue = {
   recordDay: (input: RecordDayInput) => void;
   recordDeposit: (input: RecordDepositInput) => void;
   recordExpense: (input: RecordExpenseInput) => void;
+  updateDay: (input: UpdateDayInput) => void;
+  updateDeposit: (input: UpdateDepositInput) => void;
+  updateExpense: (input: UpdateExpenseInput) => void;
+  removeDay: (id: string) => void;
+  removeDeposit: (id: string) => void;
+  removeExpense: (id: string) => void;
   reset: () => void;
 };
+
+function createAppLedgerRepository(): LedgerRepository {
+  try {
+    const storage = globalThis.localStorage;
+    if (!storage) {
+      return createInMemoryLedgerRepository();
+    }
+    return createLocalStorageLedgerRepository(storage);
+  } catch {
+    return createInMemoryLedgerRepository();
+  }
+}
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
 
 export function LedgerProvider({ children }: { children: ReactNode }) {
-  const repository = useRef<LedgerRepository>(createInMemoryLedgerRepository());
+  const repository = useRef<LedgerRepository>(createAppLedgerRepository());
   const [version, setVersion] = useState(0);
   const [role, setRole] = useState<ViewerRole>("owner");
 
@@ -60,6 +83,30 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       },
       recordExpense: (input) => {
         saveExpense(repository.current, input);
+        setVersion((current) => current + 1);
+      },
+      updateDay: (input) => {
+        saveUpdatedDay(repository.current, input);
+        setVersion((current) => current + 1);
+      },
+      updateDeposit: (input) => {
+        saveUpdatedDeposit(repository.current, input);
+        setVersion((current) => current + 1);
+      },
+      updateExpense: (input) => {
+        saveUpdatedExpense(repository.current, input);
+        setVersion((current) => current + 1);
+      },
+      removeDay: (id) => {
+        deleteDay(repository.current, id);
+        setVersion((current) => current + 1);
+      },
+      removeDeposit: (id) => {
+        deleteDeposit(repository.current, id);
+        setVersion((current) => current + 1);
+      },
+      removeExpense: (id) => {
+        deleteExpense(repository.current, id);
         setVersion((current) => current + 1);
       },
       reset: () => {

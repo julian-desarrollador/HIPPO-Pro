@@ -6,7 +6,8 @@ export type LedgerErrorCode =
   | "empty-entry"
   | "duplicate-day"
   | "invalid-date"
-  | "outside-month";
+  | "outside-month"
+  | "unknown-entry";
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;

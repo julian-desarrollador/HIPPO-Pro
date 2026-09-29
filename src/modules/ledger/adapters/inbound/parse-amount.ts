@@ -18,3 +18,11 @@ export function readAmount(raw: string, allowEmpty: boolean): number | null {
   }
   return parseAmountToCents(raw);
 }
+
+export function formatAmountInput(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  const whole = Math.trunc(abs / 100);
+  const fraction = abs % 100;
+  return `${sign}${whole},${String(fraction).padStart(2, "0")}`;
+}
