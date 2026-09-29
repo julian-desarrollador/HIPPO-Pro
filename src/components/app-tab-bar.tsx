@@ -97,9 +97,7 @@ export function CustomTabList(props: TabListProps) {
           top: 0,
           left: 0,
           right: 0,
-          bottom: wide ? undefined : 0,
           zIndex: 20,
-          pointerEvents: "box-none",
         }}>
         <View
           style={{
@@ -138,10 +136,11 @@ export function CustomTabList(props: TabListProps) {
         {wide ? null : (
           <View
             style={{
-              position: "absolute",
+              position: "fixed",
               left: 0,
               right: 0,
               bottom: 0,
+              zIndex: 20,
               flexDirection: "row",
               alignItems: "center",
               backgroundColor: palette.card,

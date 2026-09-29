@@ -20,6 +20,7 @@ export function ScreenFrame({
     <SafeAreaView className="flex-1 bg-canvas">
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        style={{ flex: 1 }}
         contentContainerStyle={{
           width: "100%",
           maxWidth: 1100,
