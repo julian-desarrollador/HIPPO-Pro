@@ -10,7 +10,7 @@ import {
   type TabTriggerSlotProps,
 } from "expo-router/ui";
 import { createContext, useContext } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -63,6 +63,10 @@ function bettorPageTitle(
 }
 
 const NavChromeContext = createContext<"sidebar" | "bottom">("sidebar");
+
+const pinnedToViewport = (
+  Platform.OS === "web" ? { position: "fixed" } : { position: "absolute" }
+) as ViewStyle;
 
 export default function AppTabs() {
   const { canViewBalances } = useLedger();
@@ -238,19 +242,21 @@ export function CustomTabList(props: TabListProps) {
         ) : null}
 
         <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: wide ? sidebarWidth : 0,
-            right: 0,
-            height: wide ? desktopTopbarHeight : mobileBarHeight,
-            backgroundColor: palette.navy,
-            borderBottomWidth: 1,
-            borderBottomColor: palette.chromeActive,
-            justifyContent: "center",
-            paddingHorizontal: 16,
-            pointerEvents: "auto",
-          }}
+          style={[
+            wide ? { position: "absolute" } : pinnedToViewport,
+            {
+              top: 0,
+              left: wide ? sidebarWidth : 0,
+              right: 0,
+              height: wide ? desktopTopbarHeight : mobileBarHeight,
+              backgroundColor: palette.navy,
+              borderBottomWidth: 1,
+              borderBottomColor: palette.chromeActive,
+              justifyContent: "center",
+              paddingHorizontal: 16,
+              pointerEvents: "auto",
+            },
+          ]}
         >
           <View className="flex-row items-center justify-between gap-3">
             {wide ? (
@@ -273,22 +279,24 @@ export function CustomTabList(props: TabListProps) {
 
         {wide ? null : (
           <View
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: palette.navy,
-              borderTopWidth: 1,
-              borderTopColor: palette.chromeActive,
-              paddingTop: 8,
-              paddingBottom: Math.max(8, insets.bottom),
-              paddingHorizontal: 4,
-              pointerEvents: "auto",
-            }}
+            style={[
+              pinnedToViewport,
+              {
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: palette.navy,
+                borderTopWidth: 1,
+                borderTopColor: palette.chromeActive,
+                paddingTop: 8,
+                paddingBottom: Math.max(8, insets.bottom),
+                paddingHorizontal: 4,
+                pointerEvents: "auto",
+              },
+            ]}
           >
             {children}
           </View>

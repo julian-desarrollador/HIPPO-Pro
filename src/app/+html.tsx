@@ -30,6 +30,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:image" content={imageUrl} />
         <ScrollViewStyleReset />
+        <style>{`html, body, #root { height: 100dvh; overflow: hidden; }`}</style>
       </head>
       <body>{children}</body>
     </html>
