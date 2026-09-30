@@ -260,7 +260,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
         source={logo}
         contentFit="contain"
         accessibilityLabel="HIPPO Pro"
-        style={{ width: 200, aspectRatio: 1080 / 829, borderRadius: 8 }}
+        style={{ width: 140, aspectRatio: 1080 / 829, borderRadius: 8 }}
       />
       <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
         Agencia Dolores
