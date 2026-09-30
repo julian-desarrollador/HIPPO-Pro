@@ -1,7 +1,8 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
 
 import { palette } from "@/constants/palette";
+import { choiceQueryMatchesAny, filterChoiceOptions } from "@/components/choice-filter";
 
 const confirmStyles = StyleSheet.create({
   frame: {
@@ -22,6 +23,15 @@ const confirmStyles = StyleSheet.create({
   card: {
     width: 320,
     maxWidth: "100%",
+    zIndex: 1,
+  },
+});
+
+const dialogStyles = StyleSheet.create({
+  card: {
+    width: 420,
+    maxWidth: "100%",
+    maxHeight: "85%",
     zIndex: 1,
   },
 });
@@ -49,26 +59,41 @@ export function ChoiceChips<T extends string>({
   options,
   value,
   onChange,
+  searchable = false,
 }: {
   options: readonly { id: T; label: string }[];
   value: T;
   onChange: (id: T) => void;
+  searchable?: boolean;
 }) {
+  const [search, setSearch] = useState("");
+  const visible = filterChoiceOptions(options, search, value);
+  const hasMatches = choiceQueryMatchesAny(options, search);
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-      {options.map((option) => {
-        const selected = option.id === value;
-        return (
-          <Pressable
-            key={option.id}
-            accessibilityRole="button"
-            onPress={() => onChange(option.id)}
-            className={selected ? "rounded-full border border-accent bg-tint px-3 py-1.5" : "rounded-full border border-line bg-card px-3 py-1.5"}>
-            <Text className={selected ? "text-[13px] font-semibold text-navy" : "text-[13px] text-muted"}>{option.label}</Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+    <View className="w-full gap-1.5">
+      {searchable ? (
+        <TextField value={search} onChangeText={setSearch} placeholder="Buscar" accessibilityLabel="Buscar categoría" />
+      ) : null}
+      {searchable && !hasMatches ? <Text className="text-[13px] text-muted">No hay categorías con ese nombre.</Text> : null}
+      <View className="w-full flex-row flex-wrap gap-1.5">
+        {visible.map((option) => {
+          const selected = option.id === value;
+          return (
+            <Pressable
+              key={option.id}
+              accessibilityRole="button"
+              onPress={() => {
+                onChange(option.id);
+                setSearch("");
+              }}
+              className={selected ? "rounded-full border border-accent bg-tint px-3 py-1.5" : "rounded-full border border-line bg-card px-3 py-1.5"}>
+              <Text className={selected ? "text-[13px] font-semibold text-navy" : "text-[13px] text-muted"}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -91,25 +116,29 @@ export function SecondaryButton({ label, onPress, className = "" }: { label: str
   );
 }
 
-export function RowActions({ onEdit, onRemove }: { onEdit: () => void; onRemove: () => void }) {
+export function RowActions({ onEdit, onRemove }: { onEdit: () => void; onRemove?: () => void }) {
   return (
     <View className="flex-row items-center gap-3">
       <Pressable accessibilityRole="button" accessibilityLabel="Editar" onPress={onEdit} className="cursor-pointer">
         <Text className="text-[15px] font-semibold text-accent">Editar</Text>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Quitar" onPress={onRemove} className="cursor-pointer">
-        <Text className="text-[15px] font-semibold text-negative">Quitar</Text>
-      </Pressable>
+      {onRemove ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Quitar" onPress={onRemove} className="cursor-pointer">
+          <Text className="text-[15px] font-semibold text-negative">Quitar</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 export function ConfirmDialog({
   visible,
+  title = "¿Quitar este movimiento?",
   onCancel,
   onConfirm,
 }: {
   visible: boolean;
+  title?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -122,7 +151,7 @@ export function ConfirmDialog({
       <View style={confirmStyles.frame} pointerEvents="box-none">
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onCancel} style={confirmStyles.dim} />
         <View className="rounded-[14px] border border-line bg-card p-5" style={confirmStyles.card}>
-          <Text className="text-[16px] font-semibold text-navy">¿Quitar este movimiento?</Text>
+          <Text className="text-[16px] font-semibold text-navy">{title}</Text>
           <View className="mt-4 gap-2">
             <SecondaryButton label="Cancelar" onPress={onCancel} />
             <Pressable
@@ -133,6 +162,36 @@ export function ConfirmDialog({
               <Text className="text-[14px] font-semibold text-white">Quitar</Text>
             </Pressable>
           </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export function Dialog({
+  visible,
+  title,
+  onClose,
+  children,
+}: {
+  visible: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <View style={confirmStyles.frame} pointerEvents="box-none">
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={confirmStyles.dim} />
+        <View className="rounded-[14px] border border-line bg-card p-5" style={dialogStyles.card}>
+          <Text className="font-sans text-[22px] font-semibold text-navy">{title}</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 480 }}>
+            <View className="mt-4 gap-4">{children}</View>
+          </ScrollView>
         </View>
       </View>
     </Modal>

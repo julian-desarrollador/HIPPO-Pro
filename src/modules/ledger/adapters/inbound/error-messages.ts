@@ -13,6 +13,17 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "invalid-percent": "El porcentaje tiene que estar entre 0 y 100.",
   "save-failed": "No se pudo guardar. Revisá la conexión.",
   "save-conflict": "Alguien guardó este libro antes. Volvé a intentar.",
+  "invalid-name": "Escribí el nombre.",
+  "duplicate-racetrack": "Ya hay un hipódromo con ese nombre.",
+  "builtin-racetrack": "San Isidro, Palermo y La Plata no se pueden cambiar.",
+  "racetrack-in-use": "Este hipódromo ya tiene días o depósitos. Quitá esos movimientos antes.",
+  "invalid-adjustment": "El ajuste tiene que estar entre -100 y 100.",
+  "duplicate-category": "Ya hay una categoría con ese nombre.",
+  "builtin-category": "Las categorías de agosto no se pueden cambiar.",
+  "category-in-use": "Esta categoría ya tiene gastos. Quitá esos movimientos antes.",
+  "duplicate-bettor": "Ya hay un apostador con ese nombre.",
+  "unknown-bettor": "Ese apostador no está.",
+  "bettor-in-use": "Este apostador ya tiene días o pagos. Quitá esos movimientos antes.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

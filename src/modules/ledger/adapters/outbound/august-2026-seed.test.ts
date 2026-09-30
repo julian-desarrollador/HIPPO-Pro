@@ -17,13 +17,18 @@ describe("agosto 2026", () => {
 
     assert.equal(byId["san-isidro"].netCents, 2_766_196_600);
     assert.equal(byId["san-isidro"].commissionCents, 414_929_490);
+    assert.equal(byId["san-isidro"].meetingCount, 10);
     assert.equal(byId.palermo.netCents, 2_678_615_500);
     assert.equal(byId.palermo.commissionCents, 241_075_395);
+    assert.equal(byId.palermo.meetingCount, 10);
     assert.equal(byId["la-plata"].netCents, 988_011_600);
     assert.equal(byId["la-plata"].commissionCents, 148_201_740);
+    assert.equal(byId["la-plata"].meetingCount, 10);
+    assert.equal(summary.meetingCount, 30);
   });
 
-  it("la facturación, las salidas y el saldo del mes coinciden con el Excel", () => {
+  it("la venta neta, la facturación, las salidas y el saldo del mes coinciden con el Excel", () => {
+    assert.equal(summary.netCents, 6_432_823_700);
     assert.equal(summary.billingCents, 804_206_625);
     assert.equal(summary.outflowCents, 599_983_000);
     assert.equal(summary.balanceCents, 204_223_625);
@@ -41,6 +46,7 @@ describe("agosto 2026", () => {
     assert.equal(byId["san-isidro"].owedCents, 300_383_865);
     assert.equal(byId.palermo.owedCents, 399_615_405);
     assert.equal(byId["la-plata"].owedCents, 121_663_170);
+    assert.equal(summary.owedCents, 821_662_440);
   });
 
   it("arma el texto del mes con la facturación y el saldo", () => {

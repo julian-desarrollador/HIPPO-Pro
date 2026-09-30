@@ -4,6 +4,7 @@ import { Text, useWindowDimensions, View } from "react-native";
 import { monthTitle } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
+import { AmountField } from "@/components/amount-field";
 import { DateField } from "@/components/date-field";
 import {
   ChoiceChips,
@@ -13,13 +14,11 @@ import {
   PrimaryButton,
   RowActions,
   SecondaryButton,
-  TextField,
 } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
-  RACETRACKS,
   currentCommissionBasisPoints,
   formatAmountInput,
   formatSignedPercent,
@@ -33,7 +32,7 @@ import {
 } from "@/modules/ledger";
 
 export default function CargaScreen() {
-  const { days, recordDay, updateDay, removeDay, snapshot, viewMonth, setViewMonth } = useLedger();
+  const { days, recordDay, updateDay, removeDay, snapshot, racetracks, viewMonth, setViewMonth } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const [date, setDate] = useState(`${viewMonth}-01`);
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
@@ -47,6 +46,12 @@ export default function CargaScreen() {
       setDate(`${viewMonth}-01`);
     }
   }, [editingId, viewMonth]);
+
+  useEffect(() => {
+    if (!racetracks.some((track) => track.id === racetrackId)) {
+      setRacetrackId(racetracks[0]?.id ?? "san-isidro");
+    }
+  }, [racetrackId, racetracks, snapshot.racetracks]);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -55,18 +60,24 @@ export default function CargaScreen() {
   const cancelledCents = readAmount(cancelled, true);
   const paidCents = readAmount(paid, true);
   const editingDay = editingId ? days.find((day) => day.id === editingId) : undefined;
+  const selected = racetracks.find((track) => track.id === racetrackId) ?? racetracks[0];
   const previewCommission =
-    editingDay && editingDay.racetrackId === racetrackId
+    editingDay && editingDay.racetrackId === selected.id
       ? editingDay.commissionBasisPoints
-      : currentCommissionBasisPoints(racetrackId, snapshot.commissions);
+      : currentCommissionBasisPoints(selected.id, snapshot.commissions, snapshot);
+  const previewAdjustment =
+    editingDay && editingDay.racetrackId === selected.id
+      ? editingDay.depositAdjustmentBasisPoints
+      : selected.depositAdjustmentBasisPoints;
   const preview =
     soldCents !== null && cancelledCents !== null && paidCents !== null
       ? settleDay({
-          racetrackId,
+          racetrackId: selected.id,
           soldCents,
           cancelledCents,
           paidCents,
           commissionBasisPoints: previewCommission,
+          depositAdjustmentBasisPoints: previewAdjustment,
         })
       : null;
 
@@ -96,7 +107,7 @@ export default function CargaScreen() {
 
   async function onSave() {
     if (soldCents === null || cancelledCents === null || paidCents === null) {
-      setError("Revisá los importes. Usá 1234,50.");
+      setError("Revisá los importes. Usá 2.908.511,00.");
       setMessage("");
       return;
     }
@@ -105,11 +116,11 @@ export default function CargaScreen() {
     setError("");
     try {
       if (editingId) {
-        await updateDay({ id: editingId, date, racetrackId, soldCents, cancelledCents, paidCents });
+        await updateDay({ id: editingId, date, racetrackId: selected.id, soldCents, cancelledCents, paidCents });
         setEditingId(null);
         setMessage("Día actualizado.");
       } else {
-        await recordDay({ date, racetrackId, soldCents, cancelledCents, paidCents });
+        await recordDay({ date, racetrackId: selected.id, soldCents, cancelledCents, paidCents });
         setMessage("Día cargado.");
       }
       clearAmounts();
@@ -150,19 +161,19 @@ export default function CargaScreen() {
               </Field>
               <Field label="Hipódromo">
                 <ChoiceChips
-                  options={RACETRACKS.map((track) => ({ id: track.id, label: track.name }))}
-                  value={racetrackId}
+                  options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
+                  value={selected.id}
                   onChange={setRacetrackId}
                 />
               </Field>
               <Field label="Vendido">
-                <TextField value={sold} onChangeText={setSold} keyboardType="decimal-pad" placeholder="0,00" />
+                <AmountField value={sold} onChangeText={setSold} />
               </Field>
               <Field label="Cancelados">
-                <TextField value={cancelled} onChangeText={setCancelled} keyboardType="decimal-pad" placeholder="0,00" />
+                <AmountField value={cancelled} onChangeText={setCancelled} />
               </Field>
               <Field label="Pagado">
-                <TextField value={paid} onChangeText={setPaid} keyboardType="decimal-pad" placeholder="0,00" />
+                <AmountField value={paid} onChangeText={setPaid} />
               </Field>
               <Feedback error={error} message={message} />
               <PrimaryButton label={editingId ? "Guardar cambios" : "Cargar día"} onPress={onSave} />
@@ -174,14 +185,14 @@ export default function CargaScreen() {
           <Card>
             <Text className="font-sans text-[22px] font-semibold text-navy">Cálculo del día</Text>
             <Text className="mt-1 text-[13px] text-muted">
-              {RACETRACKS.find((track) => track.id === racetrackId)?.name ?? racetrackId}
+              {selected.name}
             </Text>
             {preview && soldCents !== null && cancelledCents !== null && paidCents !== null ? (
               <View className="mt-3">
                 <DayBreakdown soldCents={soldCents} cancelledCents={cancelledCents} paidCents={paidCents} settlement={preview} />
               </View>
             ) : (
-              <Text className="mt-3 text-[13px] text-negative">Revisá los importes. Usá 1234,50.</Text>
+              <Text className="mt-3 text-[13px] text-negative">Revisá los importes. Usá 2.908.511,00.</Text>
             )}
           </Card>
         </View>

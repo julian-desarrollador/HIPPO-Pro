@@ -1,15 +1,149 @@
+import { useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
 import { DataTable } from "@/components/data-table";
-import { SecondaryButton } from "@/components/form-controls";
+import {
+  ConfirmDialog,
+  Dialog,
+  Feedback,
+  Field,
+  PrimaryButton,
+  RowActions,
+  SecondaryButton,
+  TextField,
+} from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { StatCard } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
-import { useLedger } from "@/modules/ledger";
+import {
+  currentCommissionBasisPoints,
+  formatPercentInput,
+  ledgerErrorMessage,
+  parsePercentToBasisPoints,
+  parseSignedPercentToBasisPoints,
+  racetrackHasMovements,
+  useLedger,
+} from "@/modules/ledger";
 
 export default function HomeScreen() {
-  const { canViewBalances, summary, reset, persistence } = useLedger();
+  const { canViewBalances, summary, reset, persistence, snapshot, racetracks, addRacetrack, updateRacetrack, removeRacetrack } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
+  const [name, setName] = useState("");
+  const [commission, setCommission] = useState("");
+  const [adjustment, setAdjustment] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [blockedRemove, setBlockedRemove] = useState(false);
+
+  const rows = summary.racetracks.map((track) => ({
+    id: track.racetrackId,
+    ...track,
+  }));
+
+  function openAdd() {
+    setEditingId(null);
+    setName("");
+    setCommission("");
+    setAdjustment("");
+    setError("");
+    setMessage("");
+    setFormOpen(true);
+  }
+
+  function startEdit(id: string) {
+    const track = racetracks.find((item) => item.id === id);
+    if (!track) {
+      return;
+    }
+    setManageOpen(false);
+    setEditingId(id);
+    setName(track.name);
+    setCommission(formatPercentInput(currentCommissionBasisPoints(id, snapshot.commissions, snapshot)));
+    setAdjustment(formatPercentInput(track.depositAdjustmentBasisPoints));
+    setError("");
+    setMessage("");
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    if (saving) {
+      return;
+    }
+    setFormOpen(false);
+    setEditingId(null);
+    setName("");
+    setCommission("");
+    setAdjustment("");
+    setError("");
+  }
+
+  async function onSave() {
+    if (saving) {
+      return;
+    }
+    const commissionBasisPoints = parsePercentToBasisPoints(commission);
+    const depositAdjustmentBasisPoints = parseSignedPercentToBasisPoints(adjustment);
+    if (!name.trim()) {
+      setMessage("");
+      setError("Escribí el nombre del hipódromo.");
+      return;
+    }
+    if (commissionBasisPoints === null) {
+      setMessage("");
+      setError("El porcentaje tiene que estar entre 0 y 100.");
+      return;
+    }
+    if (depositAdjustmentBasisPoints === null) {
+      setMessage("");
+      setError("El ajuste tiene que estar entre -100 y 100.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("Guardando…");
+    setError("");
+    try {
+      if (editingId) {
+        await updateRacetrack({ id: editingId, name, commissionBasisPoints, depositAdjustmentBasisPoints });
+        setMessage("Hipódromo actualizado.");
+      } else {
+        await addRacetrack({ name, commissionBasisPoints, depositAdjustmentBasisPoints });
+        setMessage("Hipódromo agregado.");
+      }
+      setName("");
+      setCommission("");
+      setAdjustment("");
+      setEditingId(null);
+      setFormOpen(false);
+    } catch (caught) {
+      setMessage("");
+      setError(ledgerErrorMessage(caught));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemoveId) {
+      return;
+    }
+    const id = pendingRemoveId;
+    setPendingRemoveId(null);
+    try {
+      await removeRacetrack(id);
+      setManageOpen(false);
+      setMessage("Hipódromo quitado.");
+      setError("");
+    } catch (caught) {
+      setMessage("");
+      setError(ledgerErrorMessage(caught));
+    }
+  }
 
   return (
     <ScreenFrame title="Inicio">
@@ -19,19 +153,102 @@ export default function HomeScreen() {
       {canViewBalances ? (
         <>
           <View className={wide ? "flex-row flex-wrap gap-4" : "gap-4"}>
-            <StatCard label="Venta total" cents={summary.billingCents} />
-            <StatCard label="Ganancia bruta" cents={summary.outflowCents} />
-            <StatCard label="Saldo del mes" cents={summary.balanceCents} emphasis />
+            <StatCard label="Venta neta" cents={summary.netCents} />
+            <StatCard label="Comisión" cents={summary.billingCents} />
+            <StatCard label="Total de los hipódromos" cents={summary.owedCents} emphasis />
           </View>
           <SectionTitle title="Por hipódromo" />
           <DataTable
             columns={[
               { key: "name", header: "Hipódromo", compact: true, render: (row) => row.name },
-              { key: "net", header: "Neto", align: "right", compact: true, cents: (row) => row.netCents },
+              { key: "meetings", header: "Reuniones", align: "right", compact: true, render: (row) => String(row.meetingCount) },
+              { key: "net", header: "Venta neta", align: "right", compact: true, cents: (row) => row.netCents },
               { key: "commission", header: "Comisión", align: "right", compact: true, cents: (row) => row.commissionCents },
               { key: "owed", header: "Saldo a pagar", align: "right", compact: true, cents: (row) => row.owedCents },
             ]}
-            rows={summary.racetracks.map((track) => ({ id: track.racetrackId, ...track }))}
+            rows={rows}
+            footer={{
+              values: {
+                name: { text: "Total" },
+                meetings: { text: String(summary.meetingCount) },
+                net: { cents: summary.netCents },
+                commission: { cents: summary.billingCents },
+                owed: { cents: summary.owedCents },
+              },
+            }}
+          />
+          <View className="flex-row flex-wrap items-center gap-4">
+            <SecondaryButton className="self-start" label="Agregar hipódromo" onPress={openAdd} />
+            {racetracks.length > 0 ? (
+              <SecondaryButton
+                className="self-start"
+                label="Editar o quitar"
+                onPress={() => {
+                  setError("");
+                  setMessage("");
+                  setManageOpen(true);
+                }}
+              />
+            ) : null}
+          </View>
+          <Feedback error={formOpen || manageOpen ? "" : error} message={message} />
+          <Dialog visible={formOpen} title={editingId ? "Editar hipódromo" : "Nuevo hipódromo"} onClose={closeForm}>
+            <Field label="Nombre">
+              <TextField value={name} onChangeText={setName} placeholder="Nombre" accessibilityLabel="Nombre del hipódromo" />
+            </Field>
+            <Field label="Comisión">
+              <TextField
+                value={commission}
+                onChangeText={setCommission}
+                keyboardType="decimal-pad"
+                placeholder="15"
+                accessibilityLabel="Comisión del hipódromo"
+              />
+            </Field>
+            <Text className="text-[13px] leading-5 text-muted">
+              Vale para los días que se carguen después. Los ya cargados conservan su porcentaje.
+            </Text>
+            <Field label="Ajuste del depósito">
+              <TextField value={adjustment} onChangeText={setAdjustment} placeholder="-5" accessibilityLabel="Ajuste del depósito" />
+            </Field>
+            <Feedback error={error} />
+            <PrimaryButton
+              label={saving ? "Guardando…" : editingId ? "Guardar" : "Agregar hipódromo"}
+              onPress={() => void onSave()}
+            />
+            <SecondaryButton label="Cancelar" onPress={closeForm} />
+          </Dialog>
+          <Dialog visible={manageOpen} title="Hipódromos" onClose={() => setManageOpen(false)}>
+            {racetracks.map((track) => {
+              const inUse = racetrackHasMovements(snapshot, track.id);
+              return (
+                <View key={track.id} className="flex-row items-center justify-between gap-3">
+                  <Text className="flex-1 text-[15px] font-semibold text-navy">{track.name}</Text>
+                  <RowActions
+                    onEdit={() => startEdit(track.id)}
+                    onRemove={() => {
+                      if (inUse) {
+                        setBlockedRemove(true);
+                        return;
+                      }
+                      setManageOpen(false);
+                      setPendingRemoveId(track.id);
+                    }}
+                  />
+                </View>
+              );
+            })}
+            <SecondaryButton label="Cerrar" onPress={() => setManageOpen(false)} />
+          </Dialog>
+          <Dialog visible={blockedRemove} title="No se puede quitar" onClose={() => setBlockedRemove(false)}>
+            <Text className="text-base leading-6 text-ink">Tiene días o depósitos. Quitá esos movimientos antes.</Text>
+            <SecondaryButton label="Entendido" onPress={() => setBlockedRemove(false)} />
+          </Dialog>
+          <ConfirmDialog
+            visible={pendingRemoveId !== null}
+            title="¿Quitar este hipódromo?"
+            onCancel={() => setPendingRemoveId(null)}
+            onConfirm={() => void confirmRemove()}
           />
         </>
       ) : (

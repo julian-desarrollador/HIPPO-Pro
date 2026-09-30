@@ -17,7 +17,7 @@ export function recordExpense(repository: LedgerRepository, input: RecordExpense
   assertIsoDate(input.paidOn);
   const month = input.month ?? snapshot.month;
   assertYearMonth(month);
-  const category = getExpenseCategory(input.categoryId);
+  const category = getExpenseCategory(input.categoryId, snapshot);
   assertCents(input.amountCents, { allowZero: false });
 
   const expense: Expense = {

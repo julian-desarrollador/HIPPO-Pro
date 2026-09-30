@@ -15,7 +15,7 @@ export function updateDay(repository: LedgerRepository, input: UpdateDayInput): 
   }
 
   assertIsoDate(input.date);
-  const racetrack = getRacetrack(input.racetrackId);
+  const racetrack = getRacetrack(input.racetrackId, snapshot);
   assertCents(input.soldCents, { allowZero: true });
   assertCents(input.cancelledCents, { allowZero: true });
   assertCents(input.paidCents, { allowZero: true });
@@ -50,7 +50,9 @@ export function updateDay(repository: LedgerRepository, input: UpdateDayInput): 
     commissionBasisPoints:
       current.racetrackId === racetrackId
         ? current.commissionBasisPoints
-        : currentCommissionBasisPoints(racetrackId, snapshot.commissions),
+        : currentCommissionBasisPoints(racetrackId, snapshot.commissions, snapshot),
+    depositAdjustmentBasisPoints:
+      current.racetrackId === racetrackId ? current.depositAdjustmentBasisPoints : racetrack.depositAdjustmentBasisPoints,
   };
   const days = snapshot.days.slice();
   days[index] = updated;

@@ -2,7 +2,8 @@ import { createContext, useContext } from "react";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { usePathname } from "expo-router";
+import { Image } from "expo-image";
+import { usePathname, type Href } from "expo-router";
 import { Tabs, TabList, TabTrigger, TabSlot, type TabTriggerSlotProps, type TabListProps } from "expo-router/ui";
 
 import { desktopTopbarHeight, mobileBarHeight, sidebarWidth, wideLayout } from "@/constants/layout";
@@ -15,6 +16,7 @@ const TAB_ICONS = {
   depositos: "swap-horizontal",
   gastos: "receipt",
   cuentas: "people",
+  historial: "time",
   resultado: "stats-chart",
 } as const;
 
@@ -26,8 +28,18 @@ const PAGE_TITLES: Record<string, string> = {
   "/depositos": "Depósitos",
   "/gastos": "Gastos",
   "/cuentas": "Cuentas corrientes",
+  "/cuentas/index": "Cuentas corrientes",
+  "/historial": "Historial",
   "/resultado": "Resultado",
 };
+
+function bettorPageTitle(pathname: string, bettors: { id: string; name: string }[] | undefined): string | null {
+  if (!pathname.startsWith("/cuentas/") || pathname === "/cuentas/" || pathname === "/cuentas/index") {
+    return null;
+  }
+  const id = pathname.slice("/cuentas/".length);
+  return bettors?.find((bettor) => bettor.id === id)?.name ?? "Cuentas corrientes";
+}
 
 const NavChromeContext = createContext<"sidebar" | "bottom">("sidebar");
 
@@ -51,8 +63,11 @@ export default function AppTabs() {
           <TabTrigger name="gastos" href="/gastos" asChild>
             <TabButton icon="gastos">Gastos</TabButton>
           </TabTrigger>
-          <TabTrigger name="cuentas" href="/cuentas" asChild>
+          <TabTrigger name="cuentas" href={"/cuentas" as Href} asChild>
             <TabButton icon="cuentas">Cuentas</TabButton>
+          </TabTrigger>
+          <TabTrigger name="historial" href="/historial" asChild>
+            <TabButton icon="historial">Historial</TabButton>
           </TabTrigger>
           {canViewBalances ? (
             <TabTrigger name="resultado" href="/resultado" asChild>
@@ -67,6 +82,8 @@ export default function AppTabs() {
 
 export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlotProps & { icon: TabIcon }) {
   const variant = useContext(NavChromeContext);
+  const pathname = usePathname();
+  const focused = icon === "cuentas" ? pathname === "/cuentas" || pathname.startsWith("/cuentas/") : Boolean(isFocused);
 
   if (variant === "bottom") {
     return (
@@ -75,10 +92,10 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
         accessibilityRole="link"
         className="min-w-0 flex-1 items-center gap-1 py-1"
         style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}>
-        <Ionicons name={TAB_ICONS[icon]} size={24} color={isFocused ? palette.celeste : palette.chromeMuted} />
+        <Ionicons name={TAB_ICONS[icon]} size={24} color={focused ? palette.celeste : palette.chromeMuted} />
         <Text
           numberOfLines={1}
-          className={isFocused ? "text-[12px] font-semibold text-white" : "text-[12px] font-medium text-chrome-muted"}>
+          className={focused ? "text-[12px] font-semibold text-white" : "text-[12px] font-medium text-chrome-muted"}>
           {children}
         </Text>
       </Pressable>
@@ -93,25 +110,25 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
       style={({ pressed }) => [
         {
           borderLeftWidth: 3,
-          borderLeftColor: isFocused ? palette.celeste : "transparent",
-          backgroundColor: isFocused ? palette.chromeActive : "transparent",
+          borderLeftColor: focused ? palette.celeste : "transparent",
+          backgroundColor: focused ? palette.chromeActive : "transparent",
           paddingLeft: 17,
         },
         pressed ? { opacity: 0.7 } : undefined,
       ]}>
-      <Ionicons name={TAB_ICONS[icon]} size={20} color={isFocused ? palette.celeste : palette.chromeMuted} />
-      <Text className={isFocused ? "text-[15px] font-medium text-white" : "text-[15px] font-medium text-chrome-muted"}>{children}</Text>
+      <Ionicons name={TAB_ICONS[icon]} size={20} color={focused ? palette.celeste : palette.chromeMuted} />
+      <Text className={focused ? "text-[15px] font-medium text-white" : "text-[15px] font-medium text-chrome-muted"}>{children}</Text>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, setRole, signOut } = useLedger();
+  const { role, setRole, signOut, snapshot } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const pageTitle = PAGE_TITLES[pathname] ?? "HIPPO Pro";
+  const pageTitle = bettorPageTitle(pathname, snapshot.bettors) ?? PAGE_TITLES[pathname] ?? "HIPPO Pro";
 
   return (
     <NavChromeContext.Provider value={wide ? "sidebar" : "bottom"}>
@@ -181,7 +198,7 @@ export function CustomTabList(props: TabListProps) {
                 {pageTitle}
               </Text>
             ) : (
-              <Brand />
+              <Brand compact />
             )}
             {signOut ? <AccountMenu role={role} onSignOut={signOut} /> : <RoleSwitch role={role} onChange={setRole} />}
           </View>
@@ -213,20 +230,41 @@ export function CustomTabList(props: TabListProps) {
   );
 }
 
-function Brand() {
+const logo = require("../../assets/images/logo.jpeg");
+
+function Brand({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
+        <Image
+          source={logo}
+          contentFit="contain"
+          accessibilityLabel="HIPPO Pro"
+          style={{ height: 40, aspectRatio: 1080 / 829, borderRadius: 8 }}
+        />
+        <View style={{ flexShrink: 1 }}>
+          <Text className="font-serif text-base text-white" numberOfLines={1}>
+            HIPPO Pro
+          </Text>
+          <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
+            Agencia Dolores
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
-      <View className="h-10 w-10 items-center justify-center rounded-lg bg-celeste">
-        <Text className="font-serif text-lg text-navy">H</Text>
-      </View>
-      <View style={{ flexShrink: 1 }}>
-        <Text className="font-serif text-base text-white" numberOfLines={1}>
-          HIPPO Pro
-        </Text>
-        <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
-          Agencia Dolores
-        </Text>
-      </View>
+    <View style={{ alignItems: "flex-start", gap: 8 }}>
+      <Image
+        source={logo}
+        contentFit="contain"
+        accessibilityLabel="HIPPO Pro"
+        style={{ width: 200, aspectRatio: 1080 / 829, borderRadius: 8 }}
+      />
+      <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
+        Agencia Dolores
+      </Text>
     </View>
   );
 }

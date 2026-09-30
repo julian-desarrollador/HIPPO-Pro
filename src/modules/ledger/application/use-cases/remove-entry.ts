@@ -27,3 +27,23 @@ export function removeExpense(repository: LedgerRepository, id: string): void {
   }
   repository.save({ ...snapshot, expenses: snapshot.expenses.filter((expense) => expense.id !== id) });
 }
+
+export function removeBettorPlay(repository: LedgerRepository, id: string): void {
+  const snapshot = repository.load();
+  const plays = snapshot.bettorPlays ?? [];
+  const exists = plays.some((play) => play.id === id && play.agencyId === snapshot.agencyId);
+  if (!exists) {
+    throw new LedgerError("unknown-entry");
+  }
+  repository.save({ ...snapshot, bettorPlays: plays.filter((play) => play.id !== id) });
+}
+
+export function removeBettorPayment(repository: LedgerRepository, id: string): void {
+  const snapshot = repository.load();
+  const payments = snapshot.bettorPayments ?? [];
+  const exists = payments.some((payment) => payment.id === id && payment.agencyId === snapshot.agencyId);
+  if (!exists) {
+    throw new LedgerError("unknown-entry");
+  }
+  repository.save({ ...snapshot, bettorPayments: payments.filter((payment) => payment.id !== id) });
+}

@@ -19,6 +19,12 @@ export function assertCommissionBasisPoints(value: number): void {
   }
 }
 
+export function assertAdjustmentBasisPoints(value: number): void {
+  if (!Number.isInteger(value) || value < -10_000 || value > 10_000) {
+    throw new LedgerError("invalid-adjustment");
+  }
+}
+
 export function assertIsoDate(date: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new LedgerError("invalid-date");

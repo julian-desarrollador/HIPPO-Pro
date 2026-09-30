@@ -10,7 +10,18 @@ export type LedgerErrorCode =
   | "unknown-entry"
   | "invalid-percent"
   | "save-failed"
-  | "save-conflict";
+  | "save-conflict"
+  | "invalid-name"
+  | "duplicate-racetrack"
+  | "builtin-racetrack"
+  | "racetrack-in-use"
+  | "invalid-adjustment"
+  | "duplicate-category"
+  | "builtin-category"
+  | "category-in-use"
+  | "duplicate-bettor"
+  | "unknown-bettor"
+  | "bettor-in-use";
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;

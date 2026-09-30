@@ -1,13 +1,25 @@
 export { canViewAgencyBalances } from "./domain/access";
+export { bettorHasMovements } from "./domain/bettor-account";
 export { settleDay } from "./domain/calculations";
 export type { DaySettlement } from "./domain/calculations";
-export { EXPENSE_CATEGORIES } from "./domain/expense-categories";
+export { EXPENSE_CATEGORIES, categoryHasExpenses, listExpenseCategories } from "./domain/expense-categories";
 export { formatCents, formatSignedPercent } from "./domain/money";
-export { RACETRACKS, currentCommissionBasisPoints } from "./domain/racetracks";
+export { RACETRACKS, currentCommissionBasisPoints, listRacetracks, racetrackHasMovements } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
 export type { RacetrackId, ViewerRole } from "./domain/types";
 export { ledgerErrorMessage } from "./adapters/inbound/error-messages";
 export { AppShell } from "./adapters/inbound/app-shell";
 export { LedgerProvider, useLedger } from "./adapters/inbound/ledger-provider";
-export { formatAmountInput, formatPercentInput, parseAmountToCents, parsePercentToBasisPoints, readAmount } from "./adapters/inbound/parse-amount";
+export {
+  completeAmountInput,
+  formatAmountInput,
+  formatPercentInput,
+  maskAmountInput,
+  parseAmountToCents,
+  parsePercentToBasisPoints,
+  parseSignedPercentToBasisPoints,
+  readAmount,
+} from "./adapters/inbound/parse-amount";
+export type { BettorAccount } from "./application/use-cases/summarize-bettors";
+export { findBettorAccount } from "./application/use-cases/summarize-bettors";
 export type { SettledDay } from "./application/use-cases/summarize-month";

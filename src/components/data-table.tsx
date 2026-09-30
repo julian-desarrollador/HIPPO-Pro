@@ -14,13 +14,24 @@ export type TableColumn<Row> = {
   node?: (row: Row) => ReactNode;
 };
 
+export type TableFooterCell = {
+  text?: string;
+  cents?: number;
+};
+
+export type TableFooter = {
+  values: Record<string, TableFooterCell>;
+};
+
 export function DataTable<Row extends { id: string }>({
   columns,
   rows,
+  footer,
   empty = "Sin movimientos.",
 }: {
   columns: readonly TableColumn<Row>[];
   rows: readonly Row[];
+  footer?: TableFooter;
   empty?: string;
 }) {
   const wide = useWindowDimensions().width >= wideLayout;
@@ -54,6 +65,20 @@ export function DataTable<Row extends { id: string }>({
             )}
           </View>
         ))}
+        {footer ? (
+          <View className="rounded-[14px] border border-line bg-card px-4 py-3">
+            {visible.map((column) => (
+              <View key={column.key} className="flex-row items-center justify-between gap-3 py-0.5">
+                <Text className="shrink text-[13px] font-semibold uppercase text-muted" numberOfLines={1}>
+                  {column.header}
+                </Text>
+                <View className="shrink-0">
+                  <FooterCell column={column} footer={footer} />
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -81,6 +106,15 @@ export function DataTable<Row extends { id: string }>({
             ))}
           </View>
         ))}
+        {footer ? (
+          <View className="flex-row border-t border-line px-3.5 py-2">
+            {columns.map((column) => (
+              <View key={column.key} className="flex-1 px-1">
+                <FooterCell column={column} footer={footer} />
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -97,6 +131,17 @@ function Cell<Row>({ column, row }: { column: TableColumn<Row>; row: Row }) {
     <Text className={`text-[15px] text-ink ${column.align === "right" ? "text-right" : "text-left"}`}>
       {column.render ? column.render(row) : ""}
     </Text>
+  );
+}
+
+function FooterCell<Row>({ column, footer }: { column: TableColumn<Row>; footer: TableFooter }) {
+  const cell = footer.values[column.key];
+  const align = column.align === "right" ? "text-right" : "text-left";
+  if (cell?.cents !== undefined) {
+    return <MoneyText cents={cell.cents} tone="navy" fill />;
+  }
+  return (
+    <Text className={`text-[15px] font-semibold text-navy tabular-nums ${align}`}>{cell?.text ?? ""}</Text>
   );
 }
 

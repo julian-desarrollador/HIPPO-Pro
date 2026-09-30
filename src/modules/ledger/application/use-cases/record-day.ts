@@ -16,7 +16,7 @@ export type RecordDayInput = {
 export function recordDay(repository: LedgerRepository, input: RecordDayInput): DailySale {
   const snapshot = repository.load();
   assertIsoDate(input.date);
-  const racetrack = getRacetrack(input.racetrackId);
+  const racetrack = getRacetrack(input.racetrackId, snapshot);
   assertCents(input.soldCents, { allowZero: true });
   assertCents(input.cancelledCents, { allowZero: true });
   assertCents(input.paidCents, { allowZero: true });
@@ -41,7 +41,8 @@ export function recordDay(repository: LedgerRepository, input: RecordDayInput): 
     soldCents: input.soldCents,
     cancelledCents: input.cancelledCents,
     paidCents: input.paidCents,
-    commissionBasisPoints: currentCommissionBasisPoints(racetrackId, snapshot.commissions),
+    commissionBasisPoints: currentCommissionBasisPoints(racetrackId, snapshot.commissions, snapshot),
+    depositAdjustmentBasisPoints: racetrack.depositAdjustmentBasisPoints,
   };
 
   repository.save({ ...snapshot, days: [...snapshot.days, day] });

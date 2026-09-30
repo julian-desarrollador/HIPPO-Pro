@@ -36,6 +36,9 @@ yarn-error.*
 .env
 .env*.local
 
+# generated at build from assets/images/logo.jpeg
+public/logo.jpeg
+
 # typescript
 *.tsbuildinfo
 

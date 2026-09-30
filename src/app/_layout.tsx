@@ -10,6 +10,7 @@ import {
   PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
 import { DefaultTheme, ThemeProvider } from "expo-router";
+import Head from "expo-router/head";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -37,11 +38,18 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded && !error) {
-    return null;
+    return (
+      <Head>
+        <title>HIPPO Pro</title>
+      </Head>
+    );
   }
 
   return (
     <ThemeProvider value={DefaultTheme}>
+      <Head>
+        <title>HIPPO Pro</title>
+      </Head>
       <StatusBar style="light" />
       <View className="flex-1 bg-canvas font-sans">
         <AppShell>

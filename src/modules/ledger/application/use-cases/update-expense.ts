@@ -17,7 +17,7 @@ export function updateExpense(repository: LedgerRepository, input: UpdateExpense
   }
 
   assertIsoDate(input.paidOn);
-  const category = getExpenseCategory(input.categoryId);
+  const category = getExpenseCategory(input.categoryId, snapshot);
   assertCents(input.amountCents, { allowZero: false });
 
   const current = snapshot.expenses[index];

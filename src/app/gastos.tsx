@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
+import { AmountField } from "@/components/amount-field";
 import { DateField } from "@/components/date-field";
 import {
   ChoiceChips,
   ConfirmDialog,
+  Dialog,
   Feedback,
   Field,
   PrimaryButton,
@@ -16,7 +18,15 @@ import {
 } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
-import { EXPENSE_CATEGORIES, formatAmountInput, ledgerErrorMessage, readAmount, useLedger } from "@/modules/ledger";
+import {
+  categoryHasExpenses,
+  formatAmountInput,
+  ledgerErrorMessage,
+  readAmount,
+  useLedger,
+} from "@/modules/ledger";
+
+const DEFAULT_CATEGORY_ID = "sueldo";
 
 type ExpenseRow = {
   id: string;
@@ -28,9 +38,20 @@ type ExpenseRow = {
 };
 
 export default function GastosScreen() {
-  const { snapshot, summary, recordExpense, updateExpense, removeExpense, viewMonth } = useLedger();
+  const {
+    snapshot,
+    summary,
+    expenseCategories,
+    recordExpense,
+    updateExpense,
+    removeExpense,
+    addExpenseCategory,
+    updateExpenseCategory,
+    removeExpenseCategory,
+    viewMonth,
+  } = useLedger();
   const [paidOn, setPaidOn] = useState(`${viewMonth}-01`);
-  const [categoryId, setCategoryId] = useState(EXPENSE_CATEGORIES[0].id);
+  const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY_ID);
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,9 +61,23 @@ export default function GastosScreen() {
       setPaidOn(`${viewMonth}-01`);
     }
   }, [editingId, viewMonth]);
-  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!expenseCategories.some((category) => category.id === categoryId)) {
+      setCategoryId(expenseCategories[0]?.id ?? DEFAULT_CATEGORY_ID);
+    }
+  }, [categoryId, expenseCategories]);
+
+  const [pendingRemoveExpenseId, setPendingRemoveExpenseId] = useState<string | null>(null);
+  const [pendingRemoveCategoryId, setPendingRemoveCategoryId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [categoryLabel, setCategoryLabel] = useState("");
+  const [categoryError, setCategoryError] = useState("");
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const expenses = snapshot.expenses
     .filter((expense) => expense.month === viewMonth)
@@ -50,7 +85,7 @@ export default function GastosScreen() {
     .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
     .map((expense) => ({
       ...expense,
-      categoryLabel: EXPENSE_CATEGORIES.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
+      categoryLabel: expenseCategories.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
     }));
   const agency = expenses.filter((expense) => expense.kind === "agency");
   const partners = expenses.filter((expense) => expense.kind === "partner-withdrawal");
@@ -73,10 +108,43 @@ export default function GastosScreen() {
     setMessage("");
   }
 
+  function openAddCategory() {
+    setEditingCategoryId(null);
+    setCategoryLabel("");
+    setCategoryError("");
+    setMessage("");
+    setError("");
+    setFormOpen(true);
+  }
+
+  function startCategoryEdit(id: string) {
+    const category = expenseCategories.find((item) => item.id === id);
+    if (!category) {
+      return;
+    }
+    setManageOpen(false);
+    setEditingCategoryId(id);
+    setCategoryLabel(category.label);
+    setCategoryError("");
+    setMessage("");
+    setError("");
+    setFormOpen(true);
+  }
+
+  function closeCategoryForm() {
+    if (categorySaving) {
+      return;
+    }
+    setFormOpen(false);
+    setEditingCategoryId(null);
+    setCategoryLabel("");
+    setCategoryError("");
+  }
+
   async function onSave() {
     const amountCents = readAmount(amount, false);
     if (amountCents === null) {
-      setError("Revisá el importe. Usá 1234,50.");
+      setError("Revisá el importe. Usá 2.908.511,00.");
       setMessage("");
       return;
     }
@@ -100,18 +168,65 @@ export default function GastosScreen() {
     }
   }
 
-  async function confirmRemove() {
-    if (!pendingRemoveId) {
+  async function onSaveCategory() {
+    if (categorySaving) {
       return;
     }
-    const id = pendingRemoveId;
-    setPendingRemoveId(null);
+    if (!categoryLabel.trim()) {
+      setCategoryError("Escribí el nombre.");
+      return;
+    }
+
+    setCategorySaving(true);
+    setCategoryError("");
+    try {
+      if (editingCategoryId) {
+        await updateExpenseCategory({ id: editingCategoryId, label: categoryLabel });
+        setMessage("Categoría actualizada.");
+      } else {
+        await addExpenseCategory({ label: categoryLabel });
+        setMessage("Categoría agregada.");
+      }
+      setError("");
+      setCategoryLabel("");
+      setEditingCategoryId(null);
+      setFormOpen(false);
+    } catch (caught) {
+      setCategoryError(ledgerErrorMessage(caught));
+    } finally {
+      setCategorySaving(false);
+    }
+  }
+
+  async function confirmRemoveExpense() {
+    if (!pendingRemoveExpenseId) {
+      return;
+    }
+    const id = pendingRemoveExpenseId;
+    setPendingRemoveExpenseId(null);
     try {
       await removeExpense(id);
       if (editingId === id) {
         cancelEdit();
       }
       setMessage("Movimiento quitado.");
+      setError("");
+    } catch (caught) {
+      setMessage("");
+      setError(ledgerErrorMessage(caught));
+    }
+  }
+
+  async function confirmRemoveCategory() {
+    if (!pendingRemoveCategoryId) {
+      return;
+    }
+    const id = pendingRemoveCategoryId;
+    setPendingRemoveCategoryId(null);
+    try {
+      await removeExpenseCategory(id);
+      setManageOpen(false);
+      setMessage("Categoría quitada.");
       setError("");
     } catch (caught) {
       setMessage("");
@@ -127,15 +242,29 @@ export default function GastosScreen() {
             <DateField value={paidOn} onChange={setPaidOn} />
           </Field>
           <Field label="Categoría">
-            <ChoiceChips options={EXPENSE_CATEGORIES} value={categoryId} onChange={setCategoryId} />
+            <ChoiceChips searchable options={expenseCategories} value={categoryId} onChange={setCategoryId} />
           </Field>
+          <View className="flex-row flex-wrap items-center gap-4">
+            <SecondaryButton className="self-start" label="Agregar categoría" onPress={openAddCategory} />
+            {expenseCategories.length > 0 ? (
+              <SecondaryButton
+                className="self-start"
+                label="Editar o quitar"
+                onPress={() => {
+                  setError("");
+                  setMessage("");
+                  setManageOpen(true);
+                }}
+              />
+            ) : null}
+          </View>
           <Field label="Detalle">
             <TextField value={detail} onChangeText={setDetail} placeholder="Opcional" />
           </Field>
           <Field label="Monto">
-            <TextField value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0,00" />
+            <AmountField value={amount} onChangeText={setAmount} />
           </Field>
-          <Feedback error={error} message={message} />
+          <Feedback error={formOpen || manageOpen ? "" : error} message={formOpen || manageOpen ? "" : message} />
           <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar gasto"} onPress={onSave} />
           {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
         </View>
@@ -146,16 +275,58 @@ export default function GastosScreen() {
         total={summary.agencyExpenseCents}
         rows={agency}
         onEdit={startEdit}
-        onRemove={setPendingRemoveId}
+        onRemove={setPendingRemoveExpenseId}
       />
       <ExpenseTable
         title="Adelantos y retiros"
         total={summary.partnerWithdrawalCents}
         rows={partners}
         onEdit={startEdit}
-        onRemove={setPendingRemoveId}
+        onRemove={setPendingRemoveExpenseId}
       />
-      <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
+      <Dialog visible={formOpen} title={editingCategoryId ? "Editar categoría" : "Nueva categoría"} onClose={closeCategoryForm}>
+        <Field label="Nombre">
+          <TextField value={categoryLabel} onChangeText={setCategoryLabel} placeholder="Nombre" accessibilityLabel="Nombre de la categoría" />
+        </Field>
+        <Feedback error={categoryError} />
+        <PrimaryButton
+          label={categorySaving ? "Guardando…" : editingCategoryId ? "Guardar" : "Agregar categoría"}
+          onPress={() => void onSaveCategory()}
+        />
+        <SecondaryButton label="Cancelar" onPress={closeCategoryForm} />
+      </Dialog>
+      <Dialog visible={manageOpen} title="Categorías" onClose={() => setManageOpen(false)}>
+        {expenseCategories.map((category) => {
+          const inUse = categoryHasExpenses(snapshot, category.id);
+          return (
+            <View key={category.id} className="gap-1">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="flex-1 text-[15px] font-semibold text-navy">{category.label}</Text>
+                <RowActions
+                  onEdit={() => startCategoryEdit(category.id)}
+                  onRemove={
+                    inUse
+                      ? undefined
+                      : () => {
+                          setManageOpen(false);
+                          setPendingRemoveCategoryId(category.id);
+                        }
+                  }
+                />
+              </View>
+              {inUse ? <Text className="text-[13px] text-muted">Tiene gastos. Quitá esos movimientos antes.</Text> : null}
+            </View>
+          );
+        })}
+        <SecondaryButton label="Cerrar" onPress={() => setManageOpen(false)} />
+      </Dialog>
+      <ConfirmDialog visible={pendingRemoveExpenseId !== null} onCancel={() => setPendingRemoveExpenseId(null)} onConfirm={() => void confirmRemoveExpense()} />
+      <ConfirmDialog
+        visible={pendingRemoveCategoryId !== null}
+        title="¿Quitar esta categoría?"
+        onCancel={() => setPendingRemoveCategoryId(null)}
+        onConfirm={() => void confirmRemoveCategory()}
+      />
     </ScreenFrame>
   );
 }

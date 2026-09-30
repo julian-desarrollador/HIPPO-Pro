@@ -4,6 +4,7 @@ import { Text, View } from "react-native";
 import { monthTitle } from "@/components/calendar-grid";
 import { DataTable, KeyValueList } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
+import { AmountField } from "@/components/amount-field";
 import { DateField } from "@/components/date-field";
 import {
   ChoiceChips,
@@ -13,12 +14,10 @@ import {
   PrimaryButton,
   RowActions,
   SecondaryButton,
-  TextField,
 } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import {
-  RACETRACKS,
   formatAmountInput,
   ledgerErrorMessage,
   readAmount,
@@ -35,7 +34,7 @@ type DepositRow = {
 };
 
 export default function DepositosScreen() {
-  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit, viewMonth, setViewMonth } = useLedger();
+  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit, racetracks, viewMonth, setViewMonth } = useLedger();
   const [date, setDate] = useState(`${viewMonth}-01`);
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [amount, setAmount] = useState("");
@@ -46,9 +45,16 @@ export default function DepositosScreen() {
       setDate(`${viewMonth}-01`);
     }
   }, [editingId, viewMonth]);
+
+  useEffect(() => {
+    if (!racetracks.some((track) => track.id === racetrackId)) {
+      setRacetrackId(racetracks[0]?.id ?? "san-isidro");
+    }
+  }, [racetrackId, racetracks, snapshot.racetracks]);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const selectedId = racetracks.some((track) => track.id === racetrackId) ? racetrackId : (racetracks[0]?.id ?? "san-isidro");
 
   const deposits = snapshot.deposits
     .filter((deposit) => deposit.date.startsWith(viewMonth))
@@ -56,7 +62,7 @@ export default function DepositosScreen() {
     .sort((left, right) => left.date.localeCompare(right.date) || left.racetrackId.localeCompare(right.racetrackId))
     .map((deposit) => ({
       ...deposit,
-      racetrackName: RACETRACKS.find((track) => track.id === deposit.racetrackId)?.name ?? deposit.racetrackId,
+      racetrackName: racetracks.find((track) => track.id === deposit.racetrackId)?.name ?? deposit.racetrackId,
     }));
 
   function startEdit(row: DepositRow) {
@@ -78,7 +84,7 @@ export default function DepositosScreen() {
   async function onSave() {
     const amountCents = readAmount(amount, false);
     if (amountCents === null) {
-      setError("Revisá el importe. Usá 1234,50.");
+      setError("Revisá el importe. Usá 2.908.511,00.");
       setMessage("");
       return;
     }
@@ -87,11 +93,11 @@ export default function DepositosScreen() {
     setError("");
     try {
       if (editingId) {
-        await updateDeposit({ id: editingId, date, racetrackId, amountCents });
+        await updateDeposit({ id: editingId, date, racetrackId: selectedId, amountCents });
         setEditingId(null);
         setMessage("Depósito actualizado.");
       } else {
-        await recordDeposit({ date, racetrackId, amountCents });
+        await recordDeposit({ date, racetrackId: selectedId, amountCents });
         setMessage("Depósito cargado.");
       }
       setAmount("");
@@ -155,13 +161,13 @@ export default function DepositosScreen() {
           </Field>
           <Field label="Hipódromo">
             <ChoiceChips
-              options={RACETRACKS.map((track) => ({ id: track.id, label: track.name }))}
-              value={racetrackId}
+              options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
+              value={selectedId}
               onChange={setRacetrackId}
             />
           </Field>
           <Field label="Monto">
-            <TextField value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0,00" />
+            <AmountField value={amount} onChangeText={setAmount} />
           </Field>
           <Feedback error={error} message={message} />
           <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar depósito"} onPress={onSave} />

@@ -17,7 +17,7 @@ export function updateDeposit(repository: LedgerRepository, input: UpdateDeposit
   }
 
   assertIsoDate(input.date);
-  const racetrack = getRacetrack(input.racetrackId);
+  const racetrack = getRacetrack(input.racetrackId, snapshot);
   assertCents(input.amountCents, { allowZero: false });
 
   const current = snapshot.deposits[index];

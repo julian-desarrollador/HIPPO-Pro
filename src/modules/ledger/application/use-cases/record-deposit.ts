@@ -13,7 +13,7 @@ export type RecordDepositInput = {
 export function recordDeposit(repository: LedgerRepository, input: RecordDepositInput): HippodromeDeposit {
   const snapshot = repository.load();
   assertIsoDate(input.date);
-  const racetrack = getRacetrack(input.racetrackId);
+  const racetrack = getRacetrack(input.racetrackId, snapshot);
   assertCents(input.amountCents, { allowZero: false });
 
   const deposit: HippodromeDeposit = {

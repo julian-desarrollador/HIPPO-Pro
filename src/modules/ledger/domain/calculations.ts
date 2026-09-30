@@ -1,5 +1,6 @@
-import { getRacetrack } from "./racetracks";
+import { LedgerError } from "./errors";
 import { applyBasisPoints, type Cents } from "./money";
+import { RACETRACKS } from "./racetracks";
 import type { RacetrackId } from "./types";
 
 export type DaySettlement = {
@@ -17,12 +18,17 @@ export function settleDay(input: {
   cancelledCents: Cents;
   paidCents: Cents;
   commissionBasisPoints?: number;
+  depositAdjustmentBasisPoints?: number;
 }): DaySettlement {
-  const rule = getRacetrack(input.racetrackId);
-  const commissionBasisPoints = input.commissionBasisPoints ?? rule.commissionBasisPoints;
+  const builtin = RACETRACKS.find((racetrack) => racetrack.id === input.racetrackId);
+  const commissionBasisPoints = input.commissionBasisPoints ?? builtin?.commissionBasisPoints;
+  const depositAdjustmentBasisPoints = input.depositAdjustmentBasisPoints ?? builtin?.depositAdjustmentBasisPoints;
+  if (commissionBasisPoints === undefined || depositAdjustmentBasisPoints === undefined) {
+    throw new LedgerError("unknown-racetrack");
+  }
   const netCents = input.soldCents - input.cancelledCents;
   const commissionCents = applyBasisPoints(netCents, commissionBasisPoints);
-  const adjustmentCents = applyBasisPoints(netCents, rule.depositAdjustmentBasisPoints);
+  const adjustmentCents = applyBasisPoints(netCents, depositAdjustmentBasisPoints);
 
   return {
     netCents,
@@ -30,6 +36,6 @@ export function settleDay(input: {
     adjustmentCents,
     amountToDepositCents: netCents - input.paidCents + adjustmentCents,
     commissionBasisPoints,
-    depositAdjustmentBasisPoints: rule.depositAdjustmentBasisPoints,
+    depositAdjustmentBasisPoints,
   };
 }

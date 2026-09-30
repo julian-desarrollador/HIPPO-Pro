@@ -1,4 +1,4 @@
-import type { ExpenseKind } from "./types";
+import type { AgencyExpenseCategory, CategoryLabel, ExpenseKind, LedgerSnapshot } from "./types";
 import { LedgerError } from "./errors";
 
 export type ExpenseCategory = {
@@ -39,8 +39,51 @@ export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
   { id: "retiro-sag-mati", label: "Retiro SAG Mati", kind: "partner-withdrawal" },
 ];
 
-export function getExpenseCategory(id: string): ExpenseCategory {
-  const found = EXPENSE_CATEGORIES.find((category) => category.id === id);
+export type CategoryCatalog = {
+  expenseCategories?: readonly AgencyExpenseCategory[];
+  categoryLabels?: readonly CategoryLabel[];
+  hiddenCategoryIds?: readonly string[];
+};
+
+function readCategoryCatalog(source?: CategoryCatalog | readonly AgencyExpenseCategory[]): {
+  extras: readonly AgencyExpenseCategory[];
+  labels: ReadonlyMap<string, string>;
+  hidden: ReadonlySet<string>;
+} {
+  if (!source) {
+    return { extras: [], labels: new Map(), hidden: new Set() };
+  }
+  if (Array.isArray(source)) {
+    return { extras: source, labels: new Map(), hidden: new Set() };
+  }
+  const catalog = source as CategoryCatalog;
+  return {
+    extras: catalog.expenseCategories ?? [],
+    labels: new Map((catalog.categoryLabels ?? []).map((item) => [item.id, item.label])),
+    hidden: new Set(catalog.hiddenCategoryIds ?? []),
+  };
+}
+
+export function listExpenseCategories(source?: CategoryCatalog | readonly AgencyExpenseCategory[]): readonly ExpenseCategory[] {
+  const { extras, labels, hidden } = readCategoryCatalog(source);
+  const builtins = EXPENSE_CATEGORIES.filter((category) => !hidden.has(category.id)).map((category) => ({
+    ...category,
+    label: labels.get(category.id) ?? category.label,
+  }));
+  const added = extras.filter((category) => !isBuiltinCategory(category.id) && !hidden.has(category.id));
+  return [...builtins, ...added];
+}
+
+export function isBuiltinCategory(id: string): boolean {
+  return EXPENSE_CATEGORIES.some((category) => category.id === id);
+}
+
+export function categoryHasExpenses(snapshot: Pick<LedgerSnapshot, "expenses">, id: string): boolean {
+  return snapshot.expenses.some((expense) => expense.categoryId === id);
+}
+
+export function getExpenseCategory(id: string, source?: CategoryCatalog | readonly AgencyExpenseCategory[]): ExpenseCategory {
+  const found = listExpenseCategories(source).find((category) => category.id === id);
   if (!found) {
     throw new LedgerError("unknown-category");
   }

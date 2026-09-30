@@ -1,7 +1,26 @@
 import { settleDay } from "../../domain/calculations";
-import { RACETRACKS, getRacetrack } from "../../domain/racetracks";
+import { getRacetrack, isBuiltinRacetrack, listRacetracks } from "../../domain/racetracks";
 import type { Cents } from "../../domain/money";
 import type { DailySale, LedgerSnapshot, RacetrackId } from "../../domain/types";
+
+function settleSnapshotDay(
+  snapshot: LedgerSnapshot,
+  day: Pick<
+    DailySale,
+    "racetrackId" | "soldCents" | "cancelledCents" | "paidCents" | "commissionBasisPoints" | "depositAdjustmentBasisPoints"
+  >,
+) {
+  const rule = getRacetrack(day.racetrackId, snapshot);
+  const builtin = isBuiltinRacetrack(day.racetrackId);
+  return settleDay({
+    racetrackId: day.racetrackId,
+    soldCents: day.soldCents,
+    cancelledCents: day.cancelledCents,
+    paidCents: day.paidCents,
+    commissionBasisPoints: day.commissionBasisPoints ?? (builtin ? undefined : rule.commissionBasisPoints),
+    depositAdjustmentBasisPoints: day.depositAdjustmentBasisPoints ?? (builtin ? undefined : rule.depositAdjustmentBasisPoints),
+  });
+}
 
 export type SettledDay = DailySale & {
   racetrackName: string;
@@ -15,14 +34,8 @@ export function listSettledDays(snapshot: LedgerSnapshot, month = snapshot.month
     .filter((day) => day.agencyId === snapshot.agencyId && day.date.startsWith(month))
     .map((day) => ({
       ...day,
-      racetrackName: getRacetrack(day.racetrackId).name,
-      ...settleDay({
-        racetrackId: day.racetrackId,
-        soldCents: day.soldCents,
-        cancelledCents: day.cancelledCents,
-        paidCents: day.paidCents,
-        commissionBasisPoints: day.commissionBasisPoints,
-      }),
+      racetrackName: getRacetrack(day.racetrackId, snapshot).name,
+      ...settleSnapshotDay(snapshot, day),
     }))
     .sort((left, right) => left.date.localeCompare(right.date) || left.racetrackId.localeCompare(right.racetrackId));
 }
@@ -30,6 +43,7 @@ export function listSettledDays(snapshot: LedgerSnapshot, month = snapshot.month
 export type RacetrackMonth = {
   racetrackId: RacetrackId;
   name: string;
+  meetingCount: number;
   netCents: Cents;
   commissionCents: Cents;
   amountToDepositCents: Cents;
@@ -42,7 +56,10 @@ export type MonthSummary = {
   agencyId: string;
   month: string;
   racetracks: RacetrackMonth[];
+  meetingCount: number;
+  netCents: Cents;
   billingCents: Cents;
+  owedCents: Cents;
   agencyExpenseCents: Cents;
   partnerWithdrawalCents: Cents;
   outflowCents: Cents;
@@ -67,13 +84,7 @@ function movementCents(snapshot: LedgerSnapshot, month: string, racetrackId: Rac
     .reduce(
       (total, day) =>
         total +
-        settleDay({
-          racetrackId: day.racetrackId,
-          soldCents: day.soldCents,
-          cancelledCents: day.cancelledCents,
-          paidCents: day.paidCents,
-          commissionBasisPoints: day.commissionBasisPoints,
-        }).amountToDepositCents,
+        settleSnapshotDay(snapshot, day).amountToDepositCents,
       0,
     );
   const deposited = snapshot.deposits
@@ -102,7 +113,7 @@ function openingCents(snapshot: LedgerSnapshot, month: string, racetrackId: Race
 
 export function summarizeMonth(snapshot: LedgerSnapshot, month = snapshot.month): MonthSummary {
   const days = listSettledDays(snapshot, month);
-  const racetracks = RACETRACKS.map((rule) => {
+  const racetracks = listRacetracks(snapshot).map((rule) => {
     const racetrackId = rule.id;
     const trackDays = days.filter((day) => day.racetrackId === racetrackId);
     const netCents = trackDays.reduce((total, day) => total + day.netCents, 0);
@@ -121,6 +132,7 @@ export function summarizeMonth(snapshot: LedgerSnapshot, month = snapshot.month)
     return {
       racetrackId,
       name: rule.name,
+      meetingCount: trackDays.length,
       netCents,
       commissionCents,
       amountToDepositCents,
@@ -131,6 +143,9 @@ export function summarizeMonth(snapshot: LedgerSnapshot, month = snapshot.month)
   });
 
   const billingCents = racetracks.reduce((total, track) => total + track.commissionCents, 0);
+  const netCents = racetracks.reduce((total, track) => total + track.netCents, 0);
+  const owedCents = racetracks.reduce((total, track) => total + track.owedCents, 0);
+  const meetingCount = racetracks.reduce((total, track) => total + track.meetingCount, 0);
   const monthExpenses = snapshot.expenses.filter(
     (expense) => expense.agencyId === snapshot.agencyId && expense.month === month,
   );
@@ -146,7 +161,10 @@ export function summarizeMonth(snapshot: LedgerSnapshot, month = snapshot.month)
     agencyId: snapshot.agencyId,
     month,
     racetracks,
+    meetingCount,
+    netCents,
     billingCents,
+    owedCents,
     agencyExpenseCents,
     partnerWithdrawalCents,
     outflowCents,
