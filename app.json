@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "HIPPO-Pro",
+    "name": "HippoPro",
     "slug": "HIPPO-Pro",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,7 +21,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/logo.jpeg"
+      "favicon": "./assets/images/brand-mark.png"
     },
     "plugins": [
       "expo-router",

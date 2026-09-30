@@ -5,7 +5,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!_expo/|assets/|favicon\\.ico|logo\\.jpeg).*)",
+      "source": "/((?!_expo/|assets/|favicon\\.ico|og\\.png|apple-touch-icon\\.png).*)",
       "destination": "/index.html"
     }
   ]

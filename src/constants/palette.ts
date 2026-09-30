@@ -8,6 +8,7 @@ export const palette = {
   tint: "#D7E8F4",
   accent: "#186DAA",
   celeste: "#99CFF5",
+  brand: "#59B349",
   chromeActive: "#2F6D9D",
   chromeMuted: "#CCDEEA",
   negative: "#B42318",

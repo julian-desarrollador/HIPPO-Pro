@@ -1,12 +1,24 @@
-import { createContext, useContext } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { usePathname, type Href } from "expo-router";
-import { Tabs, TabList, TabTrigger, TabSlot, type TabTriggerSlotProps, type TabListProps } from "expo-router/ui";
+import {
+  TabList,
+  Tabs,
+  TabSlot,
+  TabTrigger,
+  type TabListProps,
+  type TabTriggerSlotProps,
+} from "expo-router/ui";
+import { createContext, useContext } from "react";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { desktopTopbarHeight, mobileBarHeight, sidebarWidth, wideLayout } from "@/constants/layout";
+import {
+  desktopTopbarHeight,
+  mobileBarHeight,
+  sidebarWidth,
+  wideLayout,
+} from "@/constants/layout";
 import { palette } from "@/constants/palette";
 import { useLedger, type ViewerRole } from "@/modules/ledger";
 
@@ -33,12 +45,21 @@ const PAGE_TITLES: Record<string, string> = {
   "/resultado": "Resultado",
 };
 
-function bettorPageTitle(pathname: string, bettors: { id: string; name: string }[] | undefined): string | null {
-  if (!pathname.startsWith("/cuentas/") || pathname === "/cuentas/" || pathname === "/cuentas/index") {
+function bettorPageTitle(
+  pathname: string,
+  bettors: { id: string; name: string }[] | undefined,
+): string | null {
+  if (
+    !pathname.startsWith("/cuentas/") ||
+    pathname === "/cuentas/" ||
+    pathname === "/cuentas/index"
+  ) {
     return null;
   }
   const id = pathname.slice("/cuentas/".length);
-  return bettors?.find((bettor) => bettor.id === id)?.name ?? "Cuentas corrientes";
+  return (
+    bettors?.find((bettor) => bettor.id === id)?.name ?? "Cuentas corrientes"
+  );
 }
 
 const NavChromeContext = createContext<"sidebar" | "bottom">("sidebar");
@@ -80,10 +101,18 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlotProps & { icon: TabIcon }) {
+export function TabButton({
+  icon,
+  children,
+  isFocused,
+  ...props
+}: TabTriggerSlotProps & { icon: TabIcon }) {
   const variant = useContext(NavChromeContext);
   const pathname = usePathname();
-  const focused = icon === "cuentas" ? pathname === "/cuentas" || pathname.startsWith("/cuentas/") : Boolean(isFocused);
+  const focused =
+    icon === "cuentas"
+      ? pathname === "/cuentas" || pathname.startsWith("/cuentas/")
+      : Boolean(isFocused);
 
   if (variant === "bottom") {
     return (
@@ -91,11 +120,21 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
         {...props}
         accessibilityRole="link"
         className="min-w-0 flex-1 items-center gap-1 py-1"
-        style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}>
-        <Ionicons name={TAB_ICONS[icon]} size={24} color={focused ? palette.celeste : palette.chromeMuted} />
+        style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
+      >
+        <Ionicons
+          name={TAB_ICONS[icon]}
+          size={24}
+          color={focused ? palette.celeste : palette.chromeMuted}
+        />
         <Text
           numberOfLines={1}
-          className={focused ? "text-[12px] font-semibold text-white" : "text-[12px] font-medium text-chrome-muted"}>
+          className={
+            focused
+              ? "text-[12px] font-semibold text-white"
+              : "text-[12px] font-medium text-chrome-muted"
+          }
+        >
           {children}
         </Text>
       </Pressable>
@@ -115,9 +154,22 @@ export function TabButton({ icon, children, isFocused, ...props }: TabTriggerSlo
           paddingLeft: 17,
         },
         pressed ? { opacity: 0.7 } : undefined,
-      ]}>
-      <Ionicons name={TAB_ICONS[icon]} size={20} color={focused ? palette.celeste : palette.chromeMuted} />
-      <Text className={focused ? "text-[15px] font-medium text-white" : "text-[15px] font-medium text-chrome-muted"}>{children}</Text>
+      ]}
+    >
+      <Ionicons
+        name={TAB_ICONS[icon]}
+        size={20}
+        color={focused ? palette.celeste : palette.chromeMuted}
+      />
+      <Text
+        className={
+          focused
+            ? "text-[15px] font-medium text-white"
+            : "text-[15px] font-medium text-chrome-muted"
+        }
+      >
+        {children}
+      </Text>
     </Pressable>
   );
 }
@@ -128,7 +180,10 @@ export function CustomTabList(props: TabListProps) {
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const pageTitle = bettorPageTitle(pathname, snapshot.bettors) ?? PAGE_TITLES[pathname] ?? "HIPPO Pro";
+  const pageTitle =
+    bettorPageTitle(pathname, snapshot.bettors) ??
+    PAGE_TITLES[pathname] ??
+    "HippoPro";
 
   return (
     <NavChromeContext.Provider value={wide ? "sidebar" : "bottom"}>
@@ -146,7 +201,8 @@ export function CustomTabList(props: TabListProps) {
             zIndex: 20,
             pointerEvents: "none",
           },
-        ]}>
+        ]}
+      >
         {wide ? (
           <View
             style={{
@@ -159,19 +215,22 @@ export function CustomTabList(props: TabListProps) {
               borderRightWidth: 1,
               borderRightColor: palette.chromeActive,
               pointerEvents: "auto",
-            }}>
+            }}
+          >
             <View
               style={{
                 paddingHorizontal: 20,
                 paddingVertical: 24,
                 borderBottomWidth: 1,
                 borderBottomColor: palette.chromeActive,
-              }}>
+              }}
+            >
               <Brand />
             </View>
             <Text
               className="px-5 pb-1 pt-3 text-[10px] font-semibold uppercase text-chrome-muted"
-              style={{ letterSpacing: 1.5 }}>
+              style={{ letterSpacing: 1.5 }}
+            >
               Agencia
             </Text>
             {children}
@@ -191,16 +250,24 @@ export function CustomTabList(props: TabListProps) {
             justifyContent: "center",
             paddingHorizontal: 16,
             pointerEvents: "auto",
-          }}>
+          }}
+        >
           <View className="flex-row items-center justify-between gap-3">
             {wide ? (
-              <Text className="font-serif text-[22px] text-white" numberOfLines={1}>
+              <Text
+                className="font-serif text-[22px] text-white"
+                numberOfLines={1}
+              >
                 {pageTitle}
               </Text>
             ) : (
               <Brand compact />
             )}
-            {signOut ? <AccountMenu role={role} onSignOut={signOut} /> : <RoleSwitch role={role} onChange={setRole} />}
+            {signOut ? (
+              <AccountMenu role={role} onSignOut={signOut} />
+            ) : (
+              <RoleSwitch role={role} onChange={setRole} />
+            )}
           </View>
         </View>
 
@@ -221,7 +288,8 @@ export function CustomTabList(props: TabListProps) {
               paddingBottom: Math.max(8, insets.bottom),
               paddingHorizontal: 4,
               pointerEvents: "auto",
-            }}>
+            }}
+          >
             {children}
           </View>
         )}
@@ -230,75 +298,118 @@ export function CustomTabList(props: TabListProps) {
   );
 }
 
-const logo = require("../../assets/images/logo.jpeg");
+const mark = require("../../assets/images/brand-mark.png");
 
 function Brand({ compact = false }: { compact?: boolean }) {
-  if (compact) {
-    return (
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
-        <Image
-          source={logo}
-          contentFit="contain"
-          accessibilityLabel="HIPPO Pro"
-          style={{ height: 40, aspectRatio: 1080 / 829, borderRadius: 8 }}
-        />
-        <View style={{ flexShrink: 1 }}>
-          <Text className="font-serif text-base text-white" numberOfLines={1}>
-            HIPPO Pro
-          </Text>
-          <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
-            Agencia Dolores
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
+  const size = compact ? 40 : 52;
   return (
-    <View style={{ alignItems: "flex-start", gap: 8 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        flexShrink: 1,
+      }}
+    >
       <Image
-        source={logo}
+        source={mark}
         contentFit="contain"
-        accessibilityLabel="HIPPO Pro"
-        style={{ width: 140, aspectRatio: 1080 / 829, borderRadius: 8 }}
+        accessibilityLabel="HippoPro"
+        style={{ height: size, width: size, borderRadius: 12 }}
       />
-      <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
-        Agencia Dolores
-      </Text>
+      <View style={{ flexShrink: 1 }}>
+        <Text
+          className="text-white"
+          numberOfLines={1}
+          style={{ fontFamily: "DMSans_700Bold", fontSize: compact ? 18 : 20, letterSpacing: -0.4 }}
+        >
+          Hippo
+          <Text style={{ color: palette.brand }}>Pro</Text>
+        </Text>
+        <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
+          Agencia Dolores
+        </Text>
+      </View>
     </View>
   );
 }
 
-function AccountMenu({ role, onSignOut }: { role: ViewerRole; onSignOut: () => void }) {
+function AccountMenu({
+  role,
+  onSignOut,
+}: {
+  role: ViewerRole;
+  onSignOut: () => void;
+}) {
   const label = role === "owner" ? "Dueño" : "Operador";
   return (
     <View className="flex-row items-center gap-2">
       <View className="rounded-md bg-chrome-active px-3 py-1.5">
         <Text className="text-[13px] font-semibold text-white">{label}</Text>
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Salir" onPress={onSignOut} className="rounded-md px-2 py-1.5">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Salir"
+        onPress={onSignOut}
+        className="rounded-md px-2 py-1.5"
+      >
         <Text className="text-[13px] font-semibold text-white">Salir</Text>
       </Pressable>
     </View>
   );
 }
 
-function RoleSwitch({ role, onChange }: { role: ViewerRole; onChange: (role: ViewerRole) => void }) {
+function RoleSwitch({
+  role,
+  onChange,
+}: {
+  role: ViewerRole;
+  onChange: (role: ViewerRole) => void;
+}) {
   return (
     <View className="flex-row rounded-lg bg-chrome-active p-0.5">
-      <RoleOption label="Dueño" selected={role === "owner"} onPress={() => onChange("owner")} />
-      <RoleOption label="Operador" selected={role === "operator"} onPress={() => onChange("operator")} />
+      <RoleOption
+        label="Dueño"
+        selected={role === "owner"}
+        onPress={() => onChange("owner")}
+      />
+      <RoleOption
+        label="Operador"
+        selected={role === "operator"}
+        onPress={() => onChange("operator")}
+      />
     </View>
   );
 }
 
-function RoleOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function RoleOption({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className={selected ? "rounded-md bg-celeste px-3 py-1.5" : "rounded-md px-3 py-1.5"}>
-      <Text className={selected ? "text-[13px] font-semibold text-navy" : "text-[13px] text-chrome-muted"}>{label}</Text>
+      className={
+        selected
+          ? "rounded-md bg-celeste px-3 py-1.5"
+          : "rounded-md px-3 py-1.5"
+      }
+    >
+      <Text
+        className={
+          selected
+            ? "text-[13px] font-semibold text-navy"
+            : "text-[13px] text-chrome-muted"
+        }
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

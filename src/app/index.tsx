@@ -148,7 +148,7 @@ export default function HomeScreen() {
   return (
     <ScreenFrame title="Inicio">
       <Card>
-        <Text className="font-sans text-[22px] font-semibold text-navy">Bienvenido a HIPPO Pro</Text>
+        <Text className="font-sans text-[22px] font-semibold text-navy">Bienvenido a HippoPro</Text>
       </Card>
       {canViewBalances ? (
         <>

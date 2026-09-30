@@ -25,7 +25,7 @@ function monthLabel(month: string): string {
 export function buildMonthReport(summary: MonthSummary): string {
   const label = monthLabel(summary.month);
   const lines = [
-    `HIPPO Pro · Agencia Dolores · ${label}`,
+    `HippoPro · Agencia Dolores · ${label}`,
     `Facturación: ${formatCents(summary.billingCents)}`,
     `Gastos de la agencia: ${formatCents(summary.agencyExpenseCents)}`,
     `Adelantos y retiros: ${formatCents(summary.partnerWithdrawalCents)}`,

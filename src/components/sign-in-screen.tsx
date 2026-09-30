@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { Image } from "expo-image";
 
 import { Field, PrimaryButton, TextField } from "@/components/form-controls";
 
@@ -59,7 +60,12 @@ export function SignInScreen({
   return (
     <View className="flex-1 items-center justify-center bg-canvas px-5">
       <View className="w-full max-w-[400px] gap-4 rounded-[14px] border border-line bg-card p-5">
-        <Text className="font-serif text-[28px] text-navy">HIPPO Pro</Text>
+        <Image
+          source={require("../../assets/images/logo-card.png")}
+          contentFit="contain"
+          accessibilityLabel="HippoPro"
+          style={{ width: 240, height: 180, alignSelf: "center" }}
+        />
         <Text className="text-[15px] text-ink">Entrá con el correo de la agencia.</Text>
         <Field label="Correo">
           <TextField

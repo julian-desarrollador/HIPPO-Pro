@@ -1,4 +1,4 @@
-# HIPPO Pro · Guía para agentes
+# HippoPro · Guía para agentes
 
 Sistema para agencias hípicas. La agencia piloto es Agencia Dolores (Federico y Mati). Julián lo desarrolla. Hablale a Julián en español.
 

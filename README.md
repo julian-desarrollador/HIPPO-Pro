@@ -1,4 +1,4 @@
-# HIPPO Pro
+# HippoPro
 
 Sistema para agencias hípicas. Carga el día por hipódromo, lleva la cuenta corriente con cada hipódromo, registra gastos y muestra el resultado del mes. La agencia piloto es Agencia Dolores, de Federico y Mati.
 

@@ -4,6 +4,7 @@ import {
   DMSans_400Regular,
   DMSans_500Medium,
   DMSans_600SemiBold,
+  DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
 import {
   PlayfairDisplay_600SemiBold,
@@ -27,6 +28,7 @@ export default function RootLayout() {
     DMSans_400Regular,
     DMSans_500Medium,
     DMSans_600SemiBold,
+    DMSans_700Bold,
     PlayfairDisplay_600SemiBold,
     PlayfairDisplay_700Bold,
   });
@@ -40,7 +42,7 @@ export default function RootLayout() {
   if (!loaded && !error) {
     return (
       <Head>
-        <title>HIPPO Pro</title>
+        <title>HippoPro</title>
       </Head>
     );
   }
@@ -48,7 +50,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={DefaultTheme}>
       <Head>
-        <title>HIPPO Pro</title>
+        <title>HippoPro</title>
       </Head>
       <StatusBar style="light" />
       <View className="flex-1 bg-canvas font-sans">
