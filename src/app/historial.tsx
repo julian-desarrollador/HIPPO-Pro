@@ -1,5 +1,6 @@
 import { Text } from "react-native";
 
+import { localYearMonth } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { ScreenFrame } from "@/components/screen-frame";
 import { useLedger } from "@/modules/ledger";
@@ -23,8 +24,10 @@ function actorLabel(actor: string): string {
 }
 
 export default function HistorialScreen() {
-  const { snapshot } = useLedger();
-  const rows = (snapshot.audit ?? [])
+  const { snapshot, viewMonth } = useLedger();
+  const audit = snapshot.audit ?? [];
+  const rows = audit
+    .filter((entry) => localYearMonth(entry.at) === viewMonth)
     .slice()
     .reverse()
     .map((entry) => ({
@@ -36,11 +39,11 @@ export default function HistorialScreen() {
 
   return (
     <ScreenFrame title="Historial">
-      <Text className="text-[13px] leading-5 text-muted">
+      <Text className="text-[15px] leading-5 text-muted">
         Cada cambio queda con la fecha y con Dueño u Operador, según quién estaba elegido en la barra.
       </Text>
       <DataTable
-        empty="Todavía no hay cambios."
+        empty={audit.length === 0 ? "Todavía no hay cambios." : "No hay cambios en este mes."}
         columns={[
           { key: "at", header: "Fecha", compact: true, render: (row) => row.at },
           { key: "actor", header: "Quién", compact: true, render: (row) => row.actor },

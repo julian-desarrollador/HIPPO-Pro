@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildMonthGrid, monthTitle, shiftMonth } from "./calendar-grid";
+import { buildMonthGrid, localYearMonth, monthTitle, shiftMonth } from "./calendar-grid";
 
 describe("buildMonthGrid", () => {
   it("agosto 2026 empieza en sábado y llena 42 celdas desde el lunes 27 de julio", () => {
@@ -29,5 +29,15 @@ describe("shiftMonth", () => {
 describe("monthTitle", () => {
   it("escribe el mes en español", () => {
     assert.equal(monthTitle("2026-08"), "Agosto 2026");
+  });
+});
+
+describe("localYearMonth", () => {
+  it("coincide con el mes local de esa fecha", () => {
+    const iso = "2026-08-15T15:30:00.000Z";
+    const date = new Date(iso);
+    const expected = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    assert.equal(localYearMonth(iso), expected);
+    assert.equal(localYearMonth("no-es-fecha"), null);
   });
 });

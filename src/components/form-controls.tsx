@@ -39,7 +39,7 @@ const dialogStyles = StyleSheet.create({
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View className="gap-1.5">
-      <Text className="text-[13px] font-medium text-muted">{label}</Text>
+      <Text className="text-[15px] font-medium text-muted">{label}</Text>
       {children}
     </View>
   );
@@ -49,7 +49,7 @@ export function TextField(props: TextInputProps) {
   return (
     <TextInput
       placeholderTextColor={palette.placeholder}
-      className="rounded-[10px] border border-line bg-card px-3 py-2.5 text-[15px] text-ink"
+      className="rounded-[10px] border border-line bg-card px-3 py-2.5 text-[17px] text-ink"
       {...props}
     />
   );
@@ -75,7 +75,7 @@ export function ChoiceChips<T extends string>({
       {searchable ? (
         <TextField value={search} onChangeText={setSearch} placeholder="Buscar" accessibilityLabel="Buscar categoría" />
       ) : null}
-      {searchable && !hasMatches ? <Text className="text-[13px] text-muted">No hay categorías con ese nombre.</Text> : null}
+      {searchable && !hasMatches ? <Text className="text-[15px] text-muted">No hay categorías con ese nombre.</Text> : null}
       <View className="w-full flex-row flex-wrap gap-1.5">
         {visible.map((option) => {
           const selected = option.id === value;
@@ -88,7 +88,7 @@ export function ChoiceChips<T extends string>({
                 setSearch("");
               }}
               className={selected ? "rounded-full border border-accent bg-tint px-3 py-1.5" : "rounded-full border border-line bg-card px-3 py-1.5"}>
-              <Text className={selected ? "text-[13px] font-semibold text-navy" : "text-[13px] text-muted"}>{option.label}</Text>
+              <Text className={selected ? "text-[15px] font-semibold text-navy" : "text-[15px] text-muted"}>{option.label}</Text>
             </Pressable>
           );
         })}
@@ -100,7 +100,7 @@ export function ChoiceChips<T extends string>({
 export function PrimaryButton({ label, onPress, className = "" }: { label: string; onPress: () => void; className?: string }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} className={`cursor-pointer items-center rounded-[10px] bg-accent px-5 py-2.5 ${className}`}>
-      <Text className="text-[14px] font-semibold text-white">{label}</Text>
+      <Text className="text-[16px] font-semibold text-white">{label}</Text>
     </Pressable>
   );
 }
@@ -111,7 +111,7 @@ export function SecondaryButton({ label, onPress, className = "" }: { label: str
       accessibilityRole="button"
       onPress={onPress}
       className={`cursor-pointer items-center rounded-[10px] border border-accent bg-card px-5 py-2.5 ${className}`}>
-      <Text className="text-[14px] font-semibold text-accent">{label}</Text>
+      <Text className="text-[16px] font-semibold text-accent">{label}</Text>
     </Pressable>
   );
 }
@@ -120,11 +120,11 @@ export function RowActions({ onEdit, onRemove }: { onEdit: () => void; onRemove?
   return (
     <View className="flex-row items-center gap-3">
       <Pressable accessibilityRole="button" accessibilityLabel="Editar" onPress={onEdit} className="cursor-pointer">
-        <Text className="text-[15px] font-semibold text-accent">Editar</Text>
+        <Text className="text-[17px] font-semibold text-accent">Editar</Text>
       </Pressable>
       {onRemove ? (
         <Pressable accessibilityRole="button" accessibilityLabel="Quitar" onPress={onRemove} className="cursor-pointer">
-          <Text className="text-[15px] font-semibold text-negative">Quitar</Text>
+          <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
         </Pressable>
       ) : null}
     </View>
@@ -151,7 +151,7 @@ export function ConfirmDialog({
       <View style={confirmStyles.frame} pointerEvents="box-none">
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onCancel} style={confirmStyles.dim} />
         <View className="rounded-[14px] border border-line bg-card p-5" style={confirmStyles.card}>
-          <Text className="text-[16px] font-semibold text-navy">{title}</Text>
+          <Text className="text-[18px] font-semibold text-navy">{title}</Text>
           <View className="mt-4 gap-2">
             <SecondaryButton label="Cancelar" onPress={onCancel} />
             <Pressable
@@ -159,7 +159,7 @@ export function ConfirmDialog({
               accessibilityLabel="Confirmar quitar"
               onPress={onConfirm}
               className="cursor-pointer items-center rounded-[10px] bg-negative px-5 py-2.5">
-              <Text className="text-[14px] font-semibold text-white">Quitar</Text>
+              <Text className="text-[16px] font-semibold text-white">Quitar</Text>
             </Pressable>
           </View>
         </View>
@@ -188,7 +188,7 @@ export function Dialog({
       <View style={confirmStyles.frame} pointerEvents="box-none">
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={confirmStyles.dim} />
         <View className="rounded-[14px] border border-line bg-card p-5" style={dialogStyles.card}>
-          <Text className="font-sans text-[22px] font-semibold text-navy">{title}</Text>
+          <Text className="font-sans text-[24px] font-semibold text-navy">{title}</Text>
           <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 480 }}>
             <View className="mt-4 gap-4">{children}</View>
           </ScrollView>
@@ -200,10 +200,10 @@ export function Dialog({
 
 export function Feedback({ error, message }: { error?: string; message?: string }) {
   if (error) {
-    return <Text className="text-[13px] text-negative">{error}</Text>;
+    return <Text className="text-[15px] text-negative">{error}</Text>;
   }
   if (message) {
-    return <Text className="text-[13px] text-navy">{message}</Text>;
+    return <Text className="text-[15px] text-navy">{message}</Text>;
   }
   return null;
 }

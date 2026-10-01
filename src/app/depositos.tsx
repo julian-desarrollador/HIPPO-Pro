@@ -132,7 +132,7 @@ export default function DepositosScreen() {
       {canViewBalances ? (
         summary.racetracks.map((track) => (
           <Card key={track.racetrackId}>
-            <Text className="font-sans text-[22px] font-semibold text-navy">{track.name}</Text>
+            <Text className="font-sans text-[24px] font-semibold text-navy">{track.name}</Text>
             <Text className="mt-3 text-sm text-muted">Saldo a pagar</Text>
             <View className="mt-1">
               <MoneyText cents={track.owedCents} size="lg" tone="navy" />

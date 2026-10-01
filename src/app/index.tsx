@@ -148,14 +148,14 @@ export default function HomeScreen() {
   return (
     <ScreenFrame title="Inicio">
       <Card>
-        <Text className="font-sans text-[22px] font-semibold text-navy">Bienvenido a HippoPro</Text>
+        <Text className="font-sans text-[24px] font-semibold text-navy">Bienvenido a HippoPro</Text>
       </Card>
       {canViewBalances ? (
         <>
           <View className={wide ? "flex-row flex-wrap gap-4" : "gap-4"}>
             <StatCard label="Venta neta" cents={summary.netCents} />
             <StatCard label="Comisión" cents={summary.billingCents} />
-            <StatCard label="Total de los hipódromos" cents={summary.owedCents} emphasis />
+            <StatCard label="Total a pagar a los hipódromos" cents={summary.owedCents} emphasis />
           </View>
           <SectionTitle title="Por hipódromo" />
           <DataTable
@@ -205,7 +205,7 @@ export default function HomeScreen() {
                 accessibilityLabel="Comisión del hipódromo"
               />
             </Field>
-            <Text className="text-[13px] leading-5 text-muted">
+            <Text className="text-[15px] leading-5 text-muted">
               Vale para los días que se carguen después. Los ya cargados conservan su porcentaje.
             </Text>
             <Field label="Ajuste del depósito">
@@ -223,7 +223,7 @@ export default function HomeScreen() {
               const inUse = racetrackHasMovements(snapshot, track.id);
               return (
                 <View key={track.id} className="flex-row items-center justify-between gap-3">
-                  <Text className="flex-1 text-[15px] font-semibold text-navy">{track.name}</Text>
+                  <Text className="flex-1 text-[17px] font-semibold text-navy">{track.name}</Text>
                   <RowActions
                     onEdit={() => startEdit(track.id)}
                     onRemove={() => {

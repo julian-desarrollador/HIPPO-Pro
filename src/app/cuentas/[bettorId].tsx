@@ -16,15 +16,17 @@ import {
 } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
-import { formatAmountInput, ledgerErrorMessage, readAmount, useLedger } from "@/modules/ledger";
+import { formatAmountInput, ledgerErrorMessage, readAmount, shownBettorBalanceCents, useLedger } from "@/modules/ledger";
 
 type PendingRemove = { kind: "play" | "payment"; id: string };
 
-function MoneyOrDash({ cents }: { cents: number | null }) {
+function MoneyOrDash({ cents, debt = false, gain = false }: { cents: number | null; debt?: boolean; gain?: boolean }) {
   if (cents === null) {
-    return <Text className="text-right font-sans text-[15px] font-semibold text-ink">—</Text>;
+    return <Text className="text-right font-sans text-[17px] font-semibold text-ink">—</Text>;
   }
-  return <MoneyText cents={cents} fill />;
+  const shown = debt && cents > 0 ? -cents : cents;
+  const tone = gain && cents > 0 ? "positive" : "auto";
+  return <MoneyText cents={shown} tone={tone} fill />;
 }
 
 export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: () => void }) {
@@ -182,12 +184,18 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
     <ScreenFrame title={account.name}>
       <SecondaryButton className="self-start" label="Volver a las cuentas" onPress={onBack} />
       <View className="items-center rounded-[14px] border border-line bg-card p-6">
-        <Text className="font-sans text-[22px] font-semibold text-navy">{account.name}</Text>
-        <Text className="mt-2 text-[12px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
+        <Text className="font-sans text-[24px] font-semibold text-navy">{account.name}</Text>
+        <Text className="mt-2 text-[14px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
           {account.statusLabel}
         </Text>
         <View className="mt-2 w-full">
-          <MoneyText cents={account.balanceCents} size="md" tone="navy" align="center" fill />
+          <MoneyText
+            cents={shownBettorBalanceCents(account.balanceCents)}
+            size="md"
+            tone={account.balanceCents < 0 ? "positive" : "auto"}
+            align="center"
+            fill
+          />
         </View>
       </View>
       <SectionTitle title="Día" />
@@ -197,12 +205,12 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
             <DateField value={playDate} onChange={setPlayDate} />
           </Field>
           <Field label="Lo que apostó">
-            <AmountField value={playAmount} onChangeText={setPlayAmount} />
+            <AmountField debt value={playAmount} onChangeText={setPlayAmount} />
           </Field>
           <Field label="Lo que cobró">
-            <AmountField value={payoutAmount} onChangeText={setPayoutAmount} />
+            <AmountField gain value={payoutAmount} onChangeText={setPayoutAmount} />
           </Field>
-          <Text className="text-[13px] leading-5 text-muted">
+          <Text className="text-[15px] leading-5 text-muted">
             Lo que cobró es el dividendo del ticket. Si no cobró, dejalo vacío.
           </Text>
           <Feedback error={playError} message={playMessage} />
@@ -233,14 +241,14 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
             header: "Apostó",
             align: "right",
             compact: true,
-            node: (row) => <MoneyOrDash cents={row.kind === "play" ? (row.stakeCents ?? 0) : null} />,
+            node: (row) => <MoneyOrDash debt cents={row.kind === "play" ? (row.stakeCents ?? 0) : null} />,
           },
           {
             key: "payout",
             header: "Cobró",
             align: "right",
             compact: true,
-            node: (row) => <MoneyOrDash cents={row.kind === "play" ? (row.payoutCents ?? 0) : null} />,
+            node: (row) => <MoneyOrDash gain cents={row.kind === "play" ? (row.payoutCents ?? 0) : null} />,
           },
           {
             key: "payment",

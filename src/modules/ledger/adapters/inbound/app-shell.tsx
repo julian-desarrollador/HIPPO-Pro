@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
+import { OperatorAdminProvider } from "@/modules/identity/operator-admin";
 import type { ViewerRole } from "../../domain/types";
 import { openAgencyLedger } from "../outbound/agency-ledger";
 import { PREVIEW_AGENCY_ID } from "../outbound/august-2026-seed";
@@ -15,14 +16,33 @@ type Phase =
   | { status: "recovery" }
   | { status: "unassigned" }
   | { status: "error" }
-  | { status: "ready"; role: ViewerRole; repository: Awaited<ReturnType<typeof openAgencyLedger>> };
+  | { status: "ready"; role: ViewerRole; displayName: string; repository: Awaited<ReturnType<typeof openAgencyLedger>> };
 
 function isViewerRole(value: unknown): value is ViewerRole {
   return value === "owner" || value === "operator";
 }
 
-function isPasswordRecovery(): boolean {
-  return typeof window !== "undefined" && window.location.hash.includes("type=recovery");
+function isChoosingPassword(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const here = `${window.location.hash}${window.location.search}`;
+  return here.includes("type=recovery") || here.includes("type=invite");
+}
+
+function passwordStillPending(session: Session): boolean {
+  const metadata: unknown = session.user.user_metadata;
+  return Boolean(metadata && typeof metadata === "object" && "password_pending" in metadata && metadata.password_pending === true);
+}
+
+function clearPasswordLink(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.hash = "";
+  url.searchParams.delete("type");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 }
 
 function signInProblem(message: string): string {
@@ -45,12 +65,16 @@ function createAgencyClient(config: SupabaseConfig): SupabaseClient {
   });
 }
 
-async function loadProfile(client: SupabaseClient, userId: string): Promise<{ agencyId: string; role: ViewerRole } | null> {
-  const { data, error } = await client.from("profiles").select("agency_id, role").eq("user_id", userId).maybeSingle();
+async function loadProfile(client: SupabaseClient, userId: string): Promise<{ agencyId: string; role: ViewerRole; displayName: string } | null> {
+  const { data, error } = await client.from("profiles").select("agency_id, role, display_name").eq("user_id", userId).maybeSingle();
   if (error || !data || typeof data.agency_id !== "string" || !isViewerRole(data.role)) {
     return null;
   }
-  return { agencyId: data.agency_id, role: data.role };
+  return {
+    agencyId: data.agency_id,
+    role: data.role,
+    displayName: typeof data.display_name === "string" ? data.display_name : "",
+  };
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -119,6 +143,11 @@ function PublicLedger({ config, children }: { config: SupabaseConfig; children: 
 }
 
 function RemoteShell({ config, children }: { config: SupabaseConfig; children: ReactNode }) {
+  const choosingPassword = useRef<boolean | null>(null);
+  const passwordChosen = useRef(false);
+  if (choosingPassword.current === null) {
+    choosingPassword.current = isChoosingPassword();
+  }
   const clientRef = useRef<SupabaseClient | null>(null);
   if (!clientRef.current) {
     clientRef.current = createAgencyClient(config);
@@ -133,7 +162,8 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       setPhase({ status: "signed-out" });
       return;
     }
-    if (isPasswordRecovery()) {
+    if (!passwordChosen.current && (choosingPassword.current || isChoosingPassword() || passwordStillPending(session))) {
+      choosingPassword.current = true;
       setPhase({ status: "recovery" });
       return;
     }
@@ -150,7 +180,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       if (id !== request.current) {
         return;
       }
-      setPhase({ status: "ready", role: profile.role, repository });
+      setPhase({ status: "ready", role: profile.role, displayName: profile.displayName, repository });
     } catch {
       if (id !== request.current) {
         return;
@@ -204,13 +234,13 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   }
 
   async function savePassword(password: string): Promise<string | null> {
-    const { error } = await client.auth.updateUser({ password });
+    const { error } = await client.auth.updateUser({ password, data: { password_pending: false } });
     if (error) {
       return "No se pudo guardar la contraseña. Revisá la conexión.";
     }
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    }
+    choosingPassword.current = false;
+    passwordChosen.current = true;
+    clearPasswordLink();
     const { data } = await client.auth.getSession();
     await adopt(data.session);
     return null;
@@ -254,8 +284,14 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   }
 
   return (
-    <LedgerProvider repository={phase.repository} role={phase.role} persistence="agency" signOut={signOut}>
-      {children}
+    <LedgerProvider
+      repository={phase.repository}
+      role={phase.role}
+      displayName={phase.displayName}
+      persistence="agency"
+      signOut={signOut}
+    >
+      <OperatorAdminProvider client={client}>{children}</OperatorAdminProvider>
     </LedgerProvider>
   );
 }

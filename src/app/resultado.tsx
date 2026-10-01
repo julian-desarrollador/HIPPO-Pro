@@ -24,7 +24,7 @@ export default function ResultadoScreen() {
   return (
     <ScreenFrame title="Resultado">
       <View className="items-center rounded-[14px] border border-line bg-card p-6">
-        <Text className="text-[12px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
+        <Text className="text-[14px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
           Saldo del mes
         </Text>
         <View className="mt-2 w-full">
@@ -34,10 +34,10 @@ export default function ResultadoScreen() {
       <Card>
         <KeyValueList
           rows={[
-            { label: "Facturación", value: <MoneyText cents={summary.billingCents} /> },
+            { label: "Venta neta", value: <MoneyText cents={summary.netCents} /> },
+            { label: "Ganancia de la agencia", value: <MoneyText cents={summary.billingCents} /> },
             { label: "Gastos de la agencia", value: <MoneyText cents={summary.agencyExpenseCents} /> },
-            { label: "Adelantos y retiros", value: <MoneyText cents={summary.partnerWithdrawalCents} /> },
-            { label: "Salidas", value: <MoneyText cents={summary.outflowCents} /> },
+            { label: "Retiros", value: <MoneyText cents={summary.partnerWithdrawalCents} /> },
           ]}
         />
       </Card>

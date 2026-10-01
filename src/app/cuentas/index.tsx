@@ -12,9 +12,10 @@ import {
   SecondaryButton,
   TextField,
 } from "@/components/form-controls";
+import { MoneyText } from "@/components/stat-card";
 import { ScreenFrame } from "@/components/screen-frame";
 import { BettorFolder } from "@/app/cuentas/[bettorId]";
-import { bettorHasMovements, ledgerErrorMessage, useLedger } from "@/modules/ledger";
+import { bettorHasMovements, ledgerErrorMessage, shownBettorBalanceCents, useLedger } from "@/modules/ledger";
 
 export default function CuentasScreen() {
   const { snapshot, bettorAccounts, addBettor, updateBettor, removeBettor } = useLedger();
@@ -134,7 +135,7 @@ export default function CuentasScreen() {
       </View>
       <Feedback error={formOpen || manageOpen ? "" : error} message={message} />
       {bettorAccounts.length > 0 ? (
-        <Text className="text-[13px] text-muted">Abrí la carpeta para cargar lo que apostó, lo que cobró y los pagos.</Text>
+        <Text className="text-[15px] text-muted">Tocá el nombre para cargar lo que apostó, lo que cobró y los pagos.</Text>
       ) : null}
       <DataTable
         empty="Todavía no hay apostadores cargados."
@@ -144,26 +145,23 @@ export default function CuentasScreen() {
             header: "Apostador",
             compact: true,
             node: (row) => (
-              <View className="flex-row flex-wrap items-center gap-3">
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={`Abrir carpeta de ${row.name}`}
-                  onPress={() => openFolder(row.id)}
-                  className="cursor-pointer">
-                  <Text className="text-[15px] font-semibold text-accent">{row.name}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={`Abrir ${row.name}`}
-                  onPress={() => openFolder(row.id)}
-                  className="cursor-pointer">
-                  <Text className="text-[15px] font-semibold text-accent">Abrir</Text>
-                </Pressable>
-              </View>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={`Abrir carpeta de ${row.name}`}
+                onPress={() => openFolder(row.id)}
+                className="cursor-pointer">
+                <Text className="text-[17px] font-semibold text-accent">{row.name}</Text>
+              </Pressable>
             ),
           },
           { key: "status", header: "Estado", compact: true, render: (row) => row.statusLabel },
-          { key: "balance", header: "Saldo", align: "right", compact: true, cents: (row) => row.balanceCents },
+          { key: "balance", header: "Saldo", align: "right", compact: true, node: (row) => (
+            <MoneyText
+              cents={shownBettorBalanceCents(row.balanceCents)}
+              tone={row.balanceCents < 0 ? "positive" : "auto"}
+              fill
+            />
+          ) },
         ]}
         rows={bettorAccounts}
       />
@@ -184,7 +182,7 @@ export default function CuentasScreen() {
           return (
             <View key={account.id} className="gap-1">
               <View className="flex-row items-center justify-between gap-3">
-                <Text className="flex-1 text-[15px] font-semibold text-navy">{account.name}</Text>
+                <Text className="flex-1 text-[17px] font-semibold text-navy">{account.name}</Text>
                 <RowActions
                   onEdit={() => startEdit(account.id)}
                   onRemove={
@@ -197,7 +195,7 @@ export default function CuentasScreen() {
                   }
                 />
               </View>
-              {inUse ? <Text className="text-[13px] text-muted">Tiene días o pagos. Quitá esos movimientos antes.</Text> : null}
+              {inUse ? <Text className="text-[15px] text-muted">Tiene días o pagos. Quitá esos movimientos antes.</Text> : null}
             </View>
           );
         })}

@@ -52,7 +52,7 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "lint": "expo lint",
-    "test": "tsx --test src/modules/ledger/domain/calculations.test.ts src/modules/ledger/adapters/outbound/august-2026-seed.test.ts src/modules/ledger/adapters/outbound/local-storage-ledger-repository.test.ts src/modules/ledger/adapters/outbound/agency-ledger.test.ts src/modules/ledger/application/use-cases/mutate-ledger.test.ts src/modules/ledger/application/use-cases/describe-ledger-change.test.ts src/modules/ledger/adapters/inbound/parse-amount.test.ts src/components/calendar-grid.test.ts src/components/choice-filter.test.ts"
+    "test": "tsx --test src/modules/ledger/domain/calculations.test.ts src/modules/ledger/adapters/outbound/august-2026-seed.test.ts src/modules/ledger/adapters/outbound/local-storage-ledger-repository.test.ts src/modules/ledger/adapters/outbound/agency-ledger.test.ts src/modules/ledger/application/use-cases/mutate-ledger.test.ts src/modules/ledger/application/use-cases/describe-ledger-change.test.ts src/modules/ledger/application/use-cases/build-day-report.test.ts src/modules/ledger/adapters/inbound/parse-amount.test.ts src/components/calendar-grid.test.ts src/components/choice-filter.test.ts src/modules/identity/operator-invite.test.ts"
   },
   "private": true,
   "overrides": {

@@ -37,6 +37,14 @@ function statusFromBalance(balanceCents: Cents): { status: BettorBalanceStatus; 
   return { status: "even", statusLabel: "Al día" };
 }
 
+/** Debt is stored positive. The screen shows that amount in red, with a minus. */
+export function shownBettorBalanceCents(balanceCents: Cents): Cents {
+  if (balanceCents > 0) {
+    return -balanceCents;
+  }
+  return Math.abs(balanceCents);
+}
+
 export function listBettorAccounts(snapshot: LedgerSnapshot): BettorAccount[] {
   return listBettors(snapshot)
     .slice()

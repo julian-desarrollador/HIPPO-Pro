@@ -18,6 +18,7 @@ Si llegás sin contexto, leé en este orden:
 5. [docs/14-design-system.md](docs/14-design-system.md): colores, piezas de pantalla y reglas visuales.
 6. [docs/10-development.md](docs/10-development.md): comandos, deploy y errores conocidos.
 7. [docs/15-decisions.md](docs/15-decisions.md): decisiones que no se revierten sin pensarlo.
+8. [docs/21-plataforma.md](docs/21-plataforma.md): cómo seguir con más de una agencia. Es una conversación, no está construido.
 
 [AGENTS.md](AGENTS.md) resume las reglas para un agente que vaya a cambiar código.
 

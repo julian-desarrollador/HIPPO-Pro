@@ -17,8 +17,7 @@ export function ScreenFrame({
 }) {
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
-  const { persistence, viewMonth, setViewMonth } = useLedger();
-  const persistenceLabel = persistence === "agency" ? "Se guarda en la agencia" : "Se guarda en este navegador";
+  const { viewMonth, setViewMonth } = useLedger();
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" accessibilityLabel={title}>
@@ -34,9 +33,6 @@ export function ScreenFrame({
         }}>
         <View style={{ width: "100%", maxWidth: 1100 }}>
           <View className="flex-row flex-wrap items-center gap-2">
-            <View className="rounded-full border border-line bg-card px-3 py-1">
-              <Text className="text-[11px] font-medium text-muted">{persistenceLabel}</Text>
-            </View>
             <View className="flex-row items-center rounded-full border border-line bg-card">
               <Pressable
                 accessibilityRole="button"
@@ -45,7 +41,7 @@ export function ScreenFrame({
                 className="h-8 w-8 cursor-pointer items-center justify-center">
                 <Ionicons name="chevron-back" size={18} color={palette.accent} />
               </Pressable>
-              <Text className="min-w-[128px] text-center text-[13px] font-semibold text-navy">{monthTitle(viewMonth)}</Text>
+              <Text className="min-w-[128px] text-center text-[15px] font-semibold text-navy">{monthTitle(viewMonth)}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Mes siguiente"
@@ -69,7 +65,7 @@ export function Card({ children }: { children: ReactNode }) {
 export function SectionTitle({ title, trailing }: { title: string; trailing?: ReactNode }) {
   return (
     <View className="flex-row items-center gap-2">
-      <Text className="text-[13px] font-semibold uppercase text-muted" style={{ letterSpacing: 1 }}>
+      <Text className="text-[15px] font-semibold uppercase text-muted" style={{ letterSpacing: 1 }}>
         {title}
       </Text>
       <View className="h-px flex-1 bg-line" />

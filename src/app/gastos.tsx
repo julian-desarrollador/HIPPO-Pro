@@ -301,7 +301,7 @@ export default function GastosScreen() {
           return (
             <View key={category.id} className="gap-1">
               <View className="flex-row items-center justify-between gap-3">
-                <Text className="flex-1 text-[15px] font-semibold text-navy">{category.label}</Text>
+                <Text className="flex-1 text-[17px] font-semibold text-navy">{category.label}</Text>
                 <RowActions
                   onEdit={() => startCategoryEdit(category.id)}
                   onRemove={
@@ -314,7 +314,7 @@ export default function GastosScreen() {
                   }
                 />
               </View>
-              {inUse ? <Text className="text-[13px] text-muted">Tiene gastos. Quitá esos movimientos antes.</Text> : null}
+              {inUse ? <Text className="text-[15px] text-muted">Tiene gastos. Quitá esos movimientos antes.</Text> : null}
             </View>
           );
         })}

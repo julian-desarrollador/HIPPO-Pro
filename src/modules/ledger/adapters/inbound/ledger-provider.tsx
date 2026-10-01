@@ -54,6 +54,7 @@ import type { LedgerSnapshot } from "../../domain/types";
 
 type LedgerContextValue = {
   role: ViewerRole;
+  displayName: string;
   setRole: (role: ViewerRole) => void;
   persistence: "browser" | "agency";
   signOut: (() => void) | null;
@@ -112,12 +113,14 @@ export function LedgerProvider({
   children,
   repository: externalRepository,
   role: lockedRole,
+  displayName = "",
   persistence = "browser",
   signOut = null,
 }: {
   children: ReactNode;
   repository?: LedgerRepository;
   role?: ViewerRole;
+  displayName?: string;
   persistence?: "browser" | "agency";
   signOut?: (() => void) | null;
 }) {
@@ -158,6 +161,7 @@ export function LedgerProvider({
 
     return {
       role,
+      displayName,
       setRole: (next) => {
         if (!lockedRole) {
           setPreviewRole(next);
@@ -201,7 +205,7 @@ export function LedgerProvider({
       removeBettorPayment: (id) => publish(() => deleteBettorPayment(repository, id)),
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [chosenMonth, lockedRole, persistence, repository, role, signOut, version]);
+  }, [chosenMonth, displayName, lockedRole, persistence, repository, role, signOut, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }

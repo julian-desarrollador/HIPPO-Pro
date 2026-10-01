@@ -9,7 +9,7 @@ import {
   type TabListProps,
   type TabTriggerSlotProps,
 } from "expo-router/ui";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState } from "react";
 import { Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -20,6 +20,7 @@ import {
   wideLayout,
 } from "@/constants/layout";
 import { palette } from "@/constants/palette";
+import { OperatorsPanel } from "@/components/operators-panel";
 import { useLedger, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
@@ -135,8 +136,8 @@ export function TabButton({
           numberOfLines={1}
           className={
             focused
-              ? "text-[12px] font-semibold text-white"
-              : "text-[12px] font-medium text-chrome-muted"
+              ? "text-[14px] font-semibold text-white"
+              : "text-[14px] font-medium text-chrome-muted"
           }
         >
           {children}
@@ -168,8 +169,8 @@ export function TabButton({
       <Text
         className={
           focused
-            ? "text-[15px] font-medium text-white"
-            : "text-[15px] font-medium text-chrome-muted"
+            ? "text-[17px] font-medium text-white"
+            : "text-[17px] font-medium text-chrome-muted"
         }
       >
         {children}
@@ -180,7 +181,8 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, setRole, signOut, snapshot } = useLedger();
+  const { role, displayName, setRole, signOut, snapshot } = useLedger();
+  const [operatorsOpen, setOperatorsOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
@@ -232,7 +234,7 @@ export function CustomTabList(props: TabListProps) {
               <Brand />
             </View>
             <Text
-              className="px-5 pb-1 pt-3 text-[10px] font-semibold uppercase text-chrome-muted"
+              className="px-5 pb-1 pt-3 text-[12px] font-semibold uppercase text-chrome-muted"
               style={{ letterSpacing: 1.5 }}
             >
               Agencia
@@ -261,7 +263,7 @@ export function CustomTabList(props: TabListProps) {
           <View className="flex-row items-center justify-between gap-3">
             {wide ? (
               <Text
-                className="font-serif text-[22px] text-white"
+                className="font-serif text-[24px] text-white"
                 numberOfLines={1}
               >
                 {pageTitle}
@@ -270,7 +272,12 @@ export function CustomTabList(props: TabListProps) {
               <Brand compact />
             )}
             {signOut ? (
-              <AccountMenu role={role} onSignOut={signOut} />
+              <AccountMenu
+                role={role}
+                displayName={displayName}
+                onSignOut={signOut}
+                onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
+              />
             ) : (
               <RoleSwitch role={role} onChange={setRole} />
             )}
@@ -302,6 +309,7 @@ export function CustomTabList(props: TabListProps) {
           </View>
         )}
       </View>
+      <OperatorsPanel visible={operatorsOpen} onClose={() => setOperatorsOpen(false)} />
     </NavChromeContext.Provider>
   );
 }
@@ -329,12 +337,12 @@ function Brand({ compact = false }: { compact?: boolean }) {
         <Text
           className="text-white"
           numberOfLines={1}
-          style={{ fontFamily: "DMSans_700Bold", fontSize: compact ? 18 : 20, letterSpacing: -0.4 }}
+          style={{ fontFamily: "DMSans_700Bold", fontSize: compact ? 20 : 22, letterSpacing: -0.4 }}
         >
           Hippo
           <Text style={{ color: palette.brand }}>Pro</Text>
         </Text>
-        <Text className="text-[11px] text-chrome-muted" numberOfLines={1}>
+        <Text className="text-[13px] text-chrome-muted" numberOfLines={1}>
           Agencia Dolores
         </Text>
       </View>
@@ -344,24 +352,41 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 function AccountMenu({
   role,
+  displayName,
   onSignOut,
+  onOpenOperators,
 }: {
   role: ViewerRole;
+  displayName: string;
   onSignOut: () => void;
+  onOpenOperators: (() => void) | null;
 }) {
-  const label = role === "owner" ? "Dueño" : "Operador";
+  const roleLabel = role === "owner" ? "Dueño" : "Operador";
+  const label = displayName.trim() ? `${displayName.trim()} · ${roleLabel}` : roleLabel;
   return (
-    <View className="flex-row items-center gap-2">
-      <View className="rounded-md bg-chrome-active px-3 py-1.5">
-        <Text className="text-[13px] font-semibold text-white">{label}</Text>
+    <View className="min-w-0 flex-row items-center gap-2" style={{ flexShrink: 1 }}>
+      <View className="min-w-0 rounded-md bg-chrome-active px-3 py-1.5">
+        <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
+          {label}
+        </Text>
       </View>
+      {onOpenOperators ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Operadores"
+          onPress={onOpenOperators}
+          className="rounded-md px-2 py-1.5"
+        >
+          <Text className="text-[15px] font-semibold text-white">Operadores</Text>
+        </Pressable>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Salir"
         onPress={onSignOut}
         className="rounded-md px-2 py-1.5"
       >
-        <Text className="text-[13px] font-semibold text-white">Salir</Text>
+        <Text className="text-[15px] font-semibold text-white">Salir</Text>
       </Pressable>
     </View>
   );
@@ -412,8 +437,8 @@ function RoleOption({
       <Text
         className={
           selected
-            ? "text-[13px] font-semibold text-navy"
-            : "text-[13px] text-chrome-muted"
+            ? "text-[15px] font-semibold text-navy"
+            : "text-[15px] text-chrome-muted"
         }
       >
         {label}

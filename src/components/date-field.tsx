@@ -37,7 +37,7 @@ export function DateField({
         accessibilityHint="Abre el calendario"
         onPress={() => setOpen(true)}
         className="cursor-pointer flex-row items-center justify-between rounded-[10px] border border-line bg-card px-3 py-2.5">
-        <Text pointerEvents="none" className="text-[15px] text-ink">
+        <Text pointerEvents="none" className="text-[17px] text-ink">
           {formatIsoDate(value)}
         </Text>
         <View pointerEvents="none">
@@ -61,7 +61,7 @@ export function DateField({
                 className="h-10 w-10 cursor-pointer items-center justify-center">
                 <Ionicons name="chevron-back" size={22} color={palette.accent} />
               </Pressable>
-              <Text className="text-[15px] font-semibold text-navy">{monthTitle(visibleMonth)}</Text>
+              <Text className="text-[17px] font-semibold text-navy">{monthTitle(visibleMonth)}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Mes siguiente"
@@ -72,7 +72,7 @@ export function DateField({
             </View>
             <View className="mt-4 flex-row">
               {WEEKDAYS.map((label, index) => (
-                <Text key={index} className="flex-1 text-center text-[12px] font-semibold uppercase text-muted">
+                <Text key={index} className="flex-1 text-center text-[14px] font-semibold uppercase text-muted">
                   {label}
                 </Text>
               ))}
@@ -92,7 +92,7 @@ export function DateField({
                         className="h-10 flex-1 items-center justify-center">
                         <View className={`h-9 w-9 items-center justify-center rounded-full ${selected ? "bg-accent" : ""}`}>
                           <Text
-                            className={`text-[15px] ${
+                            className={`text-[17px] ${
                               selected ? "font-semibold text-white" : cell.inMonth ? "text-ink" : "text-muted"
                             }`}>
                             {cell.day}
@@ -109,7 +109,7 @@ export function DateField({
               accessibilityLabel="Cerrar"
               onPress={() => setOpen(false)}
               className="mt-4 cursor-pointer items-center py-2">
-              <Text className="text-[14px] font-semibold text-accent">Cerrar</Text>
+              <Text className="text-[16px] font-semibold text-accent">Cerrar</Text>
             </Pressable>
           </View>
         </View>

@@ -36,6 +36,15 @@ export function monthTitle(yearMonth: string): string {
   return `${MONTH_NAMES[month - 1]} ${year}`;
 }
 
+/** Year-month of an instant in the same local zone as the Fecha column. */
+export function localYearMonth(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function buildMonthGrid(yearMonth: string): CalendarCell[] {
   const [year, month] = yearMonth.split("-").map(Number);
   const first = new Date(Date.UTC(year, month - 1, 1));

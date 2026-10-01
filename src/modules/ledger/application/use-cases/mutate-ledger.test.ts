@@ -10,7 +10,7 @@ import { recordDay } from "./record-day";
 import { recordDeposit } from "./record-deposit";
 import { recordExpense } from "./record-expense";
 import { removeBettorPlay, removeDay, removeDeposit, removeExpense } from "./remove-entry";
-import { getBettorAccount } from "./summarize-bettors";
+import { getBettorAccount, shownBettorBalanceCents } from "./summarize-bettors";
 import { listSettledDays, summarizeMonth } from "./summarize-month";
 import { listExpenseCategories } from "../../domain/expense-categories";
 import { updateCommission } from "./update-commission";
@@ -615,6 +615,9 @@ describe("cuentas de apostadores", () => {
     recordBettorPlay(repository, { bettorId: bettor.id, date: "2026-08-16", amountCents: 10_000, payoutCents: 0 });
     assert.equal(getBettorAccount(repository.load(), bettor.id).balanceCents, 10_000);
     assert.equal(getBettorAccount(repository.load(), bettor.id).statusLabel, "Debe");
+    assert.equal(shownBettorBalanceCents(10_000), -10_000);
+    assert.equal(shownBettorBalanceCents(-3_000), 3_000);
+    assert.equal(shownBettorBalanceCents(0), 0);
 
     recordBettorPlay(repository, { bettorId: bettor.id, date: "2026-08-17", amountCents: 20_000, payoutCents: 8_000 });
     assert.equal(getBettorAccount(repository.load(), bettor.id).balanceCents, 22_000);

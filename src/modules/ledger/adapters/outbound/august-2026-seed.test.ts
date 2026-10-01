@@ -49,11 +49,15 @@ describe("agosto 2026", () => {
     assert.equal(summary.owedCents, 821_662_440);
   });
 
-  it("arma el texto del mes con la facturación y el saldo", () => {
+  it("arma el texto del mes con la ganancia y el saldo", () => {
     const report = buildMonthReport(summary);
+    assert.match(report, /Venta neta/);
+    assert.match(report, /Ganancia de la agencia/);
     assert.match(report, /8\.042\.066,25/);
     assert.match(report, /2\.042\.236,25/);
     assert.match(report, /San Isidro/);
+    assert.equal(report.includes("Salidas"), false);
+    assert.equal(report.includes("Facturación"), false);
   });
 });
 

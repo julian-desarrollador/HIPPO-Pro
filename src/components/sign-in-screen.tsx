@@ -66,7 +66,7 @@ export function SignInScreen({
           accessibilityLabel="HippoPro"
           style={{ width: 240, height: 180, alignSelf: "center" }}
         />
-        <Text className="text-[15px] text-ink">Entrá con el correo de la agencia.</Text>
+        <Text className="text-[17px] text-ink">Entrá con el correo de la agencia.</Text>
         <Field label="Correo">
           <TextField
             value={email}
@@ -87,11 +87,11 @@ export function SignInScreen({
             accessibilityLabel="Contraseña"
           />
         </Field>
-        {error ? <Text className="text-[13px] text-negative">{error}</Text> : null}
-        {message ? <Text className="text-[13px] text-navy">{message}</Text> : null}
+        {error ? <Text className="text-[15px] text-negative">{error}</Text> : null}
+        {message ? <Text className="text-[15px] text-navy">{message}</Text> : null}
         <PrimaryButton label={busy ? "Entrando…" : "Entrar"} onPress={() => void submit()} />
         <Pressable accessibilityRole="button" onPress={() => void resetPassword()} className="items-center py-1">
-          <Text className="text-[14px] font-semibold text-accent">Olvidé mi contraseña</Text>
+          <Text className="text-[16px] font-semibold text-accent">Olvidé mi contraseña</Text>
         </Pressable>
       </View>
     </View>
@@ -123,7 +123,7 @@ export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) =
   return (
     <View className="flex-1 items-center justify-center bg-canvas px-5">
       <View className="w-full max-w-[400px] gap-4 rounded-[14px] border border-line bg-card p-5">
-        <Text className="font-serif text-[28px] text-navy">Nueva contraseña</Text>
+        <Text className="font-serif text-[30px] text-navy">Nueva contraseña</Text>
         <Field label="Contraseña">
           <TextField
             value={password}
@@ -133,7 +133,7 @@ export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) =
             accessibilityLabel="Nueva contraseña"
           />
         </Field>
-        {error ? <Text className="text-[13px] text-negative">{error}</Text> : null}
+        {error ? <Text className="text-[15px] text-negative">{error}</Text> : null}
         <PrimaryButton label={busy ? "Guardando…" : "Guardar"} onPress={() => void submit()} />
       </View>
     </View>
@@ -144,8 +144,8 @@ export function SessionNotice({ title, detail, actionLabel, onAction }: { title:
   return (
     <View className="flex-1 items-center justify-center bg-canvas px-5">
       <View className="w-full max-w-[400px] gap-4 rounded-[14px] border border-line bg-card p-5">
-        <Text className="font-sans text-[22px] font-semibold text-navy">{title}</Text>
-        {detail ? <Text className="text-[15px] leading-6 text-ink">{detail}</Text> : null}
+        <Text className="font-sans text-[24px] font-semibold text-navy">{title}</Text>
+        {detail ? <Text className="text-[17px] leading-6 text-ink">{detail}</Text> : null}
         {actionLabel && onAction ? <PrimaryButton label={actionLabel} onPress={onAction} /> : null}
       </View>
     </View>

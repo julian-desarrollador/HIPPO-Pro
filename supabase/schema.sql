@@ -6,7 +6,9 @@
 create table public.profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   agency_id text not null,
-  role text not null check (role in ('owner', 'operator'))
+  role text not null check (role in ('owner', 'operator')),
+  display_name text not null default '',
+  email text not null default ''
 );
 
 create table public.ledgers (
@@ -42,11 +44,52 @@ revoke all on public.ledgers from anon;
 grant select on public.profiles to authenticated;
 grant select, insert, update on public.ledgers to authenticated;
 
+create or replace function public.caller_is_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where user_id = auth.uid()
+      and role = 'owner'
+  );
+$$;
+
+create or replace function public.caller_agency_id()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select agency_id
+  from public.profiles
+  where user_id = auth.uid();
+$$;
+
+revoke all on function public.caller_is_owner() from public, anon, authenticated;
+revoke all on function public.caller_agency_id() from public, anon, authenticated;
+grant execute on function public.caller_is_owner() to authenticated;
+grant execute on function public.caller_agency_id() to authenticated;
+
 create policy profiles_select_own
   on public.profiles
   for select
   to authenticated
   using (user_id = auth.uid());
+
+create policy profiles_select_agency
+  on public.profiles
+  for select
+  to authenticated
+  using (
+    public.caller_is_owner()
+    and agency_id = public.caller_agency_id()
+  );
 
 create policy ledgers_select_own_agency
   on public.ledgers
@@ -75,8 +118,9 @@ create policy ledgers_update_own_agency
     agency_id = (select profiles.agency_id from public.profiles where profiles.user_id = auth.uid())
   );
 
--- After creating a user in Authentication (auto-confirm), enable them:
--- insert into public.profiles (user_id, agency_id, role)
--- values ('<user uuid>', 'agencia-dolores', 'owner');
--- role is 'owner' or 'operator'. There is no insert policy on profiles:
--- this statement is run from the SQL editor, not from the app.
+-- After creating an owner in Authentication (auto-confirm), enable them:
+-- insert into public.profiles (user_id, agency_id, role, display_name)
+-- values ('<user uuid>', 'agencia-dolores', 'owner', '<name>');
+-- There is no insert policy on profiles. Owners are inserted from the SQL
+-- editor. Operators are invited by an owner through manage-operator, which
+-- uses the service role and never ships that key to the app.

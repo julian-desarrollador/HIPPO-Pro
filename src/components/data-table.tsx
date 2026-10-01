@@ -37,7 +37,7 @@ export function DataTable<Row extends { id: string }>({
   const wide = useWindowDimensions().width >= wideLayout;
 
   if (rows.length === 0) {
-    return <Text className="text-[13px] text-muted">{empty}</Text>;
+    return <Text className="text-[15px] text-muted">{empty}</Text>;
   }
 
   if (!wide) {
@@ -54,7 +54,7 @@ export function DataTable<Row extends { id: string }>({
                 </View>
               ) : (
                 <View key={column.key} className="flex-row items-center justify-between gap-3 py-0.5">
-                  <Text className="shrink text-[13px] font-semibold uppercase text-muted" numberOfLines={1}>
+                  <Text className="shrink text-[15px] font-semibold uppercase text-muted" numberOfLines={1}>
                     {column.header}
                   </Text>
                   <View className="shrink-0">
@@ -69,7 +69,7 @@ export function DataTable<Row extends { id: string }>({
           <View className="rounded-[14px] border border-line bg-card px-4 py-3">
             {visible.map((column) => (
               <View key={column.key} className="flex-row items-center justify-between gap-3 py-0.5">
-                <Text className="shrink text-[13px] font-semibold uppercase text-muted" numberOfLines={1}>
+                <Text className="shrink text-[15px] font-semibold uppercase text-muted" numberOfLines={1}>
                   {column.header}
                 </Text>
                 <View className="shrink-0">
@@ -92,7 +92,7 @@ export function DataTable<Row extends { id: string }>({
           {columns.map((column) => (
             <Text
               key={column.key}
-              className={`flex-1 px-1 text-[13px] font-semibold uppercase text-muted ${column.align === "right" ? "text-right" : "text-left"}`}>
+              className={`flex-1 px-1 text-[15px] font-semibold uppercase text-muted ${column.align === "right" ? "text-right" : "text-left"}`}>
               {column.header}
             </Text>
           ))}
@@ -128,7 +128,7 @@ function Cell<Row>({ column, row }: { column: TableColumn<Row>; row: Row }) {
     return <MoneyText cents={column.cents(row)} fill />;
   }
   return (
-    <Text className={`text-[15px] text-ink ${column.align === "right" ? "text-right" : "text-left"}`}>
+    <Text className={`text-[17px] text-ink ${column.align === "right" ? "text-right" : "text-left"}`}>
       {column.render ? column.render(row) : ""}
     </Text>
   );
@@ -141,7 +141,7 @@ function FooterCell<Row>({ column, footer }: { column: TableColumn<Row>; footer:
     return <MoneyText cents={cell.cents} tone="navy" fill />;
   }
   return (
-    <Text className={`text-[15px] font-semibold text-navy tabular-nums ${align}`}>{cell?.text ?? ""}</Text>
+    <Text className={`text-[17px] font-semibold text-navy tabular-nums ${align}`}>{cell?.text ?? ""}</Text>
   );
 }
 
@@ -150,7 +150,7 @@ export function KeyValueList({ rows }: { rows: { label: string; value: ReactNode
     <View className="gap-2">
       {rows.map((row) => (
         <View key={row.label} className="flex-row items-center justify-between gap-3">
-          <Text className="text-[13px] text-muted">{row.label}</Text>
+          <Text className="text-[15px] text-muted">{row.label}</Text>
           {row.value}
         </View>
       ))}

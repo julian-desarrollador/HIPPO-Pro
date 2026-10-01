@@ -12,6 +12,7 @@ export const palette = {
   chromeActive: "#2F6D9D",
   chromeMuted: "#CCDEEA",
   negative: "#B42318",
+  positive: "#1B7A32",
   amberSoft: "#FEF6E7",
   amberInk: "#8A5A00",
   placeholder: "#546F83",

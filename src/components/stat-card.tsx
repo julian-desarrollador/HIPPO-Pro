@@ -12,16 +12,16 @@ export function MoneyText({
 }: {
   cents: number;
   size?: "sm" | "md" | "lg" | "xl";
-  tone?: "auto" | "ink" | "navy" | "white";
+  tone?: "auto" | "ink" | "navy" | "white" | "positive";
   fill?: boolean;
   align?: "left" | "right" | "center";
   serif?: boolean;
 }) {
   const negative = cents < 0;
   const color =
-    tone === "white" ? "text-white" : tone === "navy" ? "text-navy" : negative ? "text-negative" : "text-ink";
+    tone === "white" ? "text-white" : tone === "navy" ? "text-navy" : tone === "positive" ? "text-positive" : negative ? "text-negative" : "text-ink";
   const scale =
-    size === "xl" ? "text-4xl" : size === "lg" ? "text-[32px]" : size === "md" ? "text-[24px]" : "text-[15px]";
+    size === "xl" ? "text-4xl" : size === "lg" ? "text-[32px]" : size === "md" ? "text-[26px]" : "text-[17px]";
   const alignment = align === "left" ? "text-left" : align === "center" ? "text-center" : "text-right";
 
   return (
@@ -37,7 +37,7 @@ export function StatCard({ label, cents, emphasis }: { label: string; cents: num
   return (
     <View
       className={`min-w-[160px] flex-1 items-center rounded-[12px] border bg-card p-4 ${emphasis ? "border-accent" : "border-line"}`}>
-      <Text className="text-[12px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
+      <Text className="text-[14px] uppercase text-muted" style={{ letterSpacing: 0.5 }}>
         {label}
       </Text>
       <View className="mt-1 w-full">

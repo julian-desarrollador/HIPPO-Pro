@@ -26,10 +26,10 @@ export function buildMonthReport(summary: MonthSummary): string {
   const label = monthLabel(summary.month);
   const lines = [
     `HippoPro · Agencia Dolores · ${label}`,
-    `Facturación: ${formatCents(summary.billingCents)}`,
+    `Venta neta: ${formatCents(summary.netCents)}`,
+    `Ganancia de la agencia: ${formatCents(summary.billingCents)}`,
     `Gastos de la agencia: ${formatCents(summary.agencyExpenseCents)}`,
-    `Adelantos y retiros: ${formatCents(summary.partnerWithdrawalCents)}`,
-    `Salidas: ${formatCents(summary.outflowCents)}`,
+    `Retiros: ${formatCents(summary.partnerWithdrawalCents)}`,
     `Saldo del mes: ${formatCents(summary.balanceCents)}`,
     "",
     "A pagar por hipódromo:",

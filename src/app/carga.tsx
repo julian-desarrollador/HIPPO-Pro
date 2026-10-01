@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { Linking, Text, useWindowDimensions, View } from "react-native";
 
 import { monthTitle } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
@@ -19,7 +19,9 @@ import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
+  buildDayReport,
   currentCommissionBasisPoints,
+  emptyDayReportMessage,
   formatAmountInput,
   formatSignedPercent,
   ledgerErrorMessage,
@@ -55,6 +57,7 @@ export default function CargaScreen() {
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [shareNotice, setShareNotice] = useState("");
 
   const soldCents = readAmount(sold, true);
   const cancelledCents = readAmount(cancelled, true);
@@ -80,6 +83,20 @@ export default function CargaScreen() {
           depositAdjustmentBasisPoints: previewAdjustment,
         })
       : null;
+
+  useEffect(() => {
+    setShareNotice("");
+  }, [date]);
+
+  function shareDay() {
+    const report = buildDayReport(days, date);
+    if (!report) {
+      setShareNotice(emptyDayReportMessage);
+      return;
+    }
+    setShareNotice("");
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(report)}`);
+  }
 
   function clearAmounts() {
     setSold("");
@@ -183,8 +200,8 @@ export default function CargaScreen() {
         </View>
         <View className={wide ? "w-96" : ""}>
           <Card>
-            <Text className="font-sans text-[22px] font-semibold text-navy">Cálculo del día</Text>
-            <Text className="mt-1 text-[13px] text-muted">
+            <Text className="font-sans text-[24px] font-semibold text-navy">Cálculo del día</Text>
+            <Text className="mt-1 text-[15px] text-muted">
               {selected.name}
             </Text>
             {preview && soldCents !== null && cancelledCents !== null && paidCents !== null ? (
@@ -192,9 +209,13 @@ export default function CargaScreen() {
                 <DayBreakdown soldCents={soldCents} cancelledCents={cancelledCents} paidCents={paidCents} settlement={preview} />
               </View>
             ) : (
-              <Text className="mt-3 text-[13px] text-negative">Revisá los importes. Usá 2.908.511,00.</Text>
+              <Text className="mt-3 text-[15px] text-negative">Revisá los importes. Usá 2.908.511,00.</Text>
             )}
           </Card>
+          <View className="mt-4">
+            <PrimaryButton label="Compartir por WhatsApp" onPress={shareDay} />
+            {shareNotice ? <Text className="mt-2 text-[15px] text-negative">{shareNotice}</Text> : null}
+          </View>
         </View>
       </View>
 
@@ -269,7 +290,7 @@ function BreakdownLine({
 }) {
   return (
     <View className="flex-row items-center justify-between gap-3 py-0.5">
-      <Text className="shrink text-[13px] text-muted">{label}</Text>
+      <Text className="shrink text-[15px] text-muted">{label}</Text>
       <MoneyText cents={cents} size={size} tone={tone} />
     </View>
   );
