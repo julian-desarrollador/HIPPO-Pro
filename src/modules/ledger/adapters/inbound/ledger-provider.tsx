@@ -111,6 +111,11 @@ function createAppLedgerRepository(): LedgerRepository {
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
 
+/** Month shown on entry: the device's local month, not the seed month. */
+function currentYearMonth(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function LedgerProvider({
   children,
   repository: externalRepository,
@@ -137,7 +142,7 @@ export function LedgerProvider({
   const repository = externalRepository ?? fallback.current!;
   const [version, setVersion] = useState(0);
   const [previewRole, setPreviewRole] = useState<ViewerRole>("owner");
-  const [chosenMonth, setChosenMonth] = useState<string | null>(null);
+  const [chosenMonth, setChosenMonth] = useState<string | null>(currentYearMonth);
   const role = lockedRole ?? previewRole;
 
   const value = useMemo<LedgerContextValue>(() => {
