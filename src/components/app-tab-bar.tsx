@@ -181,7 +181,7 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, setRole, signOut, snapshot } = useLedger();
+  const { role, displayName, userId, canInviteOwners, setRole, signOut, snapshot } = useLedger();
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
   const insets = useSafeAreaInsets();
@@ -309,7 +309,12 @@ export function CustomTabList(props: TabListProps) {
           </View>
         )}
       </View>
-      <OperatorsPanel visible={operatorsOpen} onClose={() => setOperatorsOpen(false)} />
+      <OperatorsPanel
+        visible={operatorsOpen}
+        onClose={() => setOperatorsOpen(false)}
+        canInviteOwners={canInviteOwners}
+        userId={userId}
+      />
     </NavChromeContext.Provider>
   );
 }

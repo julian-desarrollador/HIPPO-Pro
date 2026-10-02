@@ -1,4 +1,5 @@
-// Invites or removes an operator. Runs with the service role inside Supabase.
+// Invites or removes an operator, and an owner when the caller may invite owners.
+// Runs with the service role inside Supabase.
 // The app calls it with the owner's session and the anon key only.
 // Keep the Spanish messages aligned with src/modules/identity/operator-invite.ts.
 
@@ -86,13 +87,14 @@ Deno.serve(async (req: Request) => {
 
   const { data: caller, error: callerError } = await admin
     .from("profiles")
-    .select("agency_id, role")
+    .select("agency_id, role, can_invite_owners")
     .eq("user_id", callerId)
     .maybeSingle();
 
   if (callerError || !caller || caller.role !== "owner" || typeof caller.agency_id !== "string") {
     return json(403, { message: "Solo un dueño puede hacer esto." });
   }
+  const callerCanInviteOwners = caller.can_invite_owners === true;
 
   let body: unknown;
   try {
@@ -113,9 +115,14 @@ Deno.serve(async (req: Request) => {
     if (problem) {
       return json(400, { message: problem });
     }
+    const role = "role" in body && body.role === "owner" ? "owner" : "operator";
+    if (role === "owner" && !callerCanInviteOwners) {
+      return json(403, { message: "Solo un dueño habilitado puede invitar dueños." });
+    }
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = displayName.trim();
+    const grantInvite = role === "owner" && callerCanInviteOwners && "canInviteOwners" in body && body.canInviteOwners === true;
     const redirectTo = allowedRedirect("redirectTo" in body ? body.redirectTo : null);
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(cleanEmail, {
       redirectTo,
@@ -132,14 +139,15 @@ Deno.serve(async (req: Request) => {
     const { error: insertError } = await admin.from("profiles").insert({
       user_id: invited.user.id,
       agency_id: caller.agency_id,
-      role: "operator",
+      role,
       display_name: cleanName,
       email: cleanEmail,
+      can_invite_owners: grantInvite,
     });
 
     if (insertError) {
       await admin.auth.admin.deleteUser(invited.user.id);
-      return json(400, { message: "No se pudo crear el operador." });
+      return json(400, { message: role === "owner" ? "No se pudo crear el dueño." : "No se pudo crear el operador." });
     }
 
     return json(200, { ok: true });
@@ -151,20 +159,39 @@ Deno.serve(async (req: Request) => {
       return json(400, { message: "No se pudo quitar." });
     }
     if (userId === callerId) {
-      return json(403, { message: "No se puede quitar a un dueño." });
+      return json(403, { message: "No te podés quitar." });
     }
 
     const { data: target, error: targetError } = await admin
       .from("profiles")
-      .select("agency_id, role")
+      .select("agency_id, role, can_invite_owners")
       .eq("user_id", userId)
       .maybeSingle();
 
     if (targetError || !target || target.agency_id !== caller.agency_id) {
-      return json(403, { message: "Ese operador no está en la agencia." });
+      return json(403, { message: "Esa persona no está en la agencia." });
     }
-    if (target.role !== "operator") {
-      return json(403, { message: "No se puede quitar a un dueño." });
+    if (target.role === "owner") {
+      if (!callerCanInviteOwners) {
+        return json(403, { message: "No se puede quitar a un dueño." });
+      }
+      const { data: owners, error: ownersError } = await admin
+        .from("profiles")
+        .select("user_id, can_invite_owners")
+        .eq("agency_id", caller.agency_id)
+        .eq("role", "owner");
+      if (ownersError || !owners) {
+        return json(400, { message: "No se pudo quitar." });
+      }
+      if (owners.length <= 1) {
+        return json(403, { message: "Tiene que quedar un dueño." });
+      }
+      const flagged = owners.filter((owner) => owner.can_invite_owners === true);
+      if (target.can_invite_owners === true && flagged.length <= 1) {
+        return json(403, { message: "Tiene que quedar alguien que pueda crear dueños." });
+      }
+    } else if (target.role !== "operator") {
+      return json(403, { message: "No se pudo quitar." });
     }
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);

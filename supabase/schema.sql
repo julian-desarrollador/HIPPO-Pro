@@ -8,7 +8,8 @@ create table public.profiles (
   agency_id text not null,
   role text not null check (role in ('owner', 'operator')),
   display_name text not null default '',
-  email text not null default ''
+  email text not null default '',
+  can_invite_owners boolean not null default false
 );
 
 create table public.ledgers (
@@ -118,9 +119,10 @@ create policy ledgers_update_own_agency
     agency_id = (select profiles.agency_id from public.profiles where profiles.user_id = auth.uid())
   );
 
--- After creating an owner in Authentication (auto-confirm), enable them:
--- insert into public.profiles (user_id, agency_id, role, display_name)
--- values ('<user uuid>', 'agencia-dolores', 'owner', '<name>');
--- There is no insert policy on profiles. Owners are inserted from the SQL
--- editor. Operators are invited by an owner through manage-operator, which
--- uses the service role and never ships that key to the app.
+-- After creating an owner in Authentication (auto-confirm), enable them.
+-- can_invite_owners lets that owner invite other owners from the app.
+-- insert into public.profiles (user_id, agency_id, role, display_name, can_invite_owners)
+-- values ('<user uuid>', 'agencia-dolores', 'owner', '<name>', true);
+-- There is no insert policy on profiles. The first owners are inserted from
+-- the SQL editor. Later owners and operators are invited through
+-- manage-operator, which uses the service role and never ships that key to the app.

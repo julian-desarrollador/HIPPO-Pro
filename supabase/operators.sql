@@ -9,6 +9,9 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists email text not null default '';
 
+alter table public.profiles
+  add column if not exists can_invite_owners boolean not null default false;
+
 create or replace function public.caller_is_owner()
 returns boolean
 language sql

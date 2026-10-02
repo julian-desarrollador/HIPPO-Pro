@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { inviteOperatorProblem } from "./operator-invite";
+import { inviteMemberProblem, type InviteRole } from "./operator-invite";
 
 export type AgencyOperator = {
   userId: string;
@@ -9,9 +9,14 @@ export type AgencyOperator = {
   email: string;
 };
 
+export type AgencyOwner = AgencyOperator & {
+  canInviteOwners: boolean;
+};
+
 type OperatorAdmin = {
   list: () => Promise<AgencyOperator[]>;
-  invite: (displayName: string, email: string) => Promise<string | null>;
+  listOwners: () => Promise<AgencyOwner[]>;
+  invite: (displayName: string, email: string, role?: InviteRole, grantInvite?: boolean) => Promise<string | null>;
   remove: (userId: string) => Promise<string | null>;
 };
 
@@ -19,11 +24,12 @@ const OperatorAdminContext = createContext<OperatorAdmin | null>(null);
 
 const connectionProblem = "No se pudo completar. Revisá la conexión.";
 
-function isOperatorRow(value: unknown): value is {
+function isPersonRow(value: unknown): value is {
   user_id: string;
   display_name: string;
   email: string;
   role: string;
+  can_invite_owners?: boolean;
 } {
   if (!value || typeof value !== "object") {
     return false;
@@ -33,7 +39,7 @@ function isOperatorRow(value: unknown): value is {
     typeof row.user_id === "string" &&
     typeof row.display_name === "string" &&
     typeof row.email === "string" &&
-    row.role === "operator"
+    (row.role === "operator" || row.role === "owner")
   );
 }
 
@@ -71,9 +77,11 @@ async function callFunction(
 
 export function OperatorAdminProvider({
   client,
+  canInviteOwners,
   children,
 }: {
   client: SupabaseClient;
+  canInviteOwners: boolean;
   children: ReactNode;
 }) {
   const value = useMemo<OperatorAdmin>(
@@ -87,14 +95,30 @@ export function OperatorAdminProvider({
         if (error || !Array.isArray(data)) {
           throw new Error("operators");
         }
-        return data.filter(isOperatorRow).map((row) => ({
+        return data.filter(isPersonRow).filter((row) => row.role === "operator").map((row) => ({
           userId: row.user_id,
           displayName: row.display_name,
           email: row.email,
         }));
       },
-      invite(displayName, email) {
-        const problem = inviteOperatorProblem(displayName, email);
+      async listOwners() {
+        const { data, error } = await client
+          .from("profiles")
+          .select("user_id, display_name, email, role, can_invite_owners")
+          .eq("role", "owner")
+          .order("display_name");
+        if (error || !Array.isArray(data)) {
+          throw new Error("owners");
+        }
+        return data.filter(isPersonRow).filter((row) => row.role === "owner").map((row) => ({
+          userId: row.user_id,
+          displayName: row.display_name,
+          email: row.email,
+          canInviteOwners: row.can_invite_owners === true,
+        }));
+      },
+      invite(displayName, email, role = "operator", grantInvite = false) {
+        const problem = inviteMemberProblem(displayName, email, role, canInviteOwners);
         if (problem) {
           return Promise.resolve(problem);
         }
@@ -103,6 +127,8 @@ export function OperatorAdminProvider({
           action: "invite",
           displayName: displayName.trim(),
           email: email.trim(),
+          role,
+          canInviteOwners: role === "owner" && grantInvite,
           redirectTo,
         });
       },
@@ -110,7 +136,7 @@ export function OperatorAdminProvider({
         return callFunction(client, { action: "remove", userId });
       },
     }),
-    [client],
+    [canInviteOwners, client],
   );
 
   return <OperatorAdminContext.Provider value={value}>{children}</OperatorAdminContext.Provider>;

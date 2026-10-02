@@ -16,7 +16,14 @@ type Phase =
   | { status: "recovery" }
   | { status: "unassigned" }
   | { status: "error" }
-  | { status: "ready"; role: ViewerRole; displayName: string; repository: Awaited<ReturnType<typeof openAgencyLedger>> };
+  | {
+      status: "ready";
+      role: ViewerRole;
+      displayName: string;
+      userId: string;
+      canInviteOwners: boolean;
+      repository: Awaited<ReturnType<typeof openAgencyLedger>>;
+    };
 
 function isViewerRole(value: unknown): value is ViewerRole {
   return value === "owner" || value === "operator";
@@ -65,8 +72,15 @@ function createAgencyClient(config: SupabaseConfig): SupabaseClient {
   });
 }
 
-async function loadProfile(client: SupabaseClient, userId: string): Promise<{ agencyId: string; role: ViewerRole; displayName: string } | null> {
-  const { data, error } = await client.from("profiles").select("agency_id, role, display_name").eq("user_id", userId).maybeSingle();
+async function loadProfile(
+  client: SupabaseClient,
+  userId: string,
+): Promise<{ agencyId: string; role: ViewerRole; displayName: string; canInviteOwners: boolean } | null> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("agency_id, role, display_name, can_invite_owners")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (error || !data || typeof data.agency_id !== "string" || !isViewerRole(data.role)) {
     return null;
   }
@@ -74,6 +88,7 @@ async function loadProfile(client: SupabaseClient, userId: string): Promise<{ ag
     agencyId: data.agency_id,
     role: data.role,
     displayName: typeof data.display_name === "string" ? data.display_name : "",
+    canInviteOwners: data.can_invite_owners === true,
   };
 }
 
@@ -180,7 +195,14 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       if (id !== request.current) {
         return;
       }
-      setPhase({ status: "ready", role: profile.role, displayName: profile.displayName, repository });
+      setPhase({
+        status: "ready",
+        role: profile.role,
+        displayName: profile.displayName,
+        userId: session.user.id,
+        canInviteOwners: profile.canInviteOwners,
+        repository,
+      });
     } catch {
       if (id !== request.current) {
         return;
@@ -288,10 +310,14 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       repository={phase.repository}
       role={phase.role}
       displayName={phase.displayName}
+      userId={phase.userId}
+      canInviteOwners={phase.canInviteOwners}
       persistence="agency"
       signOut={signOut}
     >
-      <OperatorAdminProvider client={client}>{children}</OperatorAdminProvider>
+      <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
+        {children}
+      </OperatorAdminProvider>
     </LedgerProvider>
   );
 }
