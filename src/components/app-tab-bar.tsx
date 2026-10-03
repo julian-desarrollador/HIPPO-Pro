@@ -9,18 +9,22 @@ import {
   type TabListProps,
   type TabTriggerSlotProps,
 } from "expo-router/ui";
-import { createContext, useContext, useState } from "react";
-import { Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { Animated, Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   desktopTopbarHeight,
   mobileBarHeight,
+  sidebarRailWidth,
   sidebarWidth,
   wideLayout,
 } from "@/constants/layout";
 import { palette } from "@/constants/palette";
+import { AgenciesPanel } from "@/components/agencies-panel";
+import { Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
+import { SidebarContext } from "@/components/sidebar-menu";
 import { useLedger, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
@@ -71,8 +75,30 @@ const pinnedToViewport = (
 
 export default function AppTabs() {
   const { canViewBalances } = useLedger();
+  const [collapsed, setCollapsed] = useState(false);
+  const [railOnly, setRailOnly] = useState(false);
+  const width = useRef(new Animated.Value(sidebarWidth)).current;
+  const toggle = useCallback(() => {
+    setCollapsed((current) => {
+      const next = !current;
+      if (!next) {
+        setRailOnly(false);
+      }
+      Animated.timing(width, {
+        toValue: next ? sidebarRailWidth : sidebarWidth,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished && next) {
+          setRailOnly(true);
+        }
+      });
+      return next;
+    });
+  }, [width]);
 
   return (
+    <SidebarContext.Provider value={{ collapsed, railOnly, toggle, width }}>
     <Tabs>
       <TabSlot style={{ height: "100%" }} />
       <TabList asChild>
@@ -103,6 +129,7 @@ export default function AppTabs() {
         </CustomTabList>
       </TabList>
     </Tabs>
+    </SidebarContext.Provider>
   );
 }
 
@@ -113,6 +140,8 @@ export function TabButton({
   ...props
 }: TabTriggerSlotProps & { icon: TabIcon }) {
   const variant = useContext(NavChromeContext);
+  const { collapsed } = useContext(SidebarContext);
+  const iconOnly = variant === "sidebar" && collapsed;
   const pathname = usePathname();
   const focused =
     icon === "cuentas"
@@ -146,44 +175,55 @@ export function TabButton({
     );
   }
 
+  const label = typeof children === "string" ? children : undefined;
+
   return (
     <Pressable
       {...props}
       accessibilityRole="link"
-      className="w-full flex-row items-center gap-2.5 py-3 pr-5"
+      accessibilityLabel={label}
+      className={
+        iconOnly
+          ? "w-full items-center justify-center py-3"
+          : "w-full flex-row items-center gap-2.5 py-3 pr-5"
+      }
       style={({ pressed }) => [
         {
           borderLeftWidth: 3,
           borderLeftColor: focused ? palette.celeste : "transparent",
           backgroundColor: focused ? palette.chromeActive : "transparent",
-          paddingLeft: 17,
+          paddingLeft: iconOnly ? 0 : 17,
         },
         pressed ? { opacity: 0.7 } : undefined,
       ]}
     >
       <Ionicons
         name={TAB_ICONS[icon]}
-        size={20}
+        size={iconOnly ? 22 : 20}
         color={focused ? palette.celeste : palette.chromeMuted}
       />
-      <Text
-        className={
-          focused
-            ? "text-[17px] font-medium text-white"
-            : "text-[17px] font-medium text-chrome-muted"
-        }
-      >
-        {children}
-      </Text>
+      {iconOnly ? null : (
+        <Text
+          className={
+            focused
+              ? "text-[17px] font-medium text-white"
+              : "text-[17px] font-medium text-chrome-muted"
+          }
+        >
+          {children}
+        </Text>
+      )}
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, userId, canInviteOwners, setRole, signOut, snapshot } = useLedger();
+  const { role, displayName, agencyName, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot } = useLedger();
   const [operatorsOpen, setOperatorsOpen] = useState(false);
+  const [agenciesOpen, setAgenciesOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
+  const { collapsed, railOnly, toggle, width } = useContext(SidebarContext);
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pageTitle =
@@ -210,13 +250,14 @@ export function CustomTabList(props: TabListProps) {
         ]}
       >
         {wide ? (
-          <View
+          <Animated.View
             style={{
               position: "absolute",
               top: 0,
               left: 0,
               bottom: 0,
-              width: sidebarWidth,
+              width,
+              overflow: "hidden",
               backgroundColor: palette.navy,
               borderRightWidth: 1,
               borderRightColor: palette.chromeActive,
@@ -225,30 +266,44 @@ export function CustomTabList(props: TabListProps) {
           >
             <View
               style={{
-                paddingHorizontal: 20,
-                paddingVertical: 24,
+                flexDirection: "row",
+                alignItems: "center",
+                height: desktopTopbarHeight,
+                justifyContent: railOnly ? "center" : "space-between",
+                paddingHorizontal: railOnly ? 0 : 16,
+                gap: 8,
                 borderBottomWidth: 1,
                 borderBottomColor: palette.chromeActive,
               }}
             >
-              <Brand />
+              {railOnly ? null : (
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Brand />
+                </View>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={collapsed ? "Abrir menú" : "Cerrar menú"}
+                onPress={toggle}
+                className="h-9 w-9 cursor-pointer items-center justify-center">
+                <Ionicons
+                  name={collapsed ? "chevron-forward" : "chevron-back"}
+                  size={22}
+                  color="white"
+                />
+              </Pressable>
             </View>
-            <Text
-              className="px-5 pb-1 pt-3 text-[12px] font-semibold uppercase text-chrome-muted"
-              style={{ letterSpacing: 1.5 }}
-            >
-              Agencia
-            </Text>
+            <AgencyBlock name={agencyName} railOnly={railOnly} />
             {children}
-          </View>
+          </Animated.View>
         ) : null}
 
-        <View
+        <Animated.View
           style={[
             wide ? { position: "absolute" } : pinnedToViewport,
             {
               top: 0,
-              left: wide ? sidebarWidth : 0,
+              left: wide ? width : 0,
               right: 0,
               height: wide ? desktopTopbarHeight : mobileBarHeight,
               backgroundColor: palette.navy,
@@ -262,27 +317,26 @@ export function CustomTabList(props: TabListProps) {
         >
           <View className="flex-row items-center justify-between gap-3">
             {wide ? (
-              <Text
-                className="font-serif text-[24px] text-white"
-                numberOfLines={1}
-              >
+              <Text className="min-w-0 flex-1 font-serif text-[24px] text-white" numberOfLines={1}>
                 {pageTitle}
               </Text>
             ) : (
-              <Brand compact />
+              <Brand compact agencyName={agencyName} />
             )}
             {signOut ? (
               <AccountMenu
                 role={role}
                 displayName={displayName}
+                compact={!wide}
                 onSignOut={signOut}
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
+                onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
               />
             ) : (
               <RoleSwitch role={role} onChange={setRole} />
             )}
           </View>
-        </View>
+        </Animated.View>
 
         {wide ? null : (
           <View
@@ -315,20 +369,30 @@ export function CustomTabList(props: TabListProps) {
         canInviteOwners={canInviteOwners}
         userId={userId}
       />
+      <AgenciesPanel visible={agenciesOpen} onClose={() => setAgenciesOpen(false)} />
     </NavChromeContext.Provider>
   );
 }
 
+function agencyInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((word) => word.length > 0)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2);
+}
+
 const mark = require("../../assets/images/brand-mark.png");
 
-function Brand({ compact = false }: { compact?: boolean }) {
+function Brand({ compact = false, agencyName = "" }: { compact?: boolean; agencyName?: string }) {
   const size = compact ? 40 : 52;
   return (
     <View
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: compact ? 10 : 24,
         flexShrink: 1,
       }}
     >
@@ -347,10 +411,70 @@ function Brand({ compact = false }: { compact?: boolean }) {
           Hippo
           <Text style={{ color: palette.brand }}>Pro</Text>
         </Text>
-        <Text className="text-[13px] text-chrome-muted" numberOfLines={1}>
-          Agencia Dolores
-        </Text>
+        {compact && agencyName ? (
+          <Text className="text-[13px] text-chrome-muted" numberOfLines={1}>
+            {agencyName}
+          </Text>
+        ) : null}
       </View>
+    </View>
+  );
+}
+
+function AgencyBlock({ name, railOnly }: { name: string; railOnly: boolean }) {
+  if (railOnly) {
+    return (
+      <View style={{ alignItems: "center", paddingTop: 12 }}>
+        <View
+          accessibilityLabel={name}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: palette.chromeActive,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: "white", fontFamily: "DMSans_600SemiBold", fontSize: 14 }}>
+            {agencyInitials(name)}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      accessibilityLabel={name}
+      style={{
+        marginHorizontal: 12,
+        marginTop: 12,
+        marginBottom: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: palette.chromeActive,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+      }}
+    >
+      <Ionicons name="storefront" size={20} color={palette.celeste} />
+      <Text
+        style={{
+          flex: 1,
+          minWidth: 0,
+          color: "white",
+          fontFamily: "DMSans_600SemiBold",
+          fontSize: 17,
+        }}
+        numberOfLines={2}
+      >
+        {name}
+      </Text>
     </View>
   );
 }
@@ -358,16 +482,52 @@ function Brand({ compact = false }: { compact?: boolean }) {
 function AccountMenu({
   role,
   displayName,
+  compact,
   onSignOut,
   onOpenOperators,
+  onOpenAgencies,
 }: {
   role: ViewerRole;
   displayName: string;
+  compact: boolean;
   onSignOut: () => void;
   onOpenOperators: (() => void) | null;
+  onOpenAgencies: (() => void) | null;
 }) {
+  const [open, setOpen] = useState(false);
   const roleLabel = role === "owner" ? "Dueño" : "Operador";
   const label = displayName.trim() ? `${displayName.trim()} · ${roleLabel}` : roleLabel;
+
+  if (compact && (onOpenOperators || onOpenAgencies)) {
+    const pick = (action: () => void) => {
+      setOpen(false);
+      action();
+    };
+    return (
+      <>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cuenta"
+          onPress={() => setOpen(true)}
+          className="min-w-0 flex-row items-center gap-1.5 rounded-md bg-chrome-active px-3 py-1.5"
+          style={{ flexShrink: 1 }}
+        >
+          <Text className="text-[15px] font-semibold text-white" numberOfLines={1} style={{ flexShrink: 1 }}>
+            {label}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color="white" />
+        </Pressable>
+        <Dialog visible={open} title={label} onClose={() => setOpen(false)}>
+          <View className="gap-3">
+            {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
+            {onOpenAgencies ? <SecondaryButton label="Nueva agencia" onPress={() => pick(onOpenAgencies)} /> : null}
+            <SecondaryButton label="Salir" onPress={() => pick(onSignOut)} />
+          </View>
+        </Dialog>
+      </>
+    );
+  }
+
   return (
     <View className="min-w-0 flex-row items-center gap-2" style={{ flexShrink: 1 }}>
       <View className="min-w-0 rounded-md bg-chrome-active px-3 py-1.5">
@@ -383,6 +543,16 @@ function AccountMenu({
           className="rounded-md px-2 py-1.5"
         >
           <Text className="text-[15px] font-semibold text-white">Operadores</Text>
+        </Pressable>
+      ) : null}
+      {onOpenAgencies ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Nueva agencia"
+          onPress={onOpenAgencies}
+          className="rounded-md px-2 py-1.5"
+        >
+          <Text className="text-[15px] font-semibold text-white">Nueva agencia</Text>
         </Pressable>
       ) : null}
       <Pressable

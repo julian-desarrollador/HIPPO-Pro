@@ -22,10 +22,10 @@ function monthLabel(month: string): string {
   return name ? `${name} ${year}` : month;
 }
 
-export function buildMonthReport(summary: MonthSummary): string {
+export function buildMonthReport(summary: MonthSummary, agencyName: string): string {
   const label = monthLabel(summary.month);
   const lines = [
-    `HippoPro · Agencia Dolores · ${label}`,
+    `HippoPro · ${agencyName} · ${label}`,
     `Venta neta: ${formatCents(summary.netCents)}`,
     `Ganancia de la agencia: ${formatCents(summary.billingCents)}`,
     `Gastos de la agencia: ${formatCents(summary.agencyExpenseCents)}`,

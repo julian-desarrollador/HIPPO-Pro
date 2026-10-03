@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useRef, useState, type ReactNode } 
 import { canViewAgencyBalances } from "../../domain/access";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { listRacetracks, type RacetrackRule } from "../../domain/racetracks";
-import type { ViewerRole } from "../../domain/types";
+import type { DailySale, ViewerRole } from "../../domain/types";
 import { buildMonthReport } from "../../application/use-cases/build-month-report";
 import {
   addBettor as saveBettor,
@@ -47,6 +47,7 @@ import { listBettorAccounts, type BettorAccount } from "../../application/use-ca
 import { listSettledDays, summarizeMonth, type MonthSummary, type SettledDay } from "../../application/use-cases/summarize-month";
 import { withAuditEntry, withRestoreAudit } from "../../application/use-cases/describe-ledger-change";
 import { ledgerSync } from "../outbound/agency-ledger";
+import { PREVIEW_AGENCY_NAME } from "../outbound/august-2026-seed";
 import { createInMemoryLedgerRepository } from "../outbound/in-memory-ledger-repository";
 import { createLocalStorageLedgerRepository } from "../outbound/local-storage-ledger-repository";
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
@@ -55,8 +56,10 @@ import type { LedgerSnapshot } from "../../domain/types";
 type LedgerContextValue = {
   role: ViewerRole;
   displayName: string;
+  agencyName: string;
   userId: string;
   canInviteOwners: boolean;
+  canCreateAgencies: boolean;
   setRole: (role: ViewerRole) => void;
   persistence: "browser" | "agency";
   signOut: (() => void) | null;
@@ -70,7 +73,7 @@ type LedgerContextValue = {
   summary: MonthSummary;
   days: SettledDay[];
   reportText: string;
-  recordDay: (input: RecordDayInput) => Promise<void>;
+  recordDay: (input: RecordDayInput) => Promise<DailySale>;
   recordDeposit: (input: RecordDepositInput) => Promise<void>;
   recordExpense: (input: RecordExpenseInput) => Promise<void>;
   updateDay: (input: UpdateDayInput) => Promise<void>;
@@ -121,8 +124,10 @@ export function LedgerProvider({
   repository: externalRepository,
   role: lockedRole,
   displayName = "",
+  agencyName = PREVIEW_AGENCY_NAME,
   userId = "",
   canInviteOwners = false,
+  canCreateAgencies = false,
   persistence = "browser",
   signOut = null,
 }: {
@@ -130,8 +135,10 @@ export function LedgerProvider({
   repository?: LedgerRepository;
   role?: ViewerRole;
   displayName?: string;
+  agencyName?: string;
   userId?: string;
   canInviteOwners?: boolean;
+  canCreateAgencies?: boolean;
   persistence?: "browser" | "agency";
   signOut?: (() => void) | null;
 }) {
@@ -173,8 +180,10 @@ export function LedgerProvider({
     return {
       role,
       displayName,
+      agencyName,
       userId,
       canInviteOwners,
+      canCreateAgencies,
       setRole: (next) => {
         if (!lockedRole) {
           setPreviewRole(next);
@@ -191,8 +200,17 @@ export function LedgerProvider({
       bettorAccounts: listBettorAccounts(snapshot),
       summary,
       days: listSettledDays(snapshot, viewMonth),
-      reportText: buildMonthReport(summary),
-      recordDay: (input) => publish(() => saveDay(repository, input)),
+      reportText: buildMonthReport(summary, agencyName),
+      recordDay: async (input) => {
+        let created: DailySale | null = null;
+        await publish(() => {
+          created = saveDay(repository, input);
+        });
+        if (!created) {
+          throw new Error("El día no quedó guardado.");
+        }
+        return created;
+      },
       recordDeposit: (input) => publish(() => saveDeposit(repository, input)),
       recordExpense: (input) => publish(() => saveExpense(repository, input)),
       updateDay: (input) => publish(() => saveUpdatedDay(repository, input)),
@@ -218,7 +236,7 @@ export function LedgerProvider({
       removeBettorPayment: (id) => publish(() => deleteBettorPayment(repository, id)),
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [canInviteOwners, chosenMonth, displayName, lockedRole, persistence, repository, role, signOut, userId, version]);
+  }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, lockedRole, persistence, repository, role, signOut, userId, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }

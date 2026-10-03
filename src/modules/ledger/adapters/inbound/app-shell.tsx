@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
+import { AgencyAdminProvider } from "@/modules/identity/agency-admin";
 import { OperatorAdminProvider } from "@/modules/identity/operator-admin";
 import type { ViewerRole } from "../../domain/types";
 import { openAgencyLedger } from "../outbound/agency-ledger";
-import { PREVIEW_AGENCY_ID } from "../outbound/august-2026-seed";
+import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-seed";
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
 import { readSupabaseConfig, type SupabaseConfig } from "../outbound/supabase-config";
+import { DayPhotoProvider } from "./day-photo-context";
 import { LedgerProvider } from "./ledger-provider";
 
 type Phase =
@@ -20,10 +22,20 @@ type Phase =
       status: "ready";
       role: ViewerRole;
       displayName: string;
+      agencyName: string;
       userId: string;
       canInviteOwners: boolean;
+      canCreateAgencies: boolean;
       repository: Awaited<ReturnType<typeof openAgencyLedger>>;
     };
+
+type Profile = {
+  agencyId: string;
+  role: ViewerRole;
+  displayName: string;
+  canInviteOwners: boolean;
+  canCreateAgencies: boolean;
+};
 
 function isViewerRole(value: unknown): value is ViewerRole {
   return value === "owner" || value === "operator";
@@ -72,15 +84,9 @@ function createAgencyClient(config: SupabaseConfig): SupabaseClient {
   });
 }
 
-async function loadProfile(
-  client: SupabaseClient,
-  userId: string,
-): Promise<{ agencyId: string; role: ViewerRole; displayName: string; canInviteOwners: boolean } | null> {
-  const { data, error } = await client
-    .from("profiles")
-    .select("agency_id, role, display_name, can_invite_owners")
-    .eq("user_id", userId)
-    .maybeSingle();
+async function loadProfile(client: SupabaseClient, userId: string): Promise<Profile | null> {
+  // "*" keeps sign-in working before agencies.sql adds can_create_agencies.
+  const { data, error } = await client.from("profiles").select("*").eq("user_id", userId).maybeSingle();
   if (error || !data || typeof data.agency_id !== "string" || !isViewerRole(data.role)) {
     return null;
   }
@@ -89,7 +95,16 @@ async function loadProfile(
     role: data.role,
     displayName: typeof data.display_name === "string" ? data.display_name : "",
     canInviteOwners: data.can_invite_owners === true,
+    canCreateAgencies: data.can_create_agencies === true,
   };
+}
+
+async function loadAgencyName(client: SupabaseClient, agencyId: string): Promise<string> {
+  const { data, error } = await client.from("agencies").select("name").eq("agency_id", agencyId).maybeSingle();
+  if (!error && data && typeof data.name === "string" && data.name.trim()) {
+    return data.name.trim();
+  }
+  return agencyId === PREVIEW_AGENCY_ID ? PREVIEW_AGENCY_NAME : "Agencia";
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -179,6 +194,11 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     }
     if (!passwordChosen.current && (choosingPassword.current || isChoosingPassword() || passwordStillPending(session))) {
       choosingPassword.current = true;
+      if (!passwordStillPending(session)) {
+        // Supabase drops the link from the address once it reads it. The flag on
+        // the account keeps this screen after a reload or in another tab.
+        void client.auth.updateUser({ data: { password_pending: true } });
+      }
       setPhase({ status: "recovery" });
       return;
     }
@@ -191,7 +211,10 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       return;
     }
     try {
-      const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), profile.agencyId);
+      const [repository, agencyName] = await Promise.all([
+        openAgencyLedger(createSupabaseLedgerRemote(client), profile.agencyId),
+        loadAgencyName(client, profile.agencyId),
+      ]);
       if (id !== request.current) {
         return;
       }
@@ -199,8 +222,10 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         status: "ready",
         role: profile.role,
         displayName: profile.displayName,
+        agencyName,
         userId: session.user.id,
         canInviteOwners: profile.canInviteOwners,
+        canCreateAgencies: profile.canCreateAgencies,
         repository,
       });
     } catch {
@@ -228,8 +253,8 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         return;
       }
       if (event === "PASSWORD_RECOVERY") {
-        setPhase({ status: "recovery" });
-        return;
+        choosingPassword.current = true;
+        passwordChosen.current = false;
       }
       setTimeout(() => {
         if (alive) {
@@ -245,8 +270,16 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   }, [client]);
 
   async function signIn(email: string, password: string): Promise<string | null> {
-    const { error } = await client.auth.signInWithPassword({ email, password });
-    return error ? signInProblem(error.message) : null;
+    passwordChosen.current = true;
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) {
+      passwordChosen.current = false;
+      return signInProblem(error.message);
+    }
+    if (data.session && passwordStillPending(data.session)) {
+      void client.auth.updateUser({ data: { password_pending: false } });
+    }
+    return null;
   }
 
   async function resetPassword(email: string): Promise<string | null> {
@@ -310,14 +343,20 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       repository={phase.repository}
       role={phase.role}
       displayName={phase.displayName}
+      agencyName={phase.agencyName}
       userId={phase.userId}
       canInviteOwners={phase.canInviteOwners}
+      canCreateAgencies={phase.canCreateAgencies}
       persistence="agency"
       signOut={signOut}
     >
-      <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
-        {children}
-      </OperatorAdminProvider>
+      <DayPhotoProvider client={client}>
+        <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
+          <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
+            {children}
+          </AgencyAdminProvider>
+        </OperatorAdminProvider>
+      </DayPhotoProvider>
     </LedgerProvider>
   );
 }

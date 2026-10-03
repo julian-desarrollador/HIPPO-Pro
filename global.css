@@ -24,3 +24,23 @@
   --color-amber-soft: #fef6e7;
   --color-amber-ink: #8a5a00;
 }
+
+.table-scroll {
+  scrollbar-color: var(--color-muted) var(--color-tint);
+  scrollbar-width: auto;
+}
+
+.table-scroll::-webkit-scrollbar {
+  height: 22px;
+  width: 22px;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+  background: var(--color-tint);
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border: 3px solid var(--color-tint);
+  border-radius: 8px;
+}

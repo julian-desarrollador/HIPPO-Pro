@@ -45,9 +45,9 @@ export default function HistorialScreen() {
       <DataTable
         empty={audit.length === 0 ? "Todavía no hay cambios." : "No hay cambios en este mes."}
         columns={[
-          { key: "at", header: "Fecha", compact: true, render: (row) => row.at },
-          { key: "actor", header: "Quién", compact: true, render: (row) => row.actor },
-          { key: "summary", header: "Qué cambió", compact: true, render: (row) => row.summary },
+          { key: "at", header: "Fecha", compact: true, minWidth: 260, render: (row) => row.at },
+          { key: "actor", header: "Quién", compact: true, minWidth: 120, render: (row) => row.actor },
+          { key: "summary", header: "Qué cambió", compact: true, wrap: true, render: (row) => row.summary },
         ]}
         rows={rows}
       />

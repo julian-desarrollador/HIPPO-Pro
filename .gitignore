@@ -3,6 +3,7 @@
 # dependencies
 node_modules/
 
+/planes
 /docs
 
 # Expo

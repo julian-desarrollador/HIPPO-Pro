@@ -50,7 +50,8 @@ describe("agosto 2026", () => {
   });
 
   it("arma el texto del mes con la ganancia y el saldo", () => {
-    const report = buildMonthReport(summary);
+    const report = buildMonthReport(summary, "Agencia Dolores");
+    assert.match(report, /HippoPro · Agencia Dolores · Agosto 2026/);
     assert.match(report, /Venta neta/);
     assert.match(report, /Ganancia de la agencia/);
     assert.match(report, /8\.042\.066,25/);

@@ -26,18 +26,17 @@ function trackBlock(day: SettledDay): string {
     `Neto: ${formatCents(settlement.netCents)}`,
     `Comisión (${formatSignedPercent(settlement.commissionBasisPoints)}): ${formatCents(settlement.commissionCents)}`,
     `Pagado: ${formatCents(day.paidCents)}`,
-    `Ajuste (${formatSignedPercent(settlement.depositAdjustmentBasisPoints)}): ${formatCents(settlement.adjustmentCents)}`,
     `A depositar: ${formatCents(settlement.amountToDepositCents)}`,
   ].join("\n");
 }
 
 export const emptyDayReportMessage = "Cargá el día antes de compartirlo.";
 
-export function buildDayReport(days: readonly SettledDay[], date: string): string | null {
+export function buildDayReport(days: readonly SettledDay[], date: string, agencyName: string): string | null {
   const matches = days.filter((day) => day.date === date);
   if (matches.length === 0) {
     return null;
   }
   const blocks = matches.map(trackBlock).join("\n\n");
-  return [`HippoPro · Agencia Dolores · ${formatDay(date)}`, "", blocks].join("\n");
+  return [`HippoPro · ${agencyName} · ${formatDay(date)}`, "", blocks].join("\n");
 }

@@ -1,10 +1,11 @@
 import { type ReactNode } from "react";
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { monthTitle, shiftMonth } from "@/components/calendar-grid";
-import { desktopTopbarHeight, mobileBarHeight, mobileTabBarHeight, sidebarWidth, wideLayout } from "@/constants/layout";
+import { useDesktopSidebarWidth } from "@/components/sidebar-menu";
+import { desktopTopbarHeight, mobileBarHeight, mobileTabBarHeight, wideLayout } from "@/constants/layout";
 import { palette } from "@/constants/palette";
 import { useLedger } from "@/modules/ledger";
 
@@ -16,22 +17,28 @@ export function ScreenFrame({
   children: ReactNode;
 }) {
   const wide = useWindowDimensions().width >= wideLayout;
+  const menuWidth = useDesktopSidebarWidth();
   const insets = useSafeAreaInsets();
   const { viewMonth, setViewMonth } = useLedger();
+  const gutter = wide ? 32 : 20;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" accessibilityLabel={title}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          width: "100%",
-          paddingLeft: (wide ? sidebarWidth : 0) + (wide ? 32 : 20),
-          paddingRight: wide ? 32 : 20,
-          paddingTop: (wide ? desktopTopbarHeight : mobileBarHeight) + 20,
-          paddingBottom: wide ? 48 : mobileTabBarHeight + insets.bottom + 24,
-        }}>
-        <View style={{ width: "100%", maxWidth: 1100 }}>
+      <View style={{ flex: 1, flexDirection: "row", minWidth: 0 }}>
+        {menuWidth === 0 ? null : (
+          <Animated.View style={{ width: menuWidth, flexShrink: 0 }} />
+        )}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1, minWidth: 0 }}
+          contentContainerStyle={{
+            width: "100%",
+            paddingLeft: gutter,
+            paddingRight: gutter,
+            paddingTop: (wide ? desktopTopbarHeight : mobileBarHeight) + 20,
+            paddingBottom: wide ? 48 : mobileTabBarHeight + insets.bottom + 24,
+          }}>
+          <View style={{ width: "100%", minWidth: 0 }}>
           <View className="flex-row flex-wrap items-center gap-2">
             <View className="flex-row items-center rounded-full border border-line bg-card">
               <Pressable
@@ -51,15 +58,30 @@ export function ScreenFrame({
               </Pressable>
             </View>
           </View>
-          <View className="mt-5 gap-4">{children}</View>
-        </View>
-      </ScrollView>
+            <View className="mt-5 gap-4">{children}</View>
+          </View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 export function Card({ children }: { children: ReactNode }) {
   return <View className="rounded-[14px] border border-line bg-card p-5">{children}</View>;
+}
+
+export function NoRacetracksCard() {
+  const { canViewBalances } = useLedger();
+  return (
+    <Card>
+      <Text className="font-sans text-[24px] font-semibold text-navy">Todavía no hay hipódromos</Text>
+      <Text className="mt-2 text-[17px] leading-6 text-ink">
+        {canViewBalances
+          ? "Agregá el primero en Inicio, con su comisión. Después se carga acá."
+          : "El dueño los agrega en Inicio. Después se carga acá."}
+      </Text>
+    </Card>
+  );
 }
 
 export function SectionTitle({ title, trailing }: { title: string; trailing?: ReactNode }) {

@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { palette } from "@/constants/palette";
 import { choiceQueryMatchesAny, filterChoiceOptions } from "@/components/choice-filter";
@@ -31,6 +32,12 @@ const dialogStyles = StyleSheet.create({
   card: {
     width: 420,
     maxWidth: "100%",
+    maxHeight: "85%",
+    zIndex: 1,
+  },
+  wideCard: {
+    width: "100%",
+    maxWidth: 1400,
     maxHeight: "85%",
     zIndex: 1,
   },
@@ -116,9 +123,22 @@ export function SecondaryButton({ label, onPress, className = "" }: { label: str
   );
 }
 
-export function RowActions({ onEdit, onRemove }: { onEdit: () => void; onRemove?: () => void }) {
+export function RowActions({
+  onEdit,
+  onRemove,
+  onImage,
+}: {
+  onEdit: () => void;
+  onRemove?: () => void;
+  onImage?: () => void;
+}) {
   return (
     <View className="flex-row items-center gap-3">
+      {onImage ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Ver imagen" onPress={onImage} className="cursor-pointer">
+          <Text className="text-[17px] font-semibold text-accent">Ver imagen</Text>
+        </Pressable>
+      ) : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Editar" onPress={onEdit} className="cursor-pointer">
         <Text className="text-[17px] font-semibold text-accent">Editar</Text>
       </Pressable>
@@ -173,11 +193,15 @@ export function Dialog({
   title,
   onClose,
   children,
+  wide = false,
+  contentMaxHeight = 480,
 }: {
   visible: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
+  contentMaxHeight?: number;
 }) {
   if (!visible) {
     return null;
@@ -187,9 +211,18 @@ export function Dialog({
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
       <View style={confirmStyles.frame} pointerEvents="box-none">
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={confirmStyles.dim} />
-        <View className="rounded-[14px] border border-line bg-card p-5" style={dialogStyles.card}>
-          <Text className="font-sans text-[24px] font-semibold text-navy">{title}</Text>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 480 }}>
+        <View className="rounded-[14px] border border-line bg-card p-5" style={wide ? dialogStyles.wideCard : dialogStyles.card}>
+          <View className="flex-row items-start justify-between gap-3">
+            <Text className="min-w-0 flex-1 font-sans text-[24px] font-semibold text-navy">{title}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+              onPress={onClose}
+              className="h-8 w-8 cursor-pointer items-center justify-center">
+              <Ionicons name="close" size={26} color={palette.navy} />
+            </Pressable>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: contentMaxHeight }}>
             <View className="mt-4 gap-4">{children}</View>
           </ScrollView>
         </View>

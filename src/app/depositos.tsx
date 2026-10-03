@@ -15,7 +15,7 @@ import {
   RowActions,
   SecondaryButton,
 } from "@/components/form-controls";
-import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
+import { Card, NoRacetracksCard, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import {
   formatAmountInput,
@@ -154,26 +154,30 @@ export default function DepositosScreen() {
         </Card>
       )}
 
-      <Card>
-        <View className="gap-4">
-          <Field label="Fecha">
-            <DateField value={date} onChange={setDate} />
-          </Field>
-          <Field label="Hipódromo">
-            <ChoiceChips
-              options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
-              value={selectedId}
-              onChange={setRacetrackId}
-            />
-          </Field>
-          <Field label="Monto">
-            <AmountField value={amount} onChangeText={setAmount} />
-          </Field>
-          <Feedback error={error} message={message} />
-          <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar depósito"} onPress={onSave} />
-          {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
-        </View>
-      </Card>
+      {racetracks.length === 0 ? (
+        <NoRacetracksCard />
+      ) : (
+        <Card>
+          <View className="gap-4">
+            <Field label="Fecha">
+              <DateField value={date} onChange={setDate} />
+            </Field>
+            <Field label="Hipódromo">
+              <ChoiceChips
+                options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
+                value={selectedId}
+                onChange={setRacetrackId}
+              />
+            </Field>
+            <Field label="Monto">
+              <AmountField value={amount} onChangeText={setAmount} />
+            </Field>
+            <Feedback error={error} message={message} />
+            <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar depósito"} onPress={onSave} />
+            {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
+          </View>
+        </Card>
+      )}
 
       <SectionTitle title={`Movimientos de ${monthTitle(viewMonth)}`} />
       <DataTable

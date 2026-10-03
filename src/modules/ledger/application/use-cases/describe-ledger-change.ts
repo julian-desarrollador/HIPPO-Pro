@@ -82,17 +82,14 @@ function diffRacetracks(before: LedgerSnapshot, after: LedgerSnapshot): { lines:
 
 function diffCommissions(before: LedgerSnapshot, after: LedgerSnapshot, skip: ReadonlySet<string>): string[] {
   const lines: string[] = [];
-  const ids = new Set([...listRacetracks(before), ...listRacetracks(after)].map((track) => track.id));
-  for (const id of ids) {
-    if (skip.has(id)) {
+  const previous = new Set(listRacetracks(before).map((track) => track.id));
+  for (const { id } of listRacetracks(after)) {
+    if (skip.has(id) || !previous.has(id)) {
       continue;
     }
     const oldCommission = currentCommissionBasisPoints(id, before.commissions, before);
     const newCommission = currentCommissionBasisPoints(id, after.commissions, after);
     if (oldCommission === newCommission) {
-      continue;
-    }
-    if (!listRacetracks(after).some((track) => track.id === id)) {
       continue;
     }
     lines.push(

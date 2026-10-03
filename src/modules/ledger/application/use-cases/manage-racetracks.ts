@@ -30,11 +30,31 @@ export function addRacetrack(repository: LedgerRepository, input: AddRacetrackIn
   assertAdjustmentBasisPoints(input.depositAdjustmentBasisPoints);
 
   const existing = listRacetracks(snapshot);
-  const duplicate =
-    isBuiltinRacetrack(id) ||
-    RACETRACKS.some((racetrack) => comparableName(racetrack.name) === comparableName(name)) ||
-    existing.some((racetrack) => racetrack.id === id || comparableName(racetrack.name) === comparableName(name));
-  if (duplicate) {
+  if (existing.some((racetrack) => racetrack.id === id || comparableName(racetrack.name) === comparableName(name))) {
+    throw new LedgerError("duplicate-racetrack");
+  }
+
+  const hidden = new Set(snapshot.hiddenRacetrackIds ?? []);
+  const hiddenBuiltin = RACETRACKS.find(
+    (racetrack) => hidden.has(racetrack.id) && (racetrack.id === id || comparableName(racetrack.name) === comparableName(name)),
+  );
+  if (hiddenBuiltin) {
+    const restored: AgencyRacetrack = {
+      id: hiddenBuiltin.id,
+      name,
+      commissionBasisPoints: input.commissionBasisPoints,
+      depositAdjustmentBasisPoints: input.depositAdjustmentBasisPoints,
+    };
+    repository.save({
+      ...snapshot,
+      racetracks: [...(snapshot.racetracks ?? []).filter((racetrack) => racetrack.id !== hiddenBuiltin.id), restored],
+      commissions: withCommission(snapshot.commissions, hiddenBuiltin.id, input.commissionBasisPoints),
+      hiddenRacetrackIds: (snapshot.hiddenRacetrackIds ?? []).filter((hiddenId) => hiddenId !== hiddenBuiltin.id),
+    });
+    return restored;
+  }
+
+  if (isBuiltinRacetrack(id) || RACETRACKS.some((racetrack) => comparableName(racetrack.name) === comparableName(name))) {
     throw new LedgerError("duplicate-racetrack");
   }
 

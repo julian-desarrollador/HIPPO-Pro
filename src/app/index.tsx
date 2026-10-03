@@ -20,7 +20,6 @@ import {
   formatPercentInput,
   ledgerErrorMessage,
   parsePercentToBasisPoints,
-  parseSignedPercentToBasisPoints,
   racetrackHasMovements,
   useLedger,
 } from "@/modules/ledger";
@@ -30,7 +29,6 @@ export default function HomeScreen() {
   const wide = useWindowDimensions().width >= wideLayout;
   const [name, setName] = useState("");
   const [commission, setCommission] = useState("");
-  const [adjustment, setAdjustment] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,7 +47,6 @@ export default function HomeScreen() {
     setEditingId(null);
     setName("");
     setCommission("");
-    setAdjustment("");
     setError("");
     setMessage("");
     setFormOpen(true);
@@ -64,7 +61,6 @@ export default function HomeScreen() {
     setEditingId(id);
     setName(track.name);
     setCommission(formatPercentInput(currentCommissionBasisPoints(id, snapshot.commissions, snapshot)));
-    setAdjustment(formatPercentInput(track.depositAdjustmentBasisPoints));
     setError("");
     setMessage("");
     setFormOpen(true);
@@ -78,7 +74,6 @@ export default function HomeScreen() {
     setEditingId(null);
     setName("");
     setCommission("");
-    setAdjustment("");
     setError("");
   }
 
@@ -87,7 +82,8 @@ export default function HomeScreen() {
       return;
     }
     const commissionBasisPoints = parsePercentToBasisPoints(commission);
-    const depositAdjustmentBasisPoints = parseSignedPercentToBasisPoints(adjustment);
+    const existing = editingId ? racetracks.find((item) => item.id === editingId) : null;
+    const depositAdjustmentBasisPoints = existing?.depositAdjustmentBasisPoints ?? 0;
     if (!name.trim()) {
       setMessage("");
       setError("Escribí el nombre del hipódromo.");
@@ -98,12 +94,6 @@ export default function HomeScreen() {
       setError("El porcentaje tiene que estar entre 0 y 100.");
       return;
     }
-    if (depositAdjustmentBasisPoints === null) {
-      setMessage("");
-      setError("El ajuste tiene que estar entre -100 y 100.");
-      return;
-    }
-
     setSaving(true);
     setMessage("Guardando…");
     setError("");
@@ -117,7 +107,6 @@ export default function HomeScreen() {
       }
       setName("");
       setCommission("");
-      setAdjustment("");
       setEditingId(null);
       setFormOpen(false);
     } catch (caught) {
@@ -208,9 +197,6 @@ export default function HomeScreen() {
             <Text className="text-[15px] leading-5 text-muted">
               Vale para los días que se carguen después. Los ya cargados conservan su porcentaje.
             </Text>
-            <Field label="Ajuste del depósito">
-              <TextField value={adjustment} onChangeText={setAdjustment} placeholder="-5" accessibilityLabel="Ajuste del depósito" />
-            </Field>
             <Feedback error={error} />
             <PrimaryButton
               label={saving ? "Guardando…" : editingId ? "Guardar" : "Agregar hipódromo"}

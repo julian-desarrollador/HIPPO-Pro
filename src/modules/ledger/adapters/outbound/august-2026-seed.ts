@@ -2,6 +2,7 @@ import { getExpenseCategory } from "../../domain/expense-categories";
 import type { Expense, LedgerSnapshot, RacetrackId } from "../../domain/types";
 
 export const PREVIEW_AGENCY_ID = "agencia-dolores";
+export const PREVIEW_AGENCY_NAME = "Agencia Dolores";
 export const PREVIEW_MONTH = "2026-08";
 
 type SaleSeed = {

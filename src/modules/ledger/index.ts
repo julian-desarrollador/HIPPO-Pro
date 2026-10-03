@@ -10,6 +10,8 @@ export type { RacetrackId, ViewerRole } from "./domain/types";
 export { ledgerErrorMessage } from "./adapters/inbound/error-messages";
 export { AppShell } from "./adapters/inbound/app-shell";
 export { LedgerProvider, useLedger } from "./adapters/inbound/ledger-provider";
+export { useDayPhotos } from "./adapters/inbound/day-photo-context";
+export { dayPhotoProblem, type DayPhotoFile } from "./adapters/outbound/day-photos";
 export {
   completeAmountInput,
   formatAmountInput,

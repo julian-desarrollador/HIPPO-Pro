@@ -1,8 +1,8 @@
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
 import { LedgerError } from "../../domain/errors";
 import type { LedgerSnapshot } from "../../domain/types";
-import { createAugust2026Snapshot } from "./august-2026-seed";
 import { isLedgerSnapshot } from "./ledger-snapshot";
+import { startingSnapshot } from "./starting-snapshot";
 
 export type LedgerRemoteRow = {
   snapshot: unknown;
@@ -47,7 +47,7 @@ export function ledgerSync(repository: LedgerRepository): Promise<void> {
 export async function openAgencyLedger(
   remote: LedgerRemote,
   agencyId: string,
-  seed: LedgerSnapshot = createAugust2026Snapshot(),
+  seed: LedgerSnapshot = startingSnapshot(agencyId),
 ): Promise<LedgerRepository> {
   const initialSeed = withAgency(seed, agencyId);
   let row = await remote.read(agencyId);

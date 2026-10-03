@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createInMemoryLedgerRepository } from "../../adapters/outbound/in-memory-ledger-repository";
+import { createEmptyAgencySnapshot } from "../../adapters/outbound/starting-snapshot";
 import { describeLedgerChange, withAuditEntry, withRestoreAudit } from "./describe-ledger-change";
 import { updateCommission } from "./update-commission";
-import { updateRacetrack } from "./manage-racetracks";
+import { addRacetrack, updateRacetrack } from "./manage-racetracks";
 
 describe("historial", () => {
   it("describe el cambio de comisión y no anota si el libro sigue igual", () => {
@@ -36,5 +37,17 @@ describe("historial", () => {
     assert.equal(restored.audit?.length, 1);
     assert.equal(restored.audit?.[0]?.summary, "Volvió a los datos de agosto.");
     assert.equal(restored.audit?.[0]?.actor, "owner");
+  });
+
+  it("agregar un hipódromo anota una sola línea, también el primero de una agencia nueva", () => {
+    const dolores = createInMemoryLedgerRepository();
+    const doloresBefore = dolores.load();
+    addRacetrack(dolores, { name: "La Punta", commissionBasisPoints: 1000, depositAdjustmentBasisPoints: 0 });
+    assert.equal(describeLedgerChange(doloresBefore, dolores.load()), "Agregó el hipódromo La Punta.");
+
+    const newAgency = createInMemoryLedgerRepository(createEmptyAgencySnapshot("agencia-prueba"));
+    const newAgencyBefore = newAgency.load();
+    addRacetrack(newAgency, { name: "San Isidro", commissionBasisPoints: 1200, depositAdjustmentBasisPoints: 0 });
+    assert.equal(describeLedgerChange(newAgencyBefore, newAgency.load()), "Agregó el hipódromo San Isidro.");
   });
 });

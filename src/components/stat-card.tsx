@@ -26,8 +26,9 @@ export function MoneyText({
 
   return (
     <Text
+      numberOfLines={1}
       className={`${serif ? "font-serif" : "font-sans"} font-semibold tabular-nums ${scale} ${color} ${alignment}`}
-      style={fill ? { width: "100%" } : undefined}>
+      style={{ width: fill ? "100%" : undefined, textAlign: align === "left" ? "left" : align === "center" ? "center" : "right" }}>
       {formatCents(cents)}
     </Text>
   );

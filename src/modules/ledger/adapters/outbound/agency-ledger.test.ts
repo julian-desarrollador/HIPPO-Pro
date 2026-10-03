@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { LedgerError } from "../../domain/errors";
+import { listExpenseCategories } from "../../domain/expense-categories";
+import { listRacetracks } from "../../domain/racetracks";
 import type { LedgerSnapshot } from "../../domain/types";
+import { addRacetrack } from "../../application/use-cases/manage-racetracks";
 import { recordDay } from "../../application/use-cases/record-day";
+import { summarizeMonth } from "../../application/use-cases/summarize-month";
 import { createAugust2026Snapshot, PREVIEW_AGENCY_ID } from "./august-2026-seed";
 import { ledgerSync, openAgencyLedger, type LedgerRemote, type LedgerRemoteRow } from "./agency-ledger";
 import { readSupabaseConfig } from "./supabase-config";
@@ -101,6 +105,56 @@ describe("libro de la agencia", () => {
     });
     await assert.rejects(ledgerSync(repository), (error: unknown) => error instanceof LedgerError && error.code === "save-conflict");
     assert.equal(repository.load().days.length, createAugust2026Snapshot().days.length);
+  });
+});
+
+describe("libro de una agencia nueva", () => {
+  it("una agencia que no es Dolores arranca sin días, depósitos, gastos ni saldos", async () => {
+    const remote = createFakeRemote(null);
+    const repository = await openAgencyLedger(remote, "agencia-norte");
+    const snapshot = repository.load();
+    assert.equal(snapshot.agencyId, "agencia-norte");
+    assert.equal(snapshot.days.length, 0);
+    assert.equal(snapshot.deposits.length, 0);
+    assert.equal(snapshot.expenses.length, 0);
+    assert.equal(snapshot.openingBalances.length, 0);
+    assert.equal(summarizeMonth(snapshot, "2026-08").owedCents, 0);
+    assert.equal(remote.stored()?.version, 1);
+  });
+
+  it("no ve San Isidro, Palermo ni La Plata, ni los retiros de Fede y Mati", async () => {
+    const repository = await openAgencyLedger(createFakeRemote(null), "agencia-norte");
+    const snapshot = repository.load();
+    assert.equal(listRacetracks(snapshot).length, 0);
+    const categories = listExpenseCategories(snapshot);
+    assert.equal(categories.some((category) => category.kind === "partner-withdrawal"), false);
+    assert.ok(categories.some((category) => category.id === "sueldo"));
+  });
+
+  it("agrega San Isidro con su propio porcentaje y sin el ajuste de Dolores", async () => {
+    const repository = await openAgencyLedger(createFakeRemote(null), "agencia-norte");
+    addRacetrack(repository, { name: "San Isidro", commissionBasisPoints: 1200, depositAdjustmentBasisPoints: 0 });
+    const month = repository.load().month;
+    recordDay(repository, {
+      date: `${month}-05`,
+      racetrackId: "san-isidro",
+      soldCents: 1_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    const track = summarizeMonth(repository.load(), month).racetracks.find((item) => item.racetrackId === "san-isidro");
+    assert.equal(track?.commissionCents, 120_000);
+    assert.equal(track?.amountToDepositCents, 1_000_000);
+    assert.equal(listRacetracks(repository.load()).length, 1);
+  });
+
+  it("volver a empezar deja el libro vacío", async () => {
+    const remote = createFakeRemote(null);
+    const repository = await openAgencyLedger(remote, "agencia-norte");
+    addRacetrack(repository, { name: "La Punta", commissionBasisPoints: 1000, depositAdjustmentBasisPoints: 0 });
+    repository.reset();
+    await ledgerSync(repository);
+    assert.equal(listRacetracks(remote.stored()?.snapshot as LedgerSnapshot).length, 0);
   });
 });
 

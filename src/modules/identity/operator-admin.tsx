@@ -22,7 +22,7 @@ type OperatorAdmin = {
 
 const OperatorAdminContext = createContext<OperatorAdmin | null>(null);
 
-const connectionProblem = "No se pudo completar. Revisá la conexión.";
+export const connectionProblem = "No se pudo completar. Revisá la conexión.";
 
 function isPersonRow(value: unknown): value is {
   user_id: string;
@@ -43,7 +43,7 @@ function isPersonRow(value: unknown): value is {
   );
 }
 
-async function readFunctionMessage(error: { context?: unknown }, data: unknown): Promise<string> {
+export async function readFunctionMessage(error: { context?: unknown }, data: unknown): Promise<string> {
   if (data && typeof data === "object" && "message" in data && typeof data.message === "string") {
     return data.message;
   }
