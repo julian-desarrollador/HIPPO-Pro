@@ -13,6 +13,8 @@ export type TableColumn<Row> = {
   wrap?: boolean;
   /** Width the column does not go under. On a single-line column it also stays at that width. */
   minWidth?: number;
+  /** Extra space before the header and the cell, on the wide table. */
+  padStart?: number;
   render?: (row: Row) => string;
   cents?: (row: Row) => number;
   node?: (row: Row) => ReactNode;
@@ -165,20 +167,26 @@ function columnMinWidth<Row>(column: TableColumn<Row>): number {
   return 120;
 }
 
+function columnPad<Row>(column: TableColumn<Row>): number {
+  return column.padStart ?? 0;
+}
+
 function columnFloor<Row>(column: TableColumn<Row>): number {
   if (column.wrap) {
-    return 200;
+    return 200 + columnPad(column);
   }
-  return column.minWidth ?? columnMinWidth(column);
+  return (column.minWidth ?? columnMinWidth(column)) + columnPad(column);
 }
 
 function columnBox<Row>(column: TableColumn<Row>): ViewStyle {
   const fixed = column.minWidth !== undefined && !column.wrap;
+  const pad = columnPad(column);
   return {
     flexGrow: fixed ? 0 : 1,
     flexShrink: fixed ? 0 : 1,
-    flexBasis: fixed ? column.minWidth : 0,
+    flexBasis: fixed ? (column.minWidth ?? 0) + pad : 0,
     minWidth: columnFloor(column),
+    paddingLeft: pad,
     overflow: column.wrap ? "visible" : "hidden",
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Image } from "expo-image";
-import { Linking, Text, useWindowDimensions, View } from "react-native";
+import { Linking, Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { monthTitle } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
@@ -395,17 +395,31 @@ function DayEntryScreen() {
           { key: "commission", header: "Comisión", align: "right", cents: (row) => row.commissionCents },
           { key: "deposit", header: "A depositar", align: "right", compact: true, cents: (row) => row.amountToDepositCents },
           {
+            key: "file",
+            header: "Archivo",
+            compact: true,
+            minWidth: 160,
+            padStart: 32,
+            node: (row) =>
+              photoIds.has(row.id) ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver imagen"
+                  onPress={() => void openPhoto(row.id)}
+                  className="cursor-pointer"
+                >
+                  <Text className="text-[17px] font-semibold text-accent">Ver imagen</Text>
+                </Pressable>
+              ) : null,
+          },
+          {
             key: "actions",
             header: "",
             compact: true,
             align: "right",
-            minWidth: 320,
+            minWidth: 160,
             node: (row) => (
-              <RowActions
-                onEdit={() => startEdit(row)}
-                onRemove={() => setPendingRemoveId(row.id)}
-                onImage={photoIds.has(row.id) ? () => void openPhoto(row.id) : undefined}
-              />
+              <RowActions onEdit={() => startEdit(row)} onRemove={() => setPendingRemoveId(row.id)} />
             ),
           },
         ]}
