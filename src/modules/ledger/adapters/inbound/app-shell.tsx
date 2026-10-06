@@ -10,6 +10,7 @@ import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
 import { readSupabaseConfig, type SupabaseConfig } from "../outbound/supabase-config";
 import { DayPhotoProvider } from "./day-photo-context";
+import { DepositPhotoProvider } from "./deposit-photo-context";
 import { LedgerProvider } from "./ledger-provider";
 
 type Phase =
@@ -351,11 +352,13 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       signOut={signOut}
     >
       <DayPhotoProvider client={client}>
-        <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
-          <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
-            {children}
-          </AgencyAdminProvider>
-        </OperatorAdminProvider>
+        <DepositPhotoProvider client={client}>
+          <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
+            <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
+              {children}
+            </AgencyAdminProvider>
+          </OperatorAdminProvider>
+        </DepositPhotoProvider>
       </DayPhotoProvider>
     </LedgerProvider>
   );

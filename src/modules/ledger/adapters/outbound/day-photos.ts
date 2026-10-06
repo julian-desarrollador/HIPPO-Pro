@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const BUCKET = "day-photos";
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export type DayPhotoFile = {
@@ -44,45 +43,58 @@ export function dayPhotoProblem(file: { size: number; contentType: string; name:
   return null;
 }
 
-function photoPath(agencyId: string, dayId: string): string {
-  return `${agencyId}/${dayId}`;
+type AgencyPhotos = {
+  list: (client: SupabaseClient, agencyId: string) => Promise<Set<string>>;
+  upload: (client: SupabaseClient, agencyId: string, id: string, file: DayPhotoFile) => Promise<void>;
+  remove: (client: SupabaseClient, agencyId: string, id: string) => Promise<void>;
+  url: (client: SupabaseClient, agencyId: string, id: string) => Promise<string | null>;
+};
+
+function agencyPhotos(bucket: string): AgencyPhotos {
+  const path = (agencyId: string, id: string) => `${agencyId}/${id}`;
+  return {
+    async list(client, agencyId) {
+      const { data, error } = await client.storage.from(bucket).list(agencyId, { limit: 1000 });
+      if (error || !data) {
+        return new Set();
+      }
+      return new Set(data.filter((entry) => entry.id && entry.name).map((entry) => entry.name));
+    },
+    async upload(client, agencyId, id, file) {
+      const contentType = dayPhotoContentType(file.contentType, file.name);
+      const { error } = await client.storage.from(bucket).upload(path(agencyId, id), file.bytes, {
+        contentType,
+        upsert: true,
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    async remove(client, agencyId, id) {
+      const { error } = await client.storage.from(bucket).remove([path(agencyId, id)]);
+      if (error) {
+        throw error;
+      }
+    },
+    async url(client, agencyId, id) {
+      const { data, error } = await client.storage.from(bucket).createSignedUrl(path(agencyId, id), 60 * 10);
+      if (error || !data?.signedUrl) {
+        return null;
+      }
+      return data.signedUrl;
+    },
+  };
 }
 
-export async function listDayPhotoIds(client: SupabaseClient, agencyId: string): Promise<Set<string>> {
-  const { data, error } = await client.storage.from(BUCKET).list(agencyId, { limit: 1000 });
-  if (error || !data) {
-    return new Set();
-  }
-  return new Set(data.filter((entry) => entry.id && entry.name).map((entry) => entry.name));
-}
+const dayPhotos = agencyPhotos("day-photos");
+const depositPhotos = agencyPhotos("deposit-photos");
 
-export async function uploadDayPhoto(
-  client: SupabaseClient,
-  agencyId: string,
-  dayId: string,
-  file: DayPhotoFile,
-): Promise<void> {
-  const contentType = dayPhotoContentType(file.contentType, file.name);
-  const { error } = await client.storage.from(BUCKET).upload(photoPath(agencyId, dayId), file.bytes, {
-    contentType,
-    upsert: true,
-  });
-  if (error) {
-    throw error;
-  }
-}
+export const listDayPhotoIds = dayPhotos.list;
+export const uploadDayPhoto = dayPhotos.upload;
+export const deleteDayPhoto = dayPhotos.remove;
+export const dayPhotoUrl = dayPhotos.url;
 
-export async function deleteDayPhoto(client: SupabaseClient, agencyId: string, dayId: string): Promise<void> {
-  const { error } = await client.storage.from(BUCKET).remove([photoPath(agencyId, dayId)]);
-  if (error) {
-    throw error;
-  }
-}
-
-export async function dayPhotoUrl(client: SupabaseClient, agencyId: string, dayId: string): Promise<string | null> {
-  const { data, error } = await client.storage.from(BUCKET).createSignedUrl(photoPath(agencyId, dayId), 60 * 10);
-  if (error || !data?.signedUrl) {
-    return null;
-  }
-  return data.signedUrl;
-}
+export const listDepositPhotoIds = depositPhotos.list;
+export const uploadDepositPhoto = depositPhotos.upload;
+export const deleteDepositPhoto = depositPhotos.remove;
+export const depositPhotoUrl = depositPhotos.url;

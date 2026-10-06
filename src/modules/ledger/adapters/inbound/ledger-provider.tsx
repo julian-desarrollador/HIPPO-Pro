@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useRef, useState, type ReactNode } 
 import { canViewAgencyBalances } from "../../domain/access";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { listRacetracks, type RacetrackRule } from "../../domain/racetracks";
-import type { DailySale, ViewerRole } from "../../domain/types";
+import type { DailySale, HippodromeDeposit, ViewerRole } from "../../domain/types";
 import { buildMonthReport } from "../../application/use-cases/build-month-report";
 import {
   addBettor as saveBettor,
@@ -74,7 +74,7 @@ type LedgerContextValue = {
   days: SettledDay[];
   reportText: string;
   recordDay: (input: RecordDayInput) => Promise<DailySale>;
-  recordDeposit: (input: RecordDepositInput) => Promise<void>;
+  recordDeposit: (input: RecordDepositInput) => Promise<HippodromeDeposit>;
   recordExpense: (input: RecordExpenseInput) => Promise<void>;
   updateDay: (input: UpdateDayInput) => Promise<void>;
   updateDeposit: (input: UpdateDepositInput) => Promise<void>;
@@ -211,7 +211,16 @@ export function LedgerProvider({
         }
         return created;
       },
-      recordDeposit: (input) => publish(() => saveDeposit(repository, input)),
+      recordDeposit: async (input) => {
+        let created: HippodromeDeposit | null = null;
+        await publish(() => {
+          created = saveDeposit(repository, input);
+        });
+        if (!created) {
+          throw new Error("El depósito no quedó guardado.");
+        }
+        return created;
+      },
       recordExpense: (input) => publish(() => saveExpense(repository, input)),
       updateDay: (input) => publish(() => saveUpdatedDay(repository, input)),
       updateDeposit: (input) => publish(() => saveUpdatedDeposit(repository, input)),

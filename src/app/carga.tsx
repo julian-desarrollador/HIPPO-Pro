@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { Linking, Pressable, Text, useWindowDimensions, View } from "react-native";
 
-import { monthTitle } from "@/components/calendar-grid";
+import { monthTitle, toIsoDate } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { AmountField } from "@/components/amount-field";
@@ -26,9 +26,9 @@ import {
   emptyDayReportMessage,
   formatAmountInput,
   formatSignedPercent,
+  chooseImageFile,
   ledgerErrorMessage,
   readAmount,
-  dayPhotoProblem,
   settleDay,
   useDayPhotos,
   useLedger,
@@ -37,6 +37,12 @@ import {
   type RacetrackId,
   type SettledDay,
 } from "@/modules/ledger";
+
+/** The day the form opens on: today when that month is on screen, otherwise the 1st. */
+function openingDate(viewMonth: string, now = new Date()): string {
+  const today = toIsoDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  return today.startsWith(`${viewMonth}-`) ? today : `${viewMonth}-01`;
+}
 
 export default function CargaScreen() {
   const { racetracks } = useLedger();
@@ -62,7 +68,7 @@ function DayEntryScreen() {
   const [dropPhoto, setDropPhoto] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
-  const [date, setDate] = useState(`${viewMonth}-01`);
+  const [date, setDate] = useState(() => openingDate(viewMonth));
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [sold, setSold] = useState("");
   const [cancelled, setCancelled] = useState("");
@@ -71,7 +77,7 @@ function DayEntryScreen() {
 
   useEffect(() => {
     if (!editingId) {
-      setDate(`${viewMonth}-01`);
+      setDate(openingDate(viewMonth));
     }
   }, [editingId, viewMonth]);
 
@@ -390,8 +396,8 @@ function DayEntryScreen() {
           { key: "track", header: "Hipódromo", compact: true, render: (row) => row.racetrackName },
           { key: "sold", header: "Vendido", align: "right", cents: (row) => row.soldCents },
           { key: "cancelled", header: "Cancelados", align: "right", cents: (row) => row.cancelledCents },
+          { key: "net", header: "Venta neta", align: "right", compact: true, cents: (row) => row.netCents },
           { key: "paid", header: "Pagado", align: "right", cents: (row) => row.paidCents },
-          { key: "net", header: "Neto", align: "right", compact: true, cents: (row) => row.netCents },
           { key: "commission", header: "Comisión", align: "right", cents: (row) => row.commissionCents },
           { key: "deposit", header: "A depositar", align: "right", compact: true, cents: (row) => row.amountToDepositCents },
           {
@@ -501,98 +507,6 @@ function DayBreakdown({
       <BreakdownLine label="A depositar" cents={settlement.amountToDepositCents} size="md" tone="navy" />
     </View>
   );
-}
-
-const photoLongestSide = 1600;
-const photoJpegQuality = 0.82;
-
-function jpegName(name: string): string {
-  const stem = name.replace(/\.[^.]+$/, "");
-  return `${stem || "foto"}.jpg`;
-}
-
-/** Shrinks a chosen photo to a jpeg the dialog can show. Returns a Spanish problem when it cannot. */
-async function shrinkDayPhoto(file: File): Promise<DayPhotoFile | string> {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-  } catch {
-    return "No se pudo preparar la imagen.";
-  }
-  const longest = Math.max(bitmap.width, bitmap.height);
-  const scale = longest > photoLongestSide ? photoLongestSide / longest : 1;
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    bitmap.close();
-    return "No se pudo preparar la imagen.";
-  }
-  context.fillStyle = "white";
-  context.fillRect(0, 0, width, height);
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", photoJpegQuality);
-  });
-  if (!blob) {
-    return "No se pudo preparar la imagen.";
-  }
-  const name = jpegName(file.name);
-  const problem = dayPhotoProblem({ size: blob.size, contentType: "image/jpeg", name });
-  if (problem) {
-    return problem;
-  }
-  return { name, bytes: await blob.arrayBuffer(), contentType: "image/jpeg" };
-}
-
-function chooseImageFile(): Promise<DayPhotoFile | string | null> {
-  return new Promise((resolve) => {
-    if (typeof document === "undefined") {
-      resolve(null);
-      return;
-    }
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/jpeg,image/png,image/webp";
-    let settled = false;
-    const finish = (value: DayPhotoFile | string | null) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(value);
-    };
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) {
-        finish(null);
-        return;
-      }
-      if (file.size <= 0) {
-        finish("La imagen está vacía.");
-        return;
-      }
-      const typeProblem = dayPhotoProblem({ size: 1, contentType: file.type, name: file.name });
-      if (typeProblem) {
-        finish(typeProblem);
-        return;
-      }
-      settled = true;
-      void shrinkDayPhoto(file).then(resolve);
-    };
-    window.addEventListener(
-      "focus",
-      () => {
-        setTimeout(() => finish(null), 400);
-      },
-      { once: true },
-    );
-    input.click();
-  });
 }
 
 function BreakdownLine({

@@ -1,7 +1,7 @@
 -- Checks that agencies cannot read or change each other's book, people,
--- names or day photos, and that nothing opens without a session.
--- Run it in the SQL editor after agencies.sql, close-ledger.sql and
--- day-photos.sql, and again after any change to a policy.
+-- names, day photos or deposit photos, and that nothing opens without a session.
+-- Run it in the SQL editor after agencies.sql, close-ledger.sql,
+-- day-photos.sql and deposit-photos.sql, and again after any change to a policy.
 -- Everything runs inside one transaction that is rolled back: the test
 -- users, agencies, books and photos never stay. A leak stops the run with
 -- an error that starts with FUGA. The last line says it passed.
@@ -29,7 +29,9 @@ insert into public.ledgers (agency_id, snapshot) values
 
 insert into storage.objects (bucket_id, name) values
   ('day-photos', 'aislamiento-a/dia'),
-  ('day-photos', 'aislamiento-b/dia');
+  ('day-photos', 'aislamiento-b/dia'),
+  ('deposit-photos', 'aislamiento-a/deposito'),
+  ('deposit-photos', 'aislamiento-b/deposito');
 
 -- A profile or a book cannot point to an agency that does not exist.
 do $$
@@ -80,6 +82,13 @@ begin
     select count(*) into n from storage.objects where bucket_id = 'day-photos';
     if n <> 0 then
       raise exception 'FUGA: sin sesión se ven % imágenes', n;
+    end if;
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    select count(*) into n from storage.objects where bucket_id = 'deposit-photos';
+    if n <> 0 then
+      raise exception 'FUGA: sin sesión se ven % imágenes de depósitos', n;
     end if;
   exception when insufficient_privilege then null;
   end;
@@ -214,6 +223,29 @@ begin
     get diagnostics n = row_count;
     if n <> 0 then
       raise exception 'FUGA: % se lleva la imagen de %', pair.mine, pair.other;
+    end if;
+
+    -- Deposit photos.
+    select count(*) into n from storage.objects
+    where bucket_id = 'deposit-photos' and name = pair.mine || '/deposito';
+    if n <> 1 then
+      raise exception 'La prueba no anda: % no ve su propia imagen de depósito', pair.mine;
+    end if;
+    select count(*) into n from storage.objects
+    where bucket_id = 'deposit-photos' and (storage.foldername(name))[1] is distinct from pair.mine;
+    if n <> 0 then
+      raise exception 'FUGA: % ve % imágenes de depósito de otras agencias', pair.mine, n;
+    end if;
+    begin
+      insert into storage.objects (bucket_id, name) values ('deposit-photos', pair.other || '/intruso');
+      raise exception 'FUGA: % sube una imagen de depósito en la carpeta de %', pair.mine, pair.other;
+    exception when insufficient_privilege then null;
+    end;
+    update storage.objects set name = pair.mine || '/robada-deposito'
+    where bucket_id = 'deposit-photos' and name = pair.other || '/deposito';
+    get diagnostics n = row_count;
+    if n <> 0 then
+      raise exception 'FUGA: % se lleva la imagen de depósito de %', pair.mine, pair.other;
     end if;
   end loop;
 end;
