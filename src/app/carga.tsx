@@ -44,6 +44,13 @@ function openingDate(viewMonth: string, now = new Date()): string {
   return today.startsWith(`${viewMonth}-`) ? today : `${viewMonth}-01`;
 }
 
+const terminalOptions = [
+  { id: "1", label: "Terminal 1" },
+  { id: "2", label: "Terminal 2" },
+  { id: "3", label: "Terminal 3" },
+  { id: "4", label: "Terminal 4" },
+];
+
 export default function CargaScreen() {
   const { racetracks } = useLedger();
   if (racetracks.length === 0) {
@@ -70,12 +77,14 @@ function DayEntryScreen() {
   const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
   const [date, setDate] = useState(() => openingDate(viewMonth));
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
+  const [terminalId, setTerminalId] = useState("1");
   const [sold, setSold] = useState("");
   const [cancelled, setCancelled] = useState("");
   const [paid, setPaid] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
+    setTerminalId("1");
     if (!editingId) {
       setDate(openingDate(viewMonth));
     }
@@ -151,6 +160,7 @@ function DayEntryScreen() {
     setPaid("");
     setPendingPhoto(null);
     setDropPhoto(false);
+    setTerminalId("1");
   }
 
   function startEdit(row: SettledDay) {
@@ -162,6 +172,7 @@ function DayEntryScreen() {
     setPaid(formatAmountInput(row.paidCents));
     setPendingPhoto(null);
     setDropPhoto(false);
+    setTerminalId("1");
     setError("");
     setMessage("");
   }
@@ -321,13 +332,24 @@ function DayEntryScreen() {
               <Field label="Fecha">
                 <DateField value={date} onChange={setDate} />
               </Field>
-              <Field label="Hipódromo">
-                <ChoiceChips
-                  options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
-                  value={selected.id}
-                  onChange={setRacetrackId}
-                />
-              </Field>
+              <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
+                <View className="min-w-0 flex-1">
+                  <Field label="Hipódromo">
+                    <ChoiceChips
+                      options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
+                      value={selected.id}
+                      onChange={setRacetrackId}
+                    />
+                  </Field>
+                </View>
+                <Field label="Terminal">
+                  <ChoiceChips
+                    options={terminalOptions}
+                    value={terminalId}
+                    onChange={setTerminalId}
+                  />
+                </Field>
+              </View>
               <Field label="Vendido">
                 <AmountField value={sold} onChangeText={setSold} />
               </Field>
