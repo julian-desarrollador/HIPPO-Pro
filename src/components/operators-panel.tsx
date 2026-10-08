@@ -158,8 +158,8 @@ export function OperatorsPanel({
   return (
     <>
       <Dialog visible={visible && pending === null} title="Operadores" onClose={close} wide={wide}>
-        <View className={wide && canInviteOwners ? "flex-row items-start gap-6" : "gap-4"}>
-          <View className="min-w-0 flex-1 gap-4">
+        <View className={wide && canInviteOwners ? "flex-row items-start gap-6" : "w-full flex-col gap-5"}>
+          <View className={wide && canInviteOwners ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
             {loading ? <Text className="text-[17px] text-ink">Cargando…</Text> : null}
             {!loading && operators.length === 0 ? (
               <Text className="text-[17px] text-ink">Todavía no hay operadores.</Text>
@@ -184,7 +184,7 @@ export function OperatorsPanel({
             <PrimaryButton label={busy ? "Enviando…" : "Invitar"} onPress={() => void inviteOperator()} />
           </View>
           {canInviteOwners ? (
-            <View className="min-w-0 flex-1 gap-4">
+            <View className={wide && canInviteOwners ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
               <Text className="text-[17px] font-semibold text-navy">Dueños</Text>
               {!loading && owners.length === 0 ? <Text className="text-[17px] text-ink">Todavía no hay dueños.</Text> : null}
               {owners.map((owner) => (

@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, type TextInputProps, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { palette } from "@/constants/palette";
@@ -34,12 +34,14 @@ const dialogStyles = StyleSheet.create({
     maxWidth: "100%",
     maxHeight: "85%",
     zIndex: 1,
+    overflow: "hidden",
   },
   wideCard: {
     width: "100%",
     maxWidth: 1400,
     maxHeight: "85%",
     zIndex: 1,
+    overflow: "hidden",
   },
 });
 
@@ -201,7 +203,7 @@ export function Dialog({
   onClose,
   children,
   wide = false,
-  contentMaxHeight = 480,
+  contentMaxHeight,
 }: {
   visible: boolean;
   title: string;
@@ -210,9 +212,12 @@ export function Dialog({
   wide?: boolean;
   contentMaxHeight?: number;
 }) {
+  const windowHeight = useWindowDimensions().height;
   if (!visible) {
     return null;
   }
+  const fittedBodyMax = Math.max(240, Math.floor(windowHeight * 0.85) - 96);
+  const bodyMaxHeight = contentMaxHeight ? Math.min(contentMaxHeight, fittedBodyMax) : fittedBodyMax;
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
@@ -229,7 +234,7 @@ export function Dialog({
               <Ionicons name="close" size={26} color={palette.navy} />
             </Pressable>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: contentMaxHeight }}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: bodyMaxHeight }}>
             <View className="mt-4 gap-4">{children}</View>
           </ScrollView>
         </View>

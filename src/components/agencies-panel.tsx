@@ -88,8 +88,8 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
 
   return (
     <Dialog visible={visible} title="Nueva agencia" onClose={close} wide={wide}>
-      <View className={wide ? "flex-row items-start gap-6" : "gap-4"}>
-        <View className="min-w-0 flex-1 gap-4">
+      <View className={wide ? "flex-row items-start gap-6" : "w-full flex-col gap-5"}>
+        <View className={wide ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
           <Text className="text-[17px] leading-6 text-ink">
             El dueño recibe un correo, elige su contraseña y entra a un libro vacío. Vos no quedás en esa agencia.
           </Text>
@@ -118,7 +118,7 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
           <PrimaryButton label={busy ? "Enviando…" : "Crear e invitar"} onPress={() => void create()} />
           <Feedback error={error} message={message} />
         </View>
-        <View className="min-w-0 flex-1 gap-3">
+        <View className={wide ? "min-w-0 flex-1 gap-3" : "w-full gap-3"}>
           <SectionTitle title="Agencias" />
           {loading ? <Text className="text-[17px] text-ink">Cargando…</Text> : null}
           {agencies.map((agency) => (
