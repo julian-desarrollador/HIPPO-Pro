@@ -26,17 +26,22 @@ describe("historial", () => {
       commissionBasisPoints: 2000,
       depositAdjustmentBasisPoints: -1000,
     });
-    const noted = withAuditEntry(before, repository.load(), "operator", "2026-09-30T15:00:00.000Z");
+    const noted = withAuditEntry(before, repository.load(), "operator", "2026-09-30T15:00:00.000Z", "Mati");
     assert.equal(noted.audit?.length, 1);
     assert.equal(noted.audit?.[0]?.actor, "operator");
+    assert.equal(noted.audit?.[0]?.actorName, "Mati");
     assert.match(noted.audit?.[0]?.summary ?? "", /Editó el hipódromo San Isidro/);
     assert.match(noted.audit?.[0]?.summary ?? "", /20 %/);
     assert.match(noted.audit?.[0]?.summary ?? "", /10 %/);
 
-    const restored = withRestoreAudit(repository.load(), "owner", "2026-09-30T16:00:00.000Z");
+    const unnamed = withAuditEntry(before, repository.load(), "operator", "2026-09-30T15:00:00.000Z", "  ");
+    assert.equal(unnamed.audit?.[0]?.actorName, undefined);
+
+    const restored = withRestoreAudit(repository.load(), "owner", "2026-09-30T16:00:00.000Z", "Fede");
     assert.equal(restored.audit?.length, 1);
     assert.equal(restored.audit?.[0]?.summary, "Volvió a los datos de agosto.");
     assert.equal(restored.audit?.[0]?.actor, "owner");
+    assert.equal(restored.audit?.[0]?.actorName, "Fede");
   });
 
   it("agregar un hipódromo anota una sola línea, también el primero de una agencia nueva", () => {

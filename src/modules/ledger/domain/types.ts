@@ -102,6 +102,8 @@ export type AuditEntry = {
   id: string;
   at: string;
   actor: ViewerRole;
+  /** Name of the signed-in person. Rows written before this field stay without it. */
+  actorName?: string;
   summary: string;
 };
 

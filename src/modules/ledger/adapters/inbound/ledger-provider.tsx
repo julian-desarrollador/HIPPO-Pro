@@ -163,7 +163,10 @@ export function LedgerProvider({
         action();
         const after = repository.load();
         const at = new Date().toISOString();
-        const next = restore ? withRestoreAudit(after, role, at) : withAuditEntry(before, after, role, at);
+        const actorName = displayName.trim();
+        const next = restore
+          ? withRestoreAudit(after, role, at, actorName)
+          : withAuditEntry(before, after, role, at, actorName);
         if (next !== after) {
           repository.save(next);
         }

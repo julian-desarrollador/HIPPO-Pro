@@ -335,21 +335,33 @@ export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapsh
   return lines.join(" ");
 }
 
-export function withAuditEntry(before: LedgerSnapshot, after: LedgerSnapshot, actor: ViewerRole, at: string): LedgerSnapshot {
+function namedActor(actorName?: string): { actorName: string } | Record<string, never> {
+  const name = actorName?.trim();
+  return name ? { actorName: name } : {};
+}
+
+export function withAuditEntry(
+  before: LedgerSnapshot,
+  after: LedgerSnapshot,
+  actor: ViewerRole,
+  at: string,
+  actorName?: string,
+): LedgerSnapshot {
   const summary = describeLedgerChange(before, after);
   if (!summary) {
     return after;
   }
-  const entry: AuditEntry = { id: createId("audit"), at, actor, summary };
+  const entry: AuditEntry = { id: createId("audit"), at, actor, summary, ...namedActor(actorName) };
   return { ...after, audit: [...(after.audit ?? []), entry] };
 }
 
-export function withRestoreAudit(snapshot: LedgerSnapshot, actor: ViewerRole, at: string): LedgerSnapshot {
+export function withRestoreAudit(snapshot: LedgerSnapshot, actor: ViewerRole, at: string, actorName?: string): LedgerSnapshot {
   const entry: AuditEntry = {
     id: createId("audit"),
     at,
     actor,
     summary: "Volvió a los datos de agosto.",
+    ...namedActor(actorName),
   };
   return { ...snapshot, audit: [entry] };
 }

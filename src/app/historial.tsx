@@ -19,7 +19,11 @@ function formatWhen(iso: string): string {
   });
 }
 
-function actorLabel(actor: string): string {
+function whoLabel(actor: string, actorName?: string): string {
+  const name = actorName?.trim();
+  if (name) {
+    return name;
+  }
   return actor === "owner" ? "Dueño" : "Operador";
 }
 
@@ -33,20 +37,20 @@ export default function HistorialScreen() {
     .map((entry) => ({
       id: entry.id,
       at: formatWhen(entry.at),
-      actor: actorLabel(entry.actor),
+      actor: whoLabel(entry.actor, entry.actorName),
       summary: entry.summary,
     }));
 
   return (
     <ScreenFrame title="Historial">
       <Text className="text-[15px] leading-5 text-muted">
-        Cada cambio queda con la fecha y con Dueño u Operador, según quién estaba elegido en la barra.
+        Cada cambio queda con la fecha y con el nombre de quien lo hizo. Los anteriores dicen Dueño u Operador.
       </Text>
       <DataTable
         empty={audit.length === 0 ? "Todavía no hay cambios." : "No hay cambios en este mes."}
         columns={[
           { key: "at", header: "Fecha", compact: true, minWidth: 260, render: (row) => row.at },
-          { key: "actor", header: "Quién", compact: true, minWidth: 120, render: (row) => row.actor },
+          { key: "actor", header: "Quién", compact: true, minWidth: 180, render: (row) => row.actor },
           { key: "summary", header: "Qué cambió", compact: true, wrap: true, render: (row) => row.summary },
         ]}
         rows={rows}
