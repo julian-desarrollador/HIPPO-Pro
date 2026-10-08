@@ -3,7 +3,7 @@ import { type PropsWithChildren } from "react";
 
 import { palette } from "@/constants/palette";
 
-const siteUrl = "https://hippo-pro.vercel.app";
+const siteUrl = "https://hippopro.com.ar";
 const description = "Sistema para agencias hípicas.";
 const imageUrl = `${siteUrl}/og.png`;
 

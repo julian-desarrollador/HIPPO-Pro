@@ -33,7 +33,7 @@ Los docs son la fuente de verdad. Si el código y un doc no coinciden, preguntá
 ## Git, secretos y privacidad
 
 - Julián hace los commits y el push. No commitear ni pushear sin que lo pida.
-- Un push a `main` publica en [hippo-pro.vercel.app](https://hippo-pro.vercel.app).
+- Un push a `main` publica el sitio. La dirección es [hippopro.com.ar](https://hippopro.com.ar). [hippo-pro.vercel.app](https://hippo-pro.vercel.app) redirige ahí.
 - El repositorio de GitHub es público. Nunca commitear `.env`, claves ni la `service_role` de Supabase. `.env` está en `.gitignore`.
 - No escribir teléfonos, datos personales ni acuerdos comerciales en el código ni en los docs.
 

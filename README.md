@@ -4,7 +4,7 @@ Sistema para agencias hípicas. Carga el día por hipódromo, lleva la cuenta co
 
 Esta versión reproduce agosto 2026 de la planilla de Federico. Sin claves de Supabase, el libro se guarda en este navegador: recargar conserva lo cargado y otro dispositivo no lo ve. Con las claves públicas, el celular y la computadora comparten el mismo libro. Cómo conectarlas está en [docs/10-development.md](docs/10-development.md).
 
-- Producción: [https://hippo-pro.vercel.app](https://hippo-pro.vercel.app)
+- Producción: [https://hippopro.com.ar](https://hippopro.com.ar). [https://hippo-pro.vercel.app](https://hippo-pro.vercel.app) redirige ahí.
 - Repositorio: [github.com/julian-desarrollador/HIPPO-Pro](https://github.com/julian-desarrollador/HIPPO-Pro)
 
 ## Por dónde empezar

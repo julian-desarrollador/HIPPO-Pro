@@ -13,7 +13,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const publishedOrigin = "https://hippo-pro.vercel.app";
+const publishedOrigin = "https://hippopro.com.ar";
+const legacyOrigin = "https://hippo-pro.vercel.app";
 
 const agencyNameMaxLength = 80;
 
@@ -93,7 +94,7 @@ function allowedRedirect(value: unknown): string {
   }
   try {
     const url = new URL(value);
-    if (url.origin === publishedOrigin) {
+    if (url.origin === publishedOrigin || url.origin === legacyOrigin) {
       return url.origin;
     }
     if (url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) {

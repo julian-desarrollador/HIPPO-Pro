@@ -3,6 +3,14 @@
   "outputDirectory": "dist",
   "framework": null,
   "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "hippo-pro.vercel.app" }],
+      "destination": "https://hippopro.com.ar/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!_expo/|assets/|favicon\\.ico|og\\.png|apple-touch-icon\\.png).*)",
