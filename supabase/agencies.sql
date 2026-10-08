@@ -16,6 +16,12 @@ alter table public.agencies enable row level security;
 revoke all on public.agencies from anon, authenticated;
 grant select on public.agencies to authenticated;
 
+-- create-agency and manage-operator read and write with the service role.
+-- A table created in the SQL editor does not hand that role its privileges.
+grant select, insert, update, delete on public.agencies to service_role;
+grant select, insert, update, delete on public.profiles to service_role;
+grant select, insert, update, delete on public.ledgers to service_role;
+
 drop policy if exists agencies_select_own on public.agencies;
 create policy agencies_select_own
   on public.agencies

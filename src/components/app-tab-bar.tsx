@@ -22,7 +22,7 @@ import {
 } from "@/constants/layout";
 import { palette } from "@/constants/palette";
 import { AgenciesPanel } from "@/components/agencies-panel";
-import { Dialog, SecondaryButton } from "@/components/form-controls";
+import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
 import { useLedger, type ViewerRole } from "@/modules/ledger";
@@ -327,7 +327,6 @@ export function CustomTabList(props: TabListProps) {
               <AccountMenu
                 role={role}
                 displayName={displayName}
-                compact={!wide}
                 onSignOut={signOut}
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
                 onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
@@ -482,23 +481,40 @@ function AgencyBlock({ name, railOnly }: { name: string; railOnly: boolean }) {
 function AccountMenu({
   role,
   displayName,
-  compact,
   onSignOut,
   onOpenOperators,
   onOpenAgencies,
 }: {
   role: ViewerRole;
   displayName: string;
-  compact: boolean;
   onSignOut: () => void;
   onOpenOperators: (() => void) | null;
   onOpenAgencies: (() => void) | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmingExit, setConfirmingExit] = useState(false);
   const roleLabel = role === "owner" ? "Dueño" : "Operador";
   const label = displayName.trim() ? `${displayName.trim()} · ${roleLabel}` : roleLabel;
 
-  if (compact && (onOpenOperators || onOpenAgencies)) {
+  function askSignOut() {
+    setOpen(false);
+    setConfirmingExit(true);
+  }
+
+  const confirmExit = (
+    <ConfirmDialog
+      visible={confirmingExit}
+      title="¿Salir?"
+      confirmLabel="Salir"
+      onCancel={() => setConfirmingExit(false)}
+      onConfirm={() => {
+        setConfirmingExit(false);
+        onSignOut();
+      }}
+    />
+  );
+
+  if (onOpenOperators || onOpenAgencies) {
     const pick = (action: () => void) => {
       setOpen(false);
       action();
@@ -521,49 +537,33 @@ function AccountMenu({
           <View className="gap-3">
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
             {onOpenAgencies ? <SecondaryButton label="Nueva agencia" onPress={() => pick(onOpenAgencies)} /> : null}
-            <SecondaryButton label="Salir" onPress={() => pick(onSignOut)} />
+            <SecondaryButton label="Salir" onPress={askSignOut} />
           </View>
         </Dialog>
+        {confirmExit}
       </>
     );
   }
 
   return (
-    <View className="min-w-0 flex-row items-center gap-2" style={{ flexShrink: 1 }}>
-      <View className="min-w-0 rounded-md bg-chrome-active px-3 py-1.5">
-        <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
-          {label}
-        </Text>
+    <>
+      <View className="min-w-0 flex-row items-center gap-2" style={{ flexShrink: 1 }}>
+        <View className="min-w-0 rounded-md bg-chrome-active px-3 py-1.5">
+          <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Salir"
+          onPress={askSignOut}
+          className="rounded-md px-2 py-1.5"
+        >
+          <Text className="text-[15px] font-semibold text-white">Salir</Text>
+        </Pressable>
       </View>
-      {onOpenOperators ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Operadores"
-          onPress={onOpenOperators}
-          className="rounded-md px-2 py-1.5"
-        >
-          <Text className="text-[15px] font-semibold text-white">Operadores</Text>
-        </Pressable>
-      ) : null}
-      {onOpenAgencies ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Nueva agencia"
-          onPress={onOpenAgencies}
-          className="rounded-md px-2 py-1.5"
-        >
-          <Text className="text-[15px] font-semibold text-white">Nueva agencia</Text>
-        </Pressable>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Salir"
-        onPress={onSignOut}
-        className="rounded-md px-2 py-1.5"
-      >
-        <Text className="text-[15px] font-semibold text-white">Salir</Text>
-      </Pressable>
-    </View>
+      {confirmExit}
+    </>
   );
 }
 

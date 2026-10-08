@@ -154,17 +154,20 @@ export function RowActions({
 export function ConfirmDialog({
   visible,
   title = "¿Quitar este movimiento?",
+  confirmLabel = "Quitar",
   onCancel,
   onConfirm,
 }: {
   visible: boolean;
   title?: string;
+  confirmLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   if (!visible) {
     return null;
   }
+  const removing = confirmLabel === "Quitar";
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onCancel}>
@@ -174,13 +177,17 @@ export function ConfirmDialog({
           <Text className="text-[18px] font-semibold text-navy">{title}</Text>
           <View className="mt-4 gap-2">
             <SecondaryButton label="Cancelar" onPress={onCancel} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Confirmar quitar"
-              onPress={onConfirm}
-              className="cursor-pointer items-center rounded-[10px] bg-negative px-5 py-2.5">
-              <Text className="text-[16px] font-semibold text-white">Quitar</Text>
-            </Pressable>
+            {removing ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Confirmar quitar"
+                onPress={onConfirm}
+                className="cursor-pointer items-center rounded-[10px] bg-negative px-5 py-2.5">
+                <Text className="text-[16px] font-semibold text-white">Quitar</Text>
+              </Pressable>
+            ) : (
+              <PrimaryButton label={confirmLabel} onPress={onConfirm} />
+            )}
           </View>
         </View>
       </View>

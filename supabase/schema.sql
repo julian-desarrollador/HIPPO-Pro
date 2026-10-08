@@ -56,6 +56,12 @@ grant select on public.agencies to authenticated;
 grant select on public.profiles to authenticated;
 grant select, insert, update on public.ledgers to authenticated;
 
+-- The edge functions use the service role. It bypasses row security and still
+-- needs these privileges. The anon key never receives them.
+grant select, insert, update, delete on public.agencies to service_role;
+grant select, insert, update, delete on public.profiles to service_role;
+grant select, insert, update, delete on public.ledgers to service_role;
+
 create or replace function public.caller_is_owner()
 returns boolean
 language sql
