@@ -100,11 +100,16 @@ export function SignInScreen({
 
 export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) => Promise<string | null> }) {
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit() {
     if (busy) {
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
       return;
     }
     if (password.length < 6) {
@@ -131,6 +136,15 @@ export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) =
             secureTextEntry
             placeholder="Nueva contraseña"
             accessibilityLabel="Nueva contraseña"
+          />
+        </Field>
+        <Field label="Confirmar contraseña">
+          <TextField
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            placeholder="Confirmar contraseña"
+            accessibilityLabel="Confirmar contraseña"
           />
         </Field>
         {error ? <Text className="text-[15px] text-negative">{error}</Text> : null}
