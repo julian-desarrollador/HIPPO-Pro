@@ -16,7 +16,7 @@ import {
 } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
-import { formatAmountInput, ledgerErrorMessage, readAmount, shownBettorBalanceCents, useLedger } from "@/modules/ledger";
+import { formatAmountInput, ledgerErrorMessage, readAmount, shownBettorBalanceCents, useLedger, type BettorAccount } from "@/modules/ledger";
 
 type PendingRemove = { kind: "play" | "payment"; id: string };
 
@@ -39,6 +39,7 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
     recordBettorPayment,
     updateBettorPayment,
     removeBettorPayment,
+    readOnly,
   } = useLedger();
   const account = bettorAccounts.find((item) => item.id === bettorId);
 
@@ -198,7 +199,7 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
           />
         </View>
       </View>
-      <SectionTitle title="Día" />
+      {readOnly ? null : <><SectionTitle title="Día" />
       <Card>
         <View className="gap-4">
           <Field label="Fecha">
@@ -230,7 +231,7 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
           <PrimaryButton label={editingPaymentId ? "Guardar cambios" : "Registrar pago"} onPress={() => void onSavePayment()} />
           {editingPaymentId ? <SecondaryButton label="Cancelar" onPress={cancelPaymentEdit} /> : null}
         </View>
-      </Card>
+      </Card></>}
       <SectionTitle title="Movimientos" />
       <DataTable
         columns={[
@@ -257,12 +258,15 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
             compact: true,
             node: (row) => <MoneyOrDash cents={row.kind === "payment" ? (row.amountCents ?? 0) : null} />,
           },
+          ...(readOnly
+            ? []
+            : [
           {
             key: "actions",
             header: "",
             compact: true,
-            align: "right",
-            node: (row) => (
+            align: "right" as const,
+            node: (row: BettorAccount["movements"][number]) => (
               <RowActions
                 onEdit={() => {
                   if (row.kind === "play") {
@@ -286,6 +290,7 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
               />
             ),
           },
+            ]),
         ]}
         rows={account.movements}
       />

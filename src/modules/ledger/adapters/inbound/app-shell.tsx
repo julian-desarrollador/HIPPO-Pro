@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
-import { AgencyAdminProvider } from "@/modules/identity/agency-admin";
+import { AgencyAdminProvider, type OpenedAgency } from "@/modules/identity/agency-admin";
 import { OperatorAdminProvider } from "@/modules/identity/operator-admin";
 import type { ViewerRole } from "../../domain/types";
 import { openAgencyLedger } from "../outbound/agency-ledger";
+import { createInMemoryLedgerRepository } from "../outbound/in-memory-ledger-repository";
+import type { LedgerRepository } from "../../application/ports/ledger-repository";
 import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-seed";
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
 import { readSupabaseConfig, type SupabaseConfig } from "../outbound/supabase-config";
+import { AgencyVisitProvider } from "./agency-visit";
 import { DayPhotoProvider } from "./day-photo-context";
 import { DepositPhotoProvider } from "./deposit-photo-context";
 import { LedgerProvider } from "./ledger-provider";
@@ -185,6 +188,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   }
   const client = clientRef.current;
   const [phase, setPhase] = useState<Phase>({ status: "loading" });
+  const [visit, setVisit] = useState<{ agencyId: string; agencyName: string; repository: LedgerRepository } | null>(null);
   const request = useRef(0);
 
   async function adopt(session: Session | null) {
@@ -303,7 +307,16 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   }
 
   function signOut() {
+    setVisit(null);
     void client.auth.signOut();
+  }
+
+  function openVisit(agency: OpenedAgency) {
+    setVisit({
+      agencyId: agency.agencyId,
+      agencyName: agency.agencyName,
+      repository: createInMemoryLedgerRepository(agency.snapshot),
+    });
   }
 
   if (phase.status === "loading") {
@@ -339,27 +352,54 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     );
   }
 
+  const book = visit
+    ? {
+        repository: visit.repository,
+        agencyName: visit.agencyName,
+        canInviteOwners: false,
+        canCreateAgencies: false,
+        readOnly: true,
+      }
+    : {
+        repository: phase.repository,
+        agencyName: phase.agencyName,
+        canInviteOwners: phase.canInviteOwners,
+        canCreateAgencies: phase.canCreateAgencies,
+        readOnly: false,
+      };
+
+  const pages = (
+    <OperatorAdminProvider client={client} canInviteOwners={book.canInviteOwners}>
+      <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
+        <AgencyVisitProvider value={{ open: openVisit, leave: () => setVisit(null) }}>
+          {children}
+        </AgencyVisitProvider>
+      </AgencyAdminProvider>
+    </OperatorAdminProvider>
+  );
+
   return (
     <LedgerProvider
-      repository={phase.repository}
+      key={visit?.agencyId ?? "home"}
+      repository={book.repository}
       role={phase.role}
       displayName={phase.displayName}
-      agencyName={phase.agencyName}
+      agencyName={book.agencyName}
       userId={phase.userId}
-      canInviteOwners={phase.canInviteOwners}
-      canCreateAgencies={phase.canCreateAgencies}
+      canInviteOwners={book.canInviteOwners}
+      canCreateAgencies={book.canCreateAgencies}
       persistence="agency"
+      readOnly={book.readOnly}
+      leaveVisit={() => setVisit(null)}
       signOut={signOut}
     >
-      <DayPhotoProvider client={client}>
-        <DepositPhotoProvider client={client}>
-          <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
-            <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
-              {children}
-            </AgencyAdminProvider>
-          </OperatorAdminProvider>
-        </DepositPhotoProvider>
-      </DayPhotoProvider>
+      {visit ? (
+        pages
+      ) : (
+        <DayPhotoProvider client={client}>
+          <DepositPhotoProvider client={client}>{pages}</DepositPhotoProvider>
+        </DayPhotoProvider>
+      )}
     </LedgerProvider>
   );
 }

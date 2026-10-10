@@ -25,7 +25,7 @@ import {
 } from "@/modules/ledger";
 
 export default function HomeScreen() {
-  const { canViewBalances, summary, reset, persistence, snapshot, racetracks, addRacetrack, updateRacetrack, removeRacetrack } = useLedger();
+  const { canViewBalances, summary, reset, persistence, snapshot, racetracks, addRacetrack, updateRacetrack, removeRacetrack, readOnly } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const [name, setName] = useState("");
   const [commission, setCommission] = useState("");
@@ -166,7 +166,7 @@ export default function HomeScreen() {
               },
             }}
           />
-          <View className="flex-row flex-wrap items-center gap-4">
+          {readOnly ? null : <View className="flex-row flex-wrap items-center gap-4">
             <SecondaryButton className="self-start" label="Agregar hipódromo" onPress={openAdd} />
             {racetracks.length > 0 ? (
               <SecondaryButton
@@ -179,7 +179,7 @@ export default function HomeScreen() {
                 }}
               />
             ) : null}
-          </View>
+          </View>}
           <Feedback error={formOpen || manageOpen ? "" : error} message={message} />
           <Dialog visible={formOpen} title={editingId ? "Editar hipódromo" : "Nuevo hipódromo"} onClose={closeForm}>
             <Field label="Nombre">
@@ -244,7 +244,7 @@ export default function HomeScreen() {
           </Text>
         </Card>
       )}
-      {persistence === "browser" ? <SecondaryButton label="Volver a los datos de agosto" onPress={() => void reset()} /> : null}
+      {persistence === "browser" && !readOnly ? <SecondaryButton label="Volver a los datos de agosto" onPress={() => void reset()} /> : null}
     </ScreenFrame>
   );
 }

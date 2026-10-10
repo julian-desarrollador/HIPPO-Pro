@@ -1,8 +1,17 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isLedgerSnapshot } from "@/modules/ledger/adapters/outbound/ledger-snapshot";
+import type { LedgerSnapshot } from "@/modules/ledger/domain/types";
+
 import { newAgencyProblem } from "./agency-invite";
 import { readFunctionMessage } from "./operator-admin";
+
+export type OpenedAgency = {
+  agencyId: string;
+  agencyName: string;
+  snapshot: LedgerSnapshot;
+};
 
 export type AgencyEntry = {
   agencyId: string;
@@ -12,6 +21,7 @@ export type AgencyEntry = {
 type AgencyAdmin = {
   list: () => Promise<AgencyEntry[]>;
   create: (agencyName: string, ownerName: string, ownerEmail: string) => Promise<string | null>;
+  read: (agencyId: string) => Promise<OpenedAgency | string>;
 };
 
 const AgencyAdminContext = createContext<AgencyAdmin | null>(null);
@@ -50,6 +60,20 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
         },
       });
       return error ? readFunctionMessage(error, data) : null;
+    },
+    async read(agencyId) {
+      const { data, error } = await client.functions.invoke("create-agency", {
+        body: { action: "read", agencyId },
+      });
+      if (error) {
+        return readFunctionMessage(error, data);
+      }
+      const name = data && typeof data === "object" && "name" in data && typeof data.name === "string" ? data.name.trim() : "";
+      const snapshot = data && typeof data === "object" && "snapshot" in data ? data.snapshot : null;
+      if (!name || !isLedgerSnapshot(snapshot) || snapshot.agencyId !== agencyId) {
+        return "No se pudo abrir la agencia.";
+      }
+      return { agencyId, agencyName: name, snapshot };
     },
   };
 }

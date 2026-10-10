@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { Dialog, Feedback, Field, PrimaryButton, TextField } from "@/components/form-controls";
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
 import { useAgencyAdmin, type AgencyEntry } from "@/modules/identity/agency-admin";
+import { useAgencyVisit, useLedger } from "@/modules/ledger";
 
 export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const admin = useAgencyAdmin();
+  const visit = useAgencyVisit();
+  const homeAgencyId = useLedger().snapshot.agencyId;
   const [agencies, setAgencies] = useState<AgencyEntry[]>([]);
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -86,8 +89,26 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
     setBusy(false);
   }
 
+  async function enter(agency: AgencyEntry) {
+    if (busy || !visit) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const opened = await directory.read(agency.agencyId);
+    if (typeof opened === "string") {
+      setError(opened);
+      setBusy(false);
+      return;
+    }
+    visit.open(opened);
+    setBusy(false);
+    close();
+  }
+
   return (
-    <Dialog visible={visible} title="Nueva agencia" onClose={close} wide={wide}>
+    <Dialog visible={visible} title="Agencias" onClose={close} wide={wide}>
       <View className={wide ? "flex-row items-start gap-6" : "w-full flex-col gap-5"}>
         <View className={wide ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
           <Text className="text-[17px] leading-6 text-ink">
@@ -122,10 +143,20 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
           <SectionTitle title="Agencias" />
           {loading ? <Text className="text-[17px] text-ink">Cargando…</Text> : null}
           {agencies.map((agency) => (
-            <View key={agency.agencyId} className="rounded-[14px] border border-line px-4 py-3">
-              <Text className="text-[17px] font-semibold text-navy" numberOfLines={1}>
+            <View key={agency.agencyId} className="flex-row items-center gap-3 rounded-[14px] border border-line px-4 py-3">
+              <Text className="min-w-0 flex-1 text-[17px] font-semibold text-navy" numberOfLines={1}>
                 {agency.name}
               </Text>
+              {visit && agency.agencyId !== homeAgencyId ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Entrar a ${agency.name}`}
+                  onPress={() => void enter(agency)}
+                  className="cursor-pointer"
+                >
+                  <Text className="text-[17px] font-semibold text-accent">Entrar</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>

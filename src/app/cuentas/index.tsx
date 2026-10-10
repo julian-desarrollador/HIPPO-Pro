@@ -18,7 +18,7 @@ import { BettorFolder } from "@/app/cuentas/[bettorId]";
 import { bettorHasMovements, ledgerErrorMessage, shownBettorBalanceCents, useLedger } from "@/modules/ledger";
 
 export default function CuentasScreen() {
-  const { snapshot, bettorAccounts, addBettor, updateBettor, removeBettor } = useLedger();
+  const { snapshot, bettorAccounts, addBettor, updateBettor, removeBettor, readOnly } = useLedger();
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -119,7 +119,7 @@ export default function CuentasScreen() {
 
   return (
     <ScreenFrame title="Cuentas corrientes">
-      <View className="flex-row flex-wrap items-center gap-4">
+      {readOnly ? null : <View className="flex-row flex-wrap items-center gap-4">
         <SecondaryButton className="self-start" label="Agregar apostador" onPress={openAdd} />
         {bettorAccounts.length > 0 ? (
           <SecondaryButton
@@ -132,10 +132,12 @@ export default function CuentasScreen() {
             }}
           />
         ) : null}
-      </View>
+      </View>}
       <Feedback error={formOpen || manageOpen ? "" : error} message={message} />
       {bettorAccounts.length > 0 ? (
-        <Text className="text-[15px] text-muted">Tocá el nombre para cargar lo que apostó, lo que cobró y los pagos.</Text>
+        <Text className="text-[15px] text-muted">
+          {readOnly ? "Tocá el nombre para ver los movimientos." : "Tocá el nombre para cargar lo que apostó, lo que cobró y los pagos."}
+        </Text>
       ) : null}
       <DataTable
         empty="Todavía no hay apostadores cargados."

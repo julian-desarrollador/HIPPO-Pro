@@ -9,6 +9,7 @@ export type { ExpenseCategory } from "./domain/expense-categories";
 export type { RacetrackId, ViewerRole } from "./domain/types";
 export { ledgerErrorMessage } from "./adapters/inbound/error-messages";
 export { AppShell } from "./adapters/inbound/app-shell";
+export { useAgencyVisit } from "./adapters/inbound/agency-visit";
 export { LedgerProvider, useLedger } from "./adapters/inbound/ledger-provider";
 export { chooseImageFile } from "./adapters/inbound/choose-image-file";
 export { useDayPhotos } from "./adapters/inbound/day-photo-context";

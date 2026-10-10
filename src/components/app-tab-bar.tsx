@@ -219,7 +219,7 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, agencyName, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot } = useLedger();
+  const { role, displayName, agencyName, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot, readOnly } = useLedger();
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const [agenciesOpen, setAgenciesOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
@@ -328,8 +328,8 @@ export function CustomTabList(props: TabListProps) {
                 role={role}
                 displayName={displayName}
                 onSignOut={signOut}
-                onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
-                onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
+                onOpenOperators={role === "owner" && !readOnly ? () => setOperatorsOpen(true) : null}
+                onOpenAgencies={canCreateAgencies && !readOnly ? () => setAgenciesOpen(true) : null}
               />
             ) : (
               <RoleSwitch role={role} onChange={setRole} />
@@ -536,7 +536,7 @@ function AccountMenu({
         <Dialog visible={open} title={label} onClose={() => setOpen(false)}>
           <View className="gap-3">
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
-            {onOpenAgencies ? <SecondaryButton label="Nueva agencia" onPress={() => pick(onOpenAgencies)} /> : null}
+            {onOpenAgencies ? <SecondaryButton label="Agencias" onPress={() => pick(onOpenAgencies)} /> : null}
             <SecondaryButton label="Salir" onPress={askSignOut} />
           </View>
         </Dialog>

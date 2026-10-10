@@ -64,7 +64,7 @@ export default function CargaScreen() {
 }
 
 function DayEntryScreen() {
-  const { agencyName, days, recordDay, updateDay, removeDay, snapshot, racetracks, viewMonth, setViewMonth } = useLedger();
+  const { agencyName, days, recordDay, updateDay, removeDay, snapshot, racetracks, viewMonth, setViewMonth, readOnly } = useLedger();
   const photos = useDayPhotos();
   const window = useWindowDimensions();
   const wide = window.width >= wideLayout;
@@ -325,6 +325,12 @@ function DayEntryScreen() {
 
   return (
     <ScreenFrame title="Carga del día">
+      {readOnly ? (
+        <View>
+          <PrimaryButton label="Compartir por WhatsApp" onPress={shareDay} />
+          {shareNotice ? <Text className="mt-2 text-[15px] text-negative">{shareNotice}</Text> : null}
+        </View>
+      ) : (
       <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
         <View className="flex-1">
           <Card>
@@ -410,6 +416,7 @@ function DayEntryScreen() {
           </View>
         </View>
       </View>
+      )}
 
       <SectionTitle title={monthTitle(viewMonth)} />
       <DataTable
@@ -422,13 +429,16 @@ function DayEntryScreen() {
           { key: "paid", header: "Pagado", align: "right", cents: (row) => row.paidCents },
           { key: "commission", header: "Comisión", align: "right", cents: (row) => row.commissionCents },
           { key: "deposit", header: "A depositar", align: "right", compact: true, cents: (row) => row.amountToDepositCents },
+          ...(readOnly
+            ? []
+            : [
           {
             key: "file",
             header: "Archivo",
             compact: true,
             minWidth: 160,
             padStart: 32,
-            node: (row) =>
+            node: (row: (typeof days)[number]) =>
               photoIds.has(row.id) ? (
                 <Pressable
                   accessibilityRole="button"
@@ -444,12 +454,13 @@ function DayEntryScreen() {
             key: "actions",
             header: "",
             compact: true,
-            align: "right",
+            align: "right" as const,
             minWidth: 160,
-            node: (row) => (
+            node: (row: (typeof days)[number]) => (
               <RowActions onEdit={() => startEdit(row)} onRemove={() => setPendingRemoveId(row.id)} />
             ),
           },
+            ]),
         ]}
         rows={days}
         empty="Todavía no hay días cargados."

@@ -49,6 +49,7 @@ export default function GastosScreen() {
     updateExpenseCategory,
     removeExpenseCategory,
     viewMonth,
+    readOnly,
   } = useLedger();
   const [paidOn, setPaidOn] = useState(`${viewMonth}-01`);
   const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY_ID);
@@ -236,7 +237,7 @@ export default function GastosScreen() {
 
   return (
     <ScreenFrame title="Gastos">
-      <Card>
+      {readOnly ? null : <Card>
         <View className="gap-4">
           <Field label="Fecha de pago">
             <DateField value={paidOn} onChange={setPaidOn} />
@@ -268,7 +269,7 @@ export default function GastosScreen() {
           <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar gasto"} onPress={onSave} />
           {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
         </View>
-      </Card>
+      </Card>}
 
       <ExpenseTable
         title="Gastos de la agencia"
@@ -276,6 +277,7 @@ export default function GastosScreen() {
         rows={agency}
         onEdit={startEdit}
         onRemove={setPendingRemoveExpenseId}
+        editable={!readOnly}
       />
       <ExpenseTable
         title="Adelantos y retiros"
@@ -283,6 +285,7 @@ export default function GastosScreen() {
         rows={partners}
         onEdit={startEdit}
         onRemove={setPendingRemoveExpenseId}
+        editable={!readOnly}
       />
       <Dialog visible={formOpen} title={editingCategoryId ? "Editar categoría" : "Nueva categoría"} onClose={closeCategoryForm}>
         <Field label="Nombre">
@@ -337,12 +340,14 @@ function ExpenseTable({
   rows,
   onEdit,
   onRemove,
+  editable = true,
 }: {
   title: string;
   total: number;
   rows: ExpenseRow[];
   onEdit: (row: ExpenseRow) => void;
   onRemove: (id: string) => void;
+  editable?: boolean;
 }) {
   return (
     <>
@@ -353,13 +358,17 @@ function ExpenseTable({
           { key: "category", header: "Categoría", compact: true, render: (row) => row.categoryLabel },
           { key: "detail", header: "Detalle", render: (row) => row.detail || "—" },
           { key: "amount", header: "Monto", align: "right", compact: true, cents: (row) => row.amountCents },
+          ...(editable
+            ? [
           {
             key: "actions",
             header: "",
             compact: true,
-            align: "right",
-            node: (row) => <RowActions onEdit={() => onEdit(row)} onRemove={() => onRemove(row.id)} />,
+            align: "right" as const,
+            node: (row: ExpenseRow) => <RowActions onEdit={() => onEdit(row)} onRemove={() => onRemove(row.id)} />,
           },
+            ]
+            : []),
         ]}
         rows={rows}
       />

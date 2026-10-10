@@ -171,6 +171,30 @@ Deno.serve(async (req: Request) => {
 
   const action = "action" in body ? body.action : null;
 
+  if (action === "read") {
+    const agencyId = readText(body, "agencyId");
+    if (!agencyId) {
+      return json(400, { message: "No se pudo abrir la agencia." });
+    }
+    const { data: agency, error: agencyError } = await admin
+      .from("agencies")
+      .select("name")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    if (agencyError || !agency || typeof agency.name !== "string" || !agency.name.trim()) {
+      return json(400, { message: "No se pudo abrir la agencia." });
+    }
+    const { data: ledger, error: ledgerError } = await admin
+      .from("ledgers")
+      .select("snapshot")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    if (ledgerError || !ledger || ledger.snapshot === null || typeof ledger.snapshot !== "object") {
+      return json(400, { message: "No se pudo abrir la agencia." });
+    }
+    return json(200, { name: agency.name.trim(), snapshot: ledger.snapshot });
+  }
+
   if (action === "list") {
     const { data, error } = await admin.from("agencies").select("agency_id, name").order("created_at");
     if (error || !data) {

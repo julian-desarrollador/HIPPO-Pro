@@ -39,7 +39,7 @@ type DepositRow = {
 };
 
 export default function DepositosScreen() {
-  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit, racetracks, viewMonth, setViewMonth } = useLedger();
+  const { snapshot, summary, canViewBalances, recordDeposit, updateDeposit, removeDeposit, racetracks, viewMonth, setViewMonth, readOnly } = useLedger();
   const photos = useDepositPhotos();
   const window = useWindowDimensions();
   const [photoIds, setPhotoIds] = useState<ReadonlySet<string>>(new Set());
@@ -285,7 +285,7 @@ export default function DepositosScreen() {
         </Card>
       )}
 
-      {racetracks.length === 0 ? (
+      {readOnly ? null : racetracks.length === 0 ? (
         <NoRacetracksCard />
       ) : (
         <Card>
@@ -341,13 +341,16 @@ export default function DepositosScreen() {
           { key: "date", header: "Fecha", compact: true, render: (row) => formatIsoDate(row.date) },
           { key: "track", header: "Hipódromo", compact: true, render: (row) => row.racetrackName },
           { key: "amount", header: "Monto", align: "right", compact: true, cents: (row) => row.amountCents },
+          ...(readOnly
+            ? []
+            : [
           {
             key: "file",
             header: "Archivo",
             compact: true,
             minWidth: 160,
             padStart: 32,
-            node: (row) =>
+            node: (row: (typeof deposits)[number]) =>
               photoIds.has(row.id) ? (
                 <Pressable
                   accessibilityRole="button"
@@ -363,10 +366,11 @@ export default function DepositosScreen() {
             key: "actions",
             header: "",
             compact: true,
-            align: "right",
+            align: "right" as const,
             minWidth: 160,
-            node: (row) => <RowActions onEdit={() => startEdit(row)} onRemove={() => setPendingRemoveId(row.id)} />,
+            node: (row: (typeof deposits)[number]) => <RowActions onEdit={() => startEdit(row)} onRemove={() => setPendingRemoveId(row.id)} />,
           },
+            ]),
         ]}
         rows={deposits}
       />

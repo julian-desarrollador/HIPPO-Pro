@@ -62,6 +62,8 @@ type LedgerContextValue = {
   canCreateAgencies: boolean;
   setRole: (role: ViewerRole) => void;
   persistence: "browser" | "agency";
+  readOnly: boolean;
+  leaveVisit: () => void;
   signOut: (() => void) | null;
   canViewBalances: boolean;
   viewMonth: string;
@@ -129,6 +131,8 @@ export function LedgerProvider({
   canInviteOwners = false,
   canCreateAgencies = false,
   persistence = "browser",
+  readOnly = false,
+  leaveVisit = () => {},
   signOut = null,
 }: {
   children: ReactNode;
@@ -140,6 +144,8 @@ export function LedgerProvider({
   canInviteOwners?: boolean;
   canCreateAgencies?: boolean;
   persistence?: "browser" | "agency";
+  readOnly?: boolean;
+  leaveVisit?: () => void;
   signOut?: (() => void) | null;
 }) {
   const fallback = useRef<LedgerRepository | null>(null);
@@ -158,6 +164,9 @@ export function LedgerProvider({
     const summary = summarizeMonth(snapshot, viewMonth);
 
     function publish(action: () => void, restore = false): Promise<void> {
+      if (readOnly) {
+        return Promise.resolve();
+      }
       return (async () => {
         const before = repository.load();
         action();
@@ -193,6 +202,8 @@ export function LedgerProvider({
         }
       },
       persistence,
+      readOnly,
+      leaveVisit,
       signOut,
       canViewBalances: canViewAgencyBalances(role),
       viewMonth,
@@ -248,7 +259,7 @@ export function LedgerProvider({
       removeBettorPayment: (id) => publish(() => deleteBettorPayment(repository, id)),
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, lockedRole, persistence, repository, role, signOut, userId, version]);
+  }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, readOnly, repository, role, signOut, userId, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }
