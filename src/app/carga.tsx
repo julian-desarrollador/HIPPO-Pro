@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { Linking, Pressable, Text, useWindowDimensions, View } from "react-native";
 
-import { monthTitle, toIsoDate } from "@/components/calendar-grid";
+import { monthTitle, openingDate } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { AmountField } from "@/components/amount-field";
@@ -37,12 +37,6 @@ import {
   type RacetrackId,
   type SettledDay,
 } from "@/modules/ledger";
-
-/** The day the form opens on: today when that month is on screen, otherwise the 1st. */
-function openingDate(viewMonth: string, now = new Date()): string {
-  const today = toIsoDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  return today.startsWith(`${viewMonth}-`) ? today : `${viewMonth}-01`;
-}
 
 const terminalOptions = [
   { id: "1", label: "Terminal 1" },

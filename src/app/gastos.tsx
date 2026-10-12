@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
+import { openingDate } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { AmountField } from "@/components/amount-field";
@@ -51,7 +52,7 @@ export default function GastosScreen() {
     viewMonth,
     readOnly,
   } = useLedger();
-  const [paidOn, setPaidOn] = useState(`${viewMonth}-01`);
+  const [paidOn, setPaidOn] = useState(() => openingDate(viewMonth));
   const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY_ID);
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
@@ -59,7 +60,7 @@ export default function GastosScreen() {
 
   useEffect(() => {
     if (!editingId) {
-      setPaidOn(`${viewMonth}-01`);
+      setPaidOn(openingDate(viewMonth));
     }
   }, [editingId, viewMonth]);
 

@@ -25,6 +25,12 @@ export function toIsoDate(year: number, month: number, day: number): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** The day a new movement opens on: today when that month is on screen, otherwise the 1st. */
+export function openingDate(viewMonth: string, now = new Date()): string {
+  const today = toIsoDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  return today.startsWith(`${viewMonth}-`) ? today : `${viewMonth}-01`;
+}
+
 export function shiftMonth(yearMonth: string, delta: number): string {
   const [year, month] = yearMonth.split("-").map(Number);
   const shifted = new Date(Date.UTC(year, month - 1 + delta, 1));

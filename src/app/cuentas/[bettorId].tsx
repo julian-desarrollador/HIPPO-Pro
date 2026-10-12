@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 
 import { AmountField } from "@/components/amount-field";
+import { openingDate } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
 import { formatIsoDate } from "@/components/format-date";
@@ -43,14 +44,14 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
   } = useLedger();
   const account = bettorAccounts.find((item) => item.id === bettorId);
 
-  const [playDate, setPlayDate] = useState(`${viewMonth}-01`);
+  const [playDate, setPlayDate] = useState(() => openingDate(viewMonth));
   const [playAmount, setPlayAmount] = useState("");
   const [payoutAmount, setPayoutAmount] = useState("");
   const [editingPlayId, setEditingPlayId] = useState<string | null>(null);
   const [playMessage, setPlayMessage] = useState("");
   const [playError, setPlayError] = useState("");
 
-  const [paymentDate, setPaymentDate] = useState(`${viewMonth}-01`);
+  const [paymentDate, setPaymentDate] = useState(() => openingDate(viewMonth));
   const [paymentAmount, setPaymentAmount] = useState("");
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentMessage, setPaymentMessage] = useState("");
@@ -59,10 +60,10 @@ export function BettorFolder({ bettorId, onBack }: { bettorId: string; onBack: (
 
   useEffect(() => {
     if (!editingPlayId) {
-      setPlayDate(`${viewMonth}-01`);
+      setPlayDate(openingDate(viewMonth));
     }
     if (!editingPaymentId) {
-      setPaymentDate(`${viewMonth}-01`);
+      setPaymentDate(openingDate(viewMonth));
     }
   }, [editingPaymentId, editingPlayId, viewMonth]);
 

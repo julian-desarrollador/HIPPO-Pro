@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
-import { monthTitle } from "@/components/calendar-grid";
+import { monthTitle, openingDate } from "@/components/calendar-grid";
 import { DataTable, KeyValueList } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { AmountField } from "@/components/amount-field";
@@ -49,14 +49,14 @@ export default function DepositosScreen() {
   const [dropPhoto, setDropPhoto] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
-  const [date, setDate] = useState(`${viewMonth}-01`);
+  const [date, setDate] = useState(() => openingDate(viewMonth));
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [amount, setAmount] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editingId) {
-      setDate(`${viewMonth}-01`);
+      setDate(openingDate(viewMonth));
     }
   }, [editingId, viewMonth]);
 
