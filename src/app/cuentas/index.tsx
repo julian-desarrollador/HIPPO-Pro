@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { DataTable } from "@/components/data-table";
+import { wideLayout } from "@/constants/layout";
 import {
   ConfirmDialog,
   Dialog,
@@ -12,13 +13,14 @@ import {
   SecondaryButton,
   TextField,
 } from "@/components/form-controls";
-import { MoneyText } from "@/components/stat-card";
+import { MoneyText, StatCard } from "@/components/stat-card";
 import { ScreenFrame } from "@/components/screen-frame";
 import { BettorFolder } from "@/app/cuentas/[bettorId]";
 import { bettorHasMovements, ledgerErrorMessage, shownBettorBalanceCents, useLedger } from "@/modules/ledger";
 
 export default function CuentasScreen() {
-  const { snapshot, bettorAccounts, addBettor, updateBettor, removeBettor, readOnly } = useLedger();
+  const { snapshot, bettorAccounts, bettorTotals, addBettor, updateBettor, removeBettor, readOnly } = useLedger();
+  const wide = useWindowDimensions().width >= wideLayout;
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -135,9 +137,21 @@ export default function CuentasScreen() {
       </View>}
       <Feedback error={formOpen || manageOpen ? "" : error} message={message} />
       {bettorAccounts.length > 0 ? (
-        <Text className="text-[15px] text-muted">
-          {readOnly ? "Tocá el nombre para ver los movimientos." : "Tocá el nombre para cargar lo que apostó, lo que cobró y los pagos."}
-        </Text>
+        <>
+          <View className={wide ? "flex-row flex-wrap gap-4" : "gap-4"}>
+            <StatCard label="Se debe" cents={bettorTotals.owedCents} tone={bettorTotals.owedCents > 0 ? "negative" : "navy"} />
+            <StatCard label="A favor" cents={bettorTotals.creditCents} tone={bettorTotals.creditCents > 0 ? "positive" : "navy"} />
+            <StatCard
+              label="Cuenta final"
+              cents={Math.abs(bettorTotals.netCents)}
+              emphasis
+              tone={bettorTotals.netCents > 0 ? "negative" : bettorTotals.netCents < 0 ? "positive" : "navy"}
+            />
+          </View>
+          <Text className="text-[15px] text-muted">
+            {readOnly ? "Tocá el nombre para ver los movimientos." : "Tocá el nombre para cargar lo que apostó, lo que cobró y los pagos."}
+          </Text>
+        </>
       ) : null}
       <DataTable
         empty="Todavía no hay apostadores cargados."

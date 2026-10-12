@@ -43,7 +43,7 @@ import { removeBettorPayment as deleteBettorPayment, removeBettorPlay as deleteB
 import { updateDay as saveUpdatedDay, type UpdateDayInput } from "../../application/use-cases/update-day";
 import { updateDeposit as saveUpdatedDeposit, type UpdateDepositInput } from "../../application/use-cases/update-deposit";
 import { updateExpense as saveUpdatedExpense, type UpdateExpenseInput } from "../../application/use-cases/update-expense";
-import { listBettorAccounts, type BettorAccount } from "../../application/use-cases/summarize-bettors";
+import { listBettorAccounts, summarizeBettorTotals, type BettorAccount, type BettorTotals } from "../../application/use-cases/summarize-bettors";
 import { listSettledDays, summarizeMonth, type MonthSummary, type SettledDay } from "../../application/use-cases/summarize-month";
 import { withAuditEntry, withRestoreAudit } from "../../application/use-cases/describe-ledger-change";
 import { ledgerSync } from "../outbound/agency-ledger";
@@ -72,6 +72,7 @@ type LedgerContextValue = {
   racetracks: readonly RacetrackRule[];
   expenseCategories: readonly ExpenseCategory[];
   bettorAccounts: readonly BettorAccount[];
+  bettorTotals: BettorTotals;
   summary: MonthSummary;
   days: SettledDay[];
   reportText: string;
@@ -162,6 +163,7 @@ export function LedgerProvider({
     const snapshot = repository.load();
     const viewMonth = chosenMonth ?? snapshot.month;
     const summary = summarizeMonth(snapshot, viewMonth);
+    const bettorAccounts = listBettorAccounts(snapshot);
 
     function publish(action: () => void, restore = false): Promise<void> {
       if (readOnly) {
@@ -211,7 +213,8 @@ export function LedgerProvider({
       snapshot,
       racetracks: listRacetracks(snapshot),
       expenseCategories: listExpenseCategories(snapshot),
-      bettorAccounts: listBettorAccounts(snapshot),
+      bettorAccounts,
+      bettorTotals: summarizeBettorTotals(bettorAccounts),
       summary,
       days: listSettledDays(snapshot, viewMonth),
       reportText: buildMonthReport(summary, agencyName),

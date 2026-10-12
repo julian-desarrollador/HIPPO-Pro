@@ -45,6 +45,26 @@ export function shownBettorBalanceCents(balanceCents: Cents): Cents {
   return Math.abs(balanceCents);
 }
 
+export type BettorTotals = {
+  owedCents: Cents;
+  creditCents: Cents;
+  netCents: Cents;
+};
+
+/** Owed and in-favor sums across every account. Net is owed minus in favor. */
+export function summarizeBettorTotals(accounts: readonly Pick<BettorAccount, "balanceCents">[]): BettorTotals {
+  let owedCents = 0;
+  let creditCents = 0;
+  for (const account of accounts) {
+    if (account.balanceCents > 0) {
+      owedCents += account.balanceCents;
+    } else if (account.balanceCents < 0) {
+      creditCents += -account.balanceCents;
+    }
+  }
+  return { owedCents, creditCents, netCents: owedCents - creditCents };
+}
+
 export function listBettorAccounts(snapshot: LedgerSnapshot): BettorAccount[] {
   return listBettors(snapshot)
     .slice()

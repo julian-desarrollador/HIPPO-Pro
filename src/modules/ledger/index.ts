@@ -25,7 +25,7 @@ export {
   parseSignedPercentToBasisPoints,
   readAmount,
 } from "./adapters/inbound/parse-amount";
-export type { BettorAccount } from "./application/use-cases/summarize-bettors";
-export { findBettorAccount, shownBettorBalanceCents } from "./application/use-cases/summarize-bettors";
+export type { BettorAccount, BettorTotals } from "./application/use-cases/summarize-bettors";
+export { findBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./application/use-cases/summarize-bettors";
 export type { SettledDay } from "./application/use-cases/summarize-month";
 export { buildDayReport, emptyDayReportMessage } from "./application/use-cases/build-day-report";

@@ -12,14 +12,22 @@ export function MoneyText({
 }: {
   cents: number;
   size?: "sm" | "md" | "lg" | "xl";
-  tone?: "auto" | "ink" | "navy" | "white" | "positive";
+  tone?: "auto" | "ink" | "navy" | "white" | "positive" | "negative";
   fill?: boolean;
   align?: "left" | "right" | "center";
   serif?: boolean;
 }) {
   const negative = cents < 0;
   const color =
-    tone === "white" ? "text-white" : tone === "navy" ? "text-navy" : tone === "positive" ? "text-positive" : negative ? "text-negative" : "text-ink";
+    tone === "white"
+      ? "text-white"
+      : tone === "navy"
+        ? "text-navy"
+        : tone === "positive"
+          ? "text-positive"
+          : tone === "negative" || negative
+            ? "text-negative"
+            : "text-ink";
   const scale =
     size === "xl" ? "text-4xl" : size === "lg" ? "text-[32px]" : size === "md" ? "text-[26px]" : "text-[17px]";
   const alignment = align === "left" ? "text-left" : align === "center" ? "text-center" : "text-right";
@@ -34,7 +42,17 @@ export function MoneyText({
   );
 }
 
-export function StatCard({ label, cents, emphasis }: { label: string; cents: number; emphasis?: boolean }) {
+export function StatCard({
+  label,
+  cents,
+  emphasis,
+  tone = "navy",
+}: {
+  label: string;
+  cents: number;
+  emphasis?: boolean;
+  tone?: "navy" | "positive" | "negative";
+}) {
   return (
     <View
       className={`min-w-[160px] flex-1 items-center rounded-[12px] border bg-card p-4 ${emphasis ? "border-accent" : "border-line"}`}>
@@ -42,7 +60,7 @@ export function StatCard({ label, cents, emphasis }: { label: string; cents: num
         {label}
       </Text>
       <View className="mt-1 w-full">
-        <MoneyText cents={cents} size="md" tone="navy" align="center" fill />
+        <MoneyText cents={cents} size="md" tone={tone} align="center" fill />
       </View>
     </View>
   );

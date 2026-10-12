@@ -10,7 +10,7 @@ import { recordDay } from "./record-day";
 import { recordDeposit } from "./record-deposit";
 import { recordExpense } from "./record-expense";
 import { removeBettorPlay, removeDay, removeDeposit, removeExpense } from "./remove-entry";
-import { getBettorAccount, shownBettorBalanceCents } from "./summarize-bettors";
+import { getBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./summarize-bettors";
 import { listSettledDays, summarizeMonth } from "./summarize-month";
 import { listExpenseCategories } from "../../domain/expense-categories";
 import { updateCommission } from "./update-commission";
@@ -601,6 +601,21 @@ describe("categorías de gastos agregadas", () => {
       (repository.load().expenseCategories ?? []).some((category) => category.id === "seguro"),
       false,
     );
+  });
+});
+
+describe("totales de cuentas", () => {
+  it("resta lo a favor de lo que se debe", () => {
+    assert.deepEqual(
+      summarizeBettorTotals([{ balanceCents: 10_000 }, { balanceCents: -8_000 }, { balanceCents: 0 }]),
+      { owedCents: 10_000, creditCents: 8_000, netCents: 2_000 },
+    );
+    assert.deepEqual(summarizeBettorTotals([{ balanceCents: 8_000 }, { balanceCents: -10_000 }]), {
+      owedCents: 8_000,
+      creditCents: 10_000,
+      netCents: -2_000,
+    });
+    assert.deepEqual(summarizeBettorTotals([]), { owedCents: 0, creditCents: 0, netCents: 0 });
   });
 });
 

@@ -116,7 +116,7 @@ export default function AppTabs() {
             <TabButton icon="gastos">Gastos</TabButton>
           </TabTrigger>
           <TabTrigger name="cuentas" href={"/cuentas" as Href} asChild>
-            <TabButton icon="cuentas">Cuentas</TabButton>
+            <TabButton icon="cuentas">Cuentas corrientes</TabButton>
           </TabTrigger>
           <TabTrigger name="historial" href="/historial" asChild>
             <TabButton icon="historial">Historial</TabButton>
@@ -162,11 +162,11 @@ export function TabButton({
           color={focused ? palette.celeste : palette.chromeMuted}
         />
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           className={
             focused
-              ? "text-[14px] font-semibold text-white"
-              : "text-[14px] font-medium text-chrome-muted"
+              ? "text-center text-[13px] font-semibold leading-4 text-white"
+              : "text-center text-[13px] font-medium leading-4 text-chrome-muted"
           }
         >
           {children}
