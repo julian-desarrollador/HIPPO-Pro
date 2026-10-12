@@ -1,13 +1,29 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
-import { Dialog, Feedback, Field, PrimaryButton, TextField } from "@/components/form-controls";
+import {
+  Dialog,
+  Feedback,
+  Field,
+  PrimaryButton,
+  TextField,
+} from "@/components/form-controls";
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
-import { useAgencyAdmin, type AgencyEntry } from "@/modules/identity/agency-admin";
+import {
+  useAgencyAdmin,
+  type AgencyEntry,
+} from "@/modules/identity/agency-admin";
 import { useAgencyVisit, useLedger } from "@/modules/ledger";
 
-export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+// que ocurre
+export function AgenciesPanel({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
   const admin = useAgencyAdmin();
   const visit = useAgencyVisit();
   const homeAgencyId = useLedger().snapshot.agencyId;
@@ -80,7 +96,9 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
     setAgencyName("");
     setOwnerName("");
     setOwnerEmail("");
-    setMessage(`${created} quedó creada. Le enviamos al dueño un correo para que elija su contraseña.`);
+    setMessage(
+      `${created} quedó creada. Le enviamos al dueño un correo para que elija su contraseña.`,
+    );
     try {
       setAgencies(await directory.list());
     } catch {
@@ -109,10 +127,15 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
 
   return (
     <Dialog visible={visible} title="Agencias" onClose={close} wide={wide}>
-      <View className={wide ? "flex-row items-start gap-6" : "w-full flex-col gap-5"}>
+      <View
+        className={
+          wide ? "flex-row items-start gap-6" : "w-full flex-col gap-5"
+        }
+      >
         <View className={wide ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
           <Text className="text-[17px] leading-6 text-ink">
-            El dueño recibe un correo, elige su contraseña y entra a un libro vacío. Vos no quedás en esa agencia.
+            El dueño recibe un correo, elige su contraseña y entra a un libro
+            vacío. Vos no quedás en esa agencia.
           </Text>
           <Field label="Nombre de la agencia">
             <TextField
@@ -123,7 +146,12 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
             />
           </Field>
           <Field label="Nombre del dueño">
-            <TextField value={ownerName} onChangeText={setOwnerName} placeholder="Nombre" accessibilityLabel="Nombre del dueño" />
+            <TextField
+              value={ownerName}
+              onChangeText={setOwnerName}
+              placeholder="Nombre"
+              accessibilityLabel="Nombre del dueño"
+            />
           </Field>
           <Field label="Correo del dueño">
             <TextField
@@ -136,15 +164,26 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
               accessibilityLabel="Correo del dueño"
             />
           </Field>
-          <PrimaryButton label={busy ? "Enviando…" : "Crear e invitar"} onPress={() => void create()} />
+          <PrimaryButton
+            label={busy ? "Enviando…" : "Crear e invitar"}
+            onPress={() => void create()}
+          />
           <Feedback error={error} message={message} />
         </View>
         <View className={wide ? "min-w-0 flex-1 gap-3" : "w-full gap-3"}>
           <SectionTitle title="Agencias" />
-          {loading ? <Text className="text-[17px] text-ink">Cargando…</Text> : null}
+          {loading ? (
+            <Text className="text-[17px] text-ink">Cargando…</Text>
+          ) : null}
           {agencies.map((agency) => (
-            <View key={agency.agencyId} className="flex-row items-center gap-3 rounded-[14px] border border-line px-4 py-3">
-              <Text className="min-w-0 flex-1 text-[17px] font-semibold text-navy" numberOfLines={1}>
+            <View
+              key={agency.agencyId}
+              className="flex-row items-center gap-3 rounded-[14px] border border-line px-4 py-3"
+            >
+              <Text
+                className="min-w-0 flex-1 text-[17px] font-semibold text-navy"
+                numberOfLines={1}
+              >
                 {agency.name}
               </Text>
               {visit && agency.agencyId !== homeAgencyId ? (
@@ -154,7 +193,9 @@ export function AgenciesPanel({ visible, onClose }: { visible: boolean; onClose:
                   onPress={() => void enter(agency)}
                   className="cursor-pointer"
                 >
-                  <Text className="text-[17px] font-semibold text-accent">Entrar</Text>
+                  <Text className="text-[17px] font-semibold text-accent">
+                    Entrar
+                  </Text>
                 </Pressable>
               ) : null}
             </View>
