@@ -4,6 +4,7 @@ import type { OpenedAgency } from "@/modules/identity/agency-admin";
 
 type AgencyVisit = {
   open: (agency: OpenedAgency) => void;
+  openPersonal: (agencyId: string, agencyName: string) => Promise<string | null>;
   leave: () => void;
 };
 

@@ -156,12 +156,14 @@ export function RowActions({
 export function ConfirmDialog({
   visible,
   title = "¿Quitar este movimiento?",
+  detail,
   confirmLabel = "Quitar",
   onCancel,
   onConfirm,
 }: {
   visible: boolean;
   title?: string;
+  detail?: string;
   confirmLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -177,6 +179,7 @@ export function ConfirmDialog({
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onCancel} style={confirmStyles.dim} />
         <View className="rounded-[14px] border border-line bg-card p-5" style={confirmStyles.card}>
           <Text className="text-[18px] font-semibold text-navy">{title}</Text>
+          {detail ? <Text className="mt-2 text-[17px] leading-6 text-ink">{detail}</Text> : null}
           <View className="mt-4 gap-2">
             <SecondaryButton label="Cancelar" onPress={onCancel} />
             {removing ? (

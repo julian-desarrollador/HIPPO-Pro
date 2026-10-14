@@ -7,6 +7,7 @@ create table public.agencies (
   agency_id text primary key
     check (agency_id ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(agency_id) <= 60),
   name text not null check (length(btrim(name)) between 1 and 80),
+  personal_user_id uuid references auth.users (id),
   created_at timestamptz not null default now()
 );
 
@@ -94,11 +95,31 @@ revoke all on function public.caller_agency_id() from public, anon, authenticate
 grant execute on function public.caller_is_owner() to authenticated;
 grant execute on function public.caller_agency_id() to authenticated;
 
+-- True for the profile agency and for a personal agency owned by this user.
+create or replace function public.caller_can_use_agency(target text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select target = public.caller_agency_id()
+    or exists (
+      select 1
+      from public.agencies
+      where agency_id = target
+        and personal_user_id = auth.uid()
+    );
+$$;
+
+revoke all on function public.caller_can_use_agency(text) from public, anon, authenticated;
+grant execute on function public.caller_can_use_agency(text) to authenticated;
+
 create policy agencies_select_own
   on public.agencies
   for select
   to authenticated
-  using (agency_id = public.caller_agency_id());
+  using (public.caller_can_use_agency(agency_id));
 
 create policy profiles_select_own
   on public.profiles
@@ -119,28 +140,20 @@ create policy ledgers_select_own_agency
   on public.ledgers
   for select
   to authenticated
-  using (
-    agency_id = (select profiles.agency_id from public.profiles where profiles.user_id = auth.uid())
-  );
+  using (public.caller_can_use_agency(agency_id));
 
 create policy ledgers_insert_own_agency
   on public.ledgers
   for insert
   to authenticated
-  with check (
-    agency_id = (select profiles.agency_id from public.profiles where profiles.user_id = auth.uid())
-  );
+  with check (public.caller_can_use_agency(agency_id));
 
 create policy ledgers_update_own_agency
   on public.ledgers
   for update
   to authenticated
-  using (
-    agency_id = (select profiles.agency_id from public.profiles where profiles.user_id = auth.uid())
-  )
-  with check (
-    agency_id = (select profiles.agency_id from public.profiles where profiles.user_id = auth.uid())
-  );
+  using (public.caller_can_use_agency(agency_id))
+  with check (public.caller_can_use_agency(agency_id));
 
 -- After creating an owner in Authentication (auto-confirm), enable them.
 -- can_invite_owners lets that owner invite other owners from the app.

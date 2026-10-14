@@ -21,7 +21,7 @@ import {
   wideLayout,
 } from "@/constants/layout";
 import { palette } from "@/constants/palette";
-import { AgenciesPanel } from "@/components/agencies-panel";
+import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
@@ -219,7 +219,7 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, agencyName, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot, readOnly } = useLedger();
+  const { role, displayName, agencyName, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot } = useLedger();
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const [agenciesOpen, setAgenciesOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
@@ -328,8 +328,8 @@ export function CustomTabList(props: TabListProps) {
                 role={role}
                 displayName={displayName}
                 onSignOut={signOut}
-                onOpenOperators={role === "owner" && !readOnly ? () => setOperatorsOpen(true) : null}
-                onOpenAgencies={canCreateAgencies && !readOnly ? () => setAgenciesOpen(true) : null}
+                onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
+                onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
               />
             ) : (
               <RoleSwitch role={role} onChange={setRole} />
@@ -535,6 +535,7 @@ function AccountMenu({
         </Pressable>
         <Dialog visible={open} title={label} onClose={() => setOpen(false)}>
           <View className="gap-3">
+            {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => setOpen(false)} /> : null}
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
             {onOpenAgencies ? <SecondaryButton label="Agencias" onPress={() => pick(onOpenAgencies)} /> : null}
             <SecondaryButton label="Salir" onPress={askSignOut} />

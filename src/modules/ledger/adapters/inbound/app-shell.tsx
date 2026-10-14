@@ -27,6 +27,7 @@ type Phase =
       role: ViewerRole;
       displayName: string;
       agencyName: string;
+      agencyId: string;
       userId: string;
       canInviteOwners: boolean;
       canCreateAgencies: boolean;
@@ -188,7 +189,13 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   }
   const client = clientRef.current;
   const [phase, setPhase] = useState<Phase>({ status: "loading" });
-  const [visit, setVisit] = useState<{ agencyId: string; agencyName: string; repository: LedgerRepository } | null>(null);
+  const [visit, setVisit] = useState<{
+    agencyId: string;
+    agencyName: string;
+    repository: LedgerRepository;
+    readOnly: boolean;
+    personal: boolean;
+  } | null>(null);
   const request = useRef(0);
 
   async function adopt(session: Session | null) {
@@ -228,6 +235,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         role: profile.role,
         displayName: profile.displayName,
         agencyName,
+        agencyId: profile.agencyId,
         userId: session.user.id,
         canInviteOwners: profile.canInviteOwners,
         canCreateAgencies: profile.canCreateAgencies,
@@ -316,7 +324,25 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       agencyId: agency.agencyId,
       agencyName: agency.agencyName,
       repository: createInMemoryLedgerRepository(agency.snapshot),
+      readOnly: true,
+      personal: false,
     });
+  }
+
+  async function openPersonal(agencyId: string, agencyName: string): Promise<string | null> {
+    try {
+      const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), agencyId);
+      setVisit({
+        agencyId,
+        agencyName,
+        repository,
+        readOnly: false,
+        personal: true,
+      });
+      return null;
+    } catch {
+      return "No se pudo abrir la agencia.";
+    }
   }
 
   if (phase.status === "loading") {
@@ -356,22 +382,20 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     ? {
         repository: visit.repository,
         agencyName: visit.agencyName,
-        canInviteOwners: false,
-        canCreateAgencies: false,
-        readOnly: true,
+        readOnly: visit.readOnly,
+        personalVisit: visit.personal,
       }
     : {
         repository: phase.repository,
         agencyName: phase.agencyName,
-        canInviteOwners: phase.canInviteOwners,
-        canCreateAgencies: phase.canCreateAgencies,
         readOnly: false,
+        personalVisit: false,
       };
 
   const pages = (
-    <OperatorAdminProvider client={client} canInviteOwners={book.canInviteOwners}>
+    <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
       <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
-        <AgencyVisitProvider value={{ open: openVisit, leave: () => setVisit(null) }}>
+        <AgencyVisitProvider value={{ open: openVisit, openPersonal, leave: () => setVisit(null) }}>
           {children}
         </AgencyVisitProvider>
       </AgencyAdminProvider>
@@ -386,14 +410,16 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       displayName={phase.displayName}
       agencyName={book.agencyName}
       userId={phase.userId}
-      canInviteOwners={book.canInviteOwners}
-      canCreateAgencies={book.canCreateAgencies}
+      canInviteOwners={phase.canInviteOwners}
+      canCreateAgencies={phase.canCreateAgencies}
+      sessionAgencyId={phase.agencyId}
       persistence="agency"
       readOnly={book.readOnly}
+      personalVisit={book.personalVisit}
       leaveVisit={() => setVisit(null)}
       signOut={signOut}
     >
-      {visit ? (
+      {visit?.readOnly ? (
         pages
       ) : (
         <DayPhotoProvider client={client}>

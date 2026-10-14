@@ -22,12 +22,35 @@ grant select, insert, update, delete on public.agencies to service_role;
 grant select, insert, update, delete on public.profiles to service_role;
 grant select, insert, update, delete on public.ledgers to service_role;
 
+alter table public.agencies
+  add column if not exists personal_user_id uuid references auth.users (id);
+
+-- Same rule as personal-agencies.sql. Re-running this file must not take it away.
+create or replace function public.caller_can_use_agency(target text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select target = public.caller_agency_id()
+    or exists (
+      select 1
+      from public.agencies
+      where agency_id = target
+        and personal_user_id = auth.uid()
+    );
+$$;
+
+revoke all on function public.caller_can_use_agency(text) from public, anon, authenticated;
+grant execute on function public.caller_can_use_agency(text) to authenticated;
+
 drop policy if exists agencies_select_own on public.agencies;
 create policy agencies_select_own
   on public.agencies
   for select
   to authenticated
-  using (agency_id = public.caller_agency_id());
+  using (public.caller_can_use_agency(agency_id));
 
 insert into public.agencies (agency_id, name)
 values ('agencia-dolores', 'Agencia Dolores')

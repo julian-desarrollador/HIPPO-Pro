@@ -1,7 +1,9 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useState } from "react";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import {
+  ConfirmDialog,
   Dialog,
   Feedback,
   Field,
@@ -10,13 +12,192 @@ import {
 } from "@/components/form-controls";
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
+import { palette } from "@/constants/palette";
 import {
   useAgencyAdmin,
   type AgencyEntry,
 } from "@/modules/identity/agency-admin";
 import { useAgencyVisit, useLedger } from "@/modules/ledger";
 
-// que ocurre
+export function AgencyMenuList({
+  active,
+  onEntered,
+}: {
+  active: boolean;
+  onEntered: () => void;
+}) {
+  const admin = useAgencyAdmin();
+  const visit = useAgencyVisit();
+  const { snapshot, sessionAgencyId } = useLedger();
+  const viewedAgencyId = snapshot.agencyId;
+  const [agencies, setAgencies] = useState<AgencyEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<AgencyEntry | null>(null);
+
+  useEffect(() => {
+    if (!active || !admin) {
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    setError("");
+    const directory = admin;
+    void (async () => {
+      try {
+        const rows = await directory.list();
+        if (alive) {
+          setAgencies(rows);
+          setLoading(false);
+        }
+      } catch {
+        if (alive) {
+          setAgencies([]);
+          setError("No se pudo cargar la lista.");
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [active, admin]);
+
+  if (!admin || !visit) {
+    return null;
+  }
+  const directory = admin;
+  const openVisit = visit.open;
+  const openPersonalVisit = visit.openPersonal;
+  const leaveVisit = visit.leave;
+
+  async function confirmRemoval() {
+    if (!pendingRemoval || busy) {
+      return;
+    }
+    const agency = pendingRemoval;
+    setBusy(true);
+    setError("");
+    const problem = await directory.removePersonal(agency.agencyId);
+    if (problem) {
+      setError(problem);
+      setBusy(false);
+      setPendingRemoval(null);
+      return;
+    }
+    if (agency.agencyId === viewedAgencyId) {
+      leaveVisit();
+    }
+    setAgencies((rows) => rows.filter((row) => row.agencyId !== agency.agencyId));
+    setBusy(false);
+    setPendingRemoval(null);
+  }
+
+  async function enter(agency: AgencyEntry) {
+    if (busy || agency.agencyId === sessionAgencyId || agency.agencyId === viewedAgencyId) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    if (agency.kind === "personal") {
+      const problem = await openPersonalVisit(agency.agencyId, agency.name);
+      if (problem) {
+        setError(problem);
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      onEntered();
+      return;
+    }
+    const opened = await directory.read(agency.agencyId);
+    if (typeof opened === "string") {
+      setError(opened);
+      setBusy(false);
+      return;
+    }
+    openVisit(opened);
+    setBusy(false);
+    onEntered();
+  }
+
+  return (
+    <View className="gap-2">
+      {loading || agencies.length > 0 ? (
+      <View className="overflow-hidden rounded-[14px] border border-line">
+        {loading && agencies.length === 0 ? (
+          <Text className="px-4 py-3 text-[17px] text-ink">Cargando…</Text>
+        ) : null}
+        {agencies.map((agency, index) => {
+          const isSession = agency.agencyId === sessionAgencyId;
+          const choosable = !isSession && agency.agencyId !== viewedAgencyId;
+          const last = index === agencies.length - 1;
+          const label = (
+            <>
+              <Text className="min-w-0 flex-1 text-[17px] font-semibold text-navy" numberOfLines={1}>
+                {agency.name}
+              </Text>
+              {choosable && agency.kind === "personal" ? (
+                <Text className="shrink-0 text-[15px] text-muted">Prueba</Text>
+              ) : null}
+              {choosable ? (
+                <Ionicons name="chevron-forward" size={18} color={palette.accent} />
+              ) : (
+                <Text className="shrink-0 text-[15px] text-muted">{isSession ? "Tu agencia" : "Mirando"}</Text>
+              )}
+            </>
+          );
+          return (
+            <View
+              key={agency.agencyId}
+              className={
+                last
+                  ? "flex-row items-center gap-3 px-4 py-3"
+                  : "flex-row items-center gap-3 border-b border-line px-4 py-3"
+              }
+            >
+              {choosable ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Entrar a ${agency.name}`}
+                  onPress={() => void enter(agency)}
+                  className="min-w-0 flex-1 cursor-pointer flex-row items-center gap-3"
+                  style={({ pressed }) => (pressed ? { backgroundColor: palette.tint } : undefined)}
+                >
+                  {label}
+                </Pressable>
+              ) : (
+                <View className="min-w-0 flex-1 flex-row items-center gap-3">{label}</View>
+              )}
+              {agency.kind === "personal" ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quitar ${agency.name}`}
+                  onPress={() => setPendingRemoval(agency)}
+                  className="cursor-pointer"
+                >
+                  <Text className="text-[15px] font-semibold text-negative">Quitar</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+      ) : null}
+      {error ? <Text className="text-[15px] text-negative">{error}</Text> : null}
+      <ConfirmDialog
+        visible={pendingRemoval !== null}
+        title={pendingRemoval ? `¿Quitar ${pendingRemoval.name}?` : "¿Quitar esta agencia?"}
+        detail="Se borra el libro y las fotos. No se puede deshacer."
+        confirmLabel="Quitar"
+        onCancel={() => setPendingRemoval(null)}
+        onConfirm={() => void confirmRemoval()}
+      />
+    </View>
+  );
+}
+
 export function AgenciesPanel({
   visible,
   onClose,
@@ -26,15 +207,20 @@ export function AgenciesPanel({
 }) {
   const admin = useAgencyAdmin();
   const visit = useAgencyVisit();
-  const homeAgencyId = useLedger().snapshot.agencyId;
+  const { snapshot, sessionAgencyId } = useLedger();
+  const viewedAgencyId = snapshot.agencyId;
   const [agencies, setAgencies] = useState<AgencyEntry[]>([]);
   const [agencyName, setAgencyName] = useState("");
+  const [personalName, setPersonalName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [error, setError] = useState("");
+  const [personalError, setPersonalError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [personalBusy, setPersonalBusy] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<AgencyEntry | null>(null);
   const wide = useWindowDimensions().width >= wideLayout;
 
   useEffect(() => {
@@ -72,15 +258,42 @@ export function AgenciesPanel({
 
   function close() {
     setAgencyName("");
+    setPersonalName("");
     setOwnerName("");
     setOwnerEmail("");
     setError("");
+    setPersonalError("");
     setMessage("");
     onClose();
   }
 
+  async function createPersonalAgency() {
+    if (busy || personalBusy || !visit) {
+      return;
+    }
+    setPersonalBusy(true);
+    setPersonalError("");
+    setError("");
+    setMessage("");
+    const created = await directory.createPersonal(personalName);
+    if (typeof created === "string") {
+      setPersonalError(created);
+      setPersonalBusy(false);
+      return;
+    }
+    const problem = await visit.openPersonal(created.agencyId, created.name);
+    if (problem) {
+      setPersonalError(problem);
+      setPersonalBusy(false);
+      return;
+    }
+    setPersonalName("");
+    setPersonalBusy(false);
+    close();
+  }
+
   async function create() {
-    if (busy) {
+    if (busy || personalBusy) {
       return;
     }
     setBusy(true);
@@ -108,12 +321,24 @@ export function AgenciesPanel({
   }
 
   async function enter(agency: AgencyEntry) {
-    if (busy || !visit) {
+    if (busy || personalBusy || !visit) {
       return;
     }
     setBusy(true);
     setError("");
+    setPersonalError("");
     setMessage("");
+    if (agency.kind === "personal") {
+      const problem = await visit.openPersonal(agency.agencyId, agency.name);
+      if (problem) {
+        setError(problem);
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      close();
+      return;
+    }
     const opened = await directory.read(agency.agencyId);
     if (typeof opened === "string") {
       setError(opened);
@@ -125,7 +350,30 @@ export function AgenciesPanel({
     close();
   }
 
+  async function confirmRemoval() {
+    if (!pendingRemoval || busy || personalBusy || !visit) {
+      return;
+    }
+    const agency = pendingRemoval;
+    setBusy(true);
+    setError("");
+    const problem = await directory.removePersonal(agency.agencyId);
+    if (problem) {
+      setError(problem);
+      setBusy(false);
+      setPendingRemoval(null);
+      return;
+    }
+    if (agency.agencyId === viewedAgencyId) {
+      visit.leave();
+    }
+    setAgencies((rows) => rows.filter((row) => row.agencyId !== agency.agencyId));
+    setBusy(false);
+    setPendingRemoval(null);
+  }
+
   return (
+    <>
     <Dialog visible={visible} title="Agencias" onClose={close} wide={wide}>
       <View
         className={
@@ -169,6 +417,24 @@ export function AgenciesPanel({
             onPress={() => void create()}
           />
           <Feedback error={error} message={message} />
+          <View className="gap-4 border-t border-line pt-4">
+            <Text className="text-[17px] leading-6 text-ink">
+              Queda a tu nombre. Nadie más entra. El libro empieza vacío.
+            </Text>
+            <Field label="Nombre de la prueba">
+              <TextField
+                value={personalName}
+                onChangeText={setPersonalName}
+                placeholder="Agencia Norte"
+                accessibilityLabel="Nombre de la prueba"
+              />
+            </Field>
+            <PrimaryButton
+              label={personalBusy ? "Creando…" : "Crear y entrar"}
+              onPress={() => void createPersonalAgency()}
+            />
+            <Feedback error={personalError} message="" />
+          </View>
         </View>
         <View className={wide ? "min-w-0 flex-1 gap-3" : "w-full gap-3"}>
           <SectionTitle title="Agencias" />
@@ -186,7 +452,7 @@ export function AgenciesPanel({
               >
                 {agency.name}
               </Text>
-              {visit && agency.agencyId !== homeAgencyId ? (
+              {visit && agency.agencyId !== sessionAgencyId && agency.agencyId !== viewedAgencyId ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Entrar a ${agency.name}`}
@@ -198,10 +464,29 @@ export function AgenciesPanel({
                   </Text>
                 </Pressable>
               ) : null}
+              {agency.kind === "personal" ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quitar ${agency.name}`}
+                  onPress={() => setPendingRemoval(agency)}
+                  className="cursor-pointer"
+                >
+                  <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>
       </View>
     </Dialog>
+    <ConfirmDialog
+      visible={pendingRemoval !== null}
+      title={pendingRemoval ? `¿Quitar ${pendingRemoval.name}?` : "¿Quitar esta agencia?"}
+      detail="Se borra el libro y las fotos. No se puede deshacer."
+      confirmLabel="Quitar"
+      onCancel={() => setPendingRemoval(null)}
+      onConfirm={() => void confirmRemoval()}
+    />
+    </>
   );
 }

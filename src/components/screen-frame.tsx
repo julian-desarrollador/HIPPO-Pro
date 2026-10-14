@@ -1,10 +1,11 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Animated, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { monthTitle, shiftMonth } from "@/components/calendar-grid";
-import { SecondaryButton } from "@/components/form-controls";
+import { ConfirmDialog, SecondaryButton } from "@/components/form-controls";
+import { useAgencyAdmin } from "@/modules/identity/agency-admin";
 import { useDesktopSidebarWidth } from "@/components/sidebar-menu";
 import { desktopTopbarHeight, mobileBarHeight, mobileTabBarHeight, wideLayout } from "@/constants/layout";
 import { palette } from "@/constants/palette";
@@ -20,7 +21,25 @@ export function ScreenFrame({
   const wide = useWindowDimensions().width >= wideLayout;
   const menuWidth = useDesktopSidebarWidth();
   const insets = useSafeAreaInsets();
-  const { viewMonth, setViewMonth, readOnly, agencyName, leaveVisit } = useLedger();
+  const { viewMonth, setViewMonth, readOnly, personalVisit, agencyName, snapshot, leaveVisit } = useLedger();
+  const admin = useAgencyAdmin();
+  const [confirmingRemoval, setConfirmingRemoval] = useState(false);
+  const [removalError, setRemovalError] = useState("");
+
+  async function removePersonalAgency() {
+    if (!admin) {
+      return;
+    }
+    const problem = await admin.removePersonal(snapshot.agencyId);
+    if (problem) {
+      setRemovalError(problem);
+      setConfirmingRemoval(false);
+      return;
+    }
+    setRemovalError("");
+    setConfirmingRemoval(false);
+    leaveVisit();
+  }
   const gutter = wide ? 32 : 20;
 
   return (
@@ -40,12 +59,38 @@ export function ScreenFrame({
             paddingBottom: wide ? 48 : mobileTabBarHeight + insets.bottom + 24,
           }}>
           <View style={{ width: "100%", minWidth: 0 }}>
-          {readOnly ? (
+          {readOnly || personalVisit ? (
             <View className="mb-4 flex-row flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line bg-card px-4 py-3">
-              <Text className="min-w-0 flex-1 text-[17px] text-ink">Estás mirando {agencyName}. Solo lectura.</Text>
-              <SecondaryButton label="Volver" onPress={leaveVisit} />
+              <Text className="min-w-0 flex-1 text-[17px] text-ink">
+                {personalVisit ? `Estás en ${agencyName}. Agencia de prueba.` : `Estás mirando ${agencyName}. Solo lectura.`}
+              </Text>
+              <View className="flex-row items-center gap-3">
+                {personalVisit && admin ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Quitar agencia de prueba"
+                    onPress={() => {
+                      setRemovalError("");
+                      setConfirmingRemoval(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
+                  </Pressable>
+                ) : null}
+                <SecondaryButton label="Volver" onPress={leaveVisit} />
+              </View>
+              {removalError ? <Text className="w-full text-[15px] text-negative">{removalError}</Text> : null}
             </View>
           ) : null}
+          <ConfirmDialog
+            visible={confirmingRemoval}
+            title={`¿Quitar ${agencyName}?`}
+            detail="Se borra el libro y las fotos. No se puede deshacer."
+            confirmLabel="Quitar"
+            onCancel={() => setConfirmingRemoval(false)}
+            onConfirm={() => void removePersonalAgency()}
+          />
           <View className="flex-row flex-wrap items-center gap-2">
             <View className="flex-row items-center rounded-full border border-line bg-card">
               <Pressable

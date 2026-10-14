@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isLedgerSnapshot } from "@/modules/ledger/adapters/outbound/ledger-snapshot";
 import type { LedgerSnapshot } from "@/modules/ledger/domain/types";
 
-import { newAgencyProblem } from "./agency-invite";
+import { newAgencyProblem, personalAgencyNameProblem } from "./agency-invite";
 import { readFunctionMessage } from "./operator-admin";
 
 export type OpenedAgency = {
@@ -13,7 +13,15 @@ export type OpenedAgency = {
   snapshot: LedgerSnapshot;
 };
 
+export type AgencyKind = "home" | "personal" | "other";
+
 export type AgencyEntry = {
+  agencyId: string;
+  name: string;
+  kind: AgencyKind;
+};
+
+export type CreatedPersonalAgency = {
   agencyId: string;
   name: string;
 };
@@ -21,17 +29,23 @@ export type AgencyEntry = {
 type AgencyAdmin = {
   list: () => Promise<AgencyEntry[]>;
   create: (agencyName: string, ownerName: string, ownerEmail: string) => Promise<string | null>;
+  createPersonal: (agencyName: string) => Promise<CreatedPersonalAgency | string>;
+  removePersonal: (agencyId: string) => Promise<string | null>;
   read: (agencyId: string) => Promise<OpenedAgency | string>;
 };
 
 const AgencyAdminContext = createContext<AgencyAdmin | null>(null);
+
+function isAgencyKind(value: unknown): value is AgencyKind {
+  return value === "home" || value === "personal" || value === "other";
+}
 
 function isAgencyEntry(value: unknown): value is AgencyEntry {
   if (!value || typeof value !== "object") {
     return false;
   }
   const row = value as Record<string, unknown>;
-  return typeof row.agencyId === "string" && typeof row.name === "string";
+  return typeof row.agencyId === "string" && typeof row.name === "string" && isAgencyKind(row.kind);
 }
 
 function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
@@ -58,6 +72,30 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
           ownerEmail: ownerEmail.trim(),
           redirectTo,
         },
+      });
+      return error ? readFunctionMessage(error, data) : null;
+    },
+    async createPersonal(agencyName) {
+      const problem = personalAgencyNameProblem(agencyName);
+      if (problem) {
+        return problem;
+      }
+      const { data, error } = await client.functions.invoke("create-agency", {
+        body: { action: "create-personal", agencyName: agencyName.trim() },
+      });
+      if (error) {
+        return readFunctionMessage(error, data);
+      }
+      const agencyId = data && typeof data === "object" && "agencyId" in data && typeof data.agencyId === "string" ? data.agencyId : "";
+      const name = data && typeof data === "object" && "name" in data && typeof data.name === "string" ? data.name.trim() : "";
+      if (!agencyId || !name) {
+        return "No se pudo crear la agencia.";
+      }
+      return { agencyId, name };
+    },
+    async removePersonal(agencyId) {
+      const { data, error } = await client.functions.invoke("create-agency", {
+        body: { action: "delete-personal", agencyId },
       });
       return error ? readFunctionMessage(error, data) : null;
     },

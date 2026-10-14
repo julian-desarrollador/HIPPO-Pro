@@ -1,7 +1,8 @@
 -- Checks that agencies cannot read or change each other's book, people,
 -- names, day photos or deposit photos, and that nothing opens without a session.
 -- Run it in the SQL editor after agencies.sql, close-ledger.sql,
--- day-photos.sql and deposit-photos.sql, and again after any change to a policy.
+-- day-photos.sql, deposit-photos.sql and personal-agencies.sql,
+-- and again after any change to a policy.
 -- Everything runs inside one transaction that is rolled back: the test
 -- users, agencies, books and photos never stay. A leak stops the run with
 -- an error that starts with FUGA. The last line says it passed.
@@ -19,19 +20,25 @@ insert into public.agencies (agency_id, name) values
   ('aislamiento-b', 'Prueba B'),
   ('aislamiento-c', 'Prueba C');
 
+insert into public.agencies (agency_id, name, personal_user_id) values
+  ('aislamiento-propia', 'Propia', '00000000-0000-4000-8000-00000000a001');
+
 insert into public.profiles (user_id, agency_id, role, display_name, email) values
   ('00000000-0000-4000-8000-00000000a001', 'aislamiento-a', 'owner', 'Prueba A', 'aislamiento-a@example.invalid'),
   ('00000000-0000-4000-8000-00000000a002', 'aislamiento-b', 'owner', 'Prueba B', 'aislamiento-b@example.invalid');
 
 insert into public.ledgers (agency_id, snapshot) values
   ('aislamiento-a', '{"agencyId":"aislamiento-a","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}'),
-  ('aislamiento-b', '{"agencyId":"aislamiento-b","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}');
+  ('aislamiento-b', '{"agencyId":"aislamiento-b","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}'),
+  ('aislamiento-propia', '{"agencyId":"aislamiento-propia","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}');
 
 insert into storage.objects (bucket_id, name) values
   ('day-photos', 'aislamiento-a/dia'),
   ('day-photos', 'aislamiento-b/dia'),
   ('deposit-photos', 'aislamiento-a/deposito'),
-  ('deposit-photos', 'aislamiento-b/deposito');
+  ('deposit-photos', 'aislamiento-b/deposito'),
+  ('day-photos', 'aislamiento-propia/dia'),
+  ('deposit-photos', 'aislamiento-propia/deposito');
 
 -- A profile or a book cannot point to an agency that does not exist.
 do $$
@@ -135,7 +142,13 @@ begin
     end if;
 
     -- Books.
-    select count(*) into n from public.ledgers where agency_id <> pair.mine;
+    select count(*) into n from public.ledgers as book
+    where book.agency_id <> pair.mine
+      and not exists (
+        select 1 from public.agencies as agency
+        where agency.agency_id = book.agency_id
+          and agency.personal_user_id = pair.me
+      );
     if n <> 0 then
       raise exception 'FUGA: % lee % libros de otras agencias', pair.mine, n;
     end if;
@@ -184,7 +197,9 @@ begin
     end;
 
     -- Agency names.
-    select count(*) into n from public.agencies where agency_id <> pair.mine;
+    select count(*) into n from public.agencies as agency
+    where agency.agency_id <> pair.mine
+      and agency.personal_user_id is distinct from pair.me;
     if n <> 0 then
       raise exception 'FUGA: % lee % agencias ajenas', pair.mine, n;
     end if;
@@ -208,8 +223,14 @@ begin
     if n <> 1 then
       raise exception 'La prueba no anda: % no ve su propia imagen', pair.mine;
     end if;
-    select count(*) into n from storage.objects
-    where bucket_id = 'day-photos' and (storage.foldername(name))[1] is distinct from pair.mine;
+    select count(*) into n from storage.objects as photo
+    where photo.bucket_id = 'day-photos'
+      and (storage.foldername(photo.name))[1] is distinct from pair.mine
+      and not exists (
+        select 1 from public.agencies as agency
+        where agency.agency_id = (storage.foldername(photo.name))[1]
+          and agency.personal_user_id = pair.me
+      );
     if n <> 0 then
       raise exception 'FUGA: % ve % imágenes de otras agencias', pair.mine, n;
     end if;
@@ -231,8 +252,14 @@ begin
     if n <> 1 then
       raise exception 'La prueba no anda: % no ve su propia imagen de depósito', pair.mine;
     end if;
-    select count(*) into n from storage.objects
-    where bucket_id = 'deposit-photos' and (storage.foldername(name))[1] is distinct from pair.mine;
+    select count(*) into n from storage.objects as photo
+    where photo.bucket_id = 'deposit-photos'
+      and (storage.foldername(photo.name))[1] is distinct from pair.mine
+      and not exists (
+        select 1 from public.agencies as agency
+        where agency.agency_id = (storage.foldername(photo.name))[1]
+          and agency.personal_user_id = pair.me
+      );
     if n <> 0 then
       raise exception 'FUGA: % ve % imágenes de depósito de otras agencias', pair.mine, n;
     end if;
@@ -248,6 +275,83 @@ begin
       raise exception 'FUGA: % se lleva la imagen de depósito de %', pair.mine, pair.other;
     end if;
   end loop;
+end;
+$$;
+
+-- The personal agency belongs to A. A can use it. B cannot. A still cannot see B.
+do $$
+declare
+  n integer;
+begin
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a001', 'role', 'authenticated')::text,
+    true
+  );
+
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-propia';
+  if n <> 1 then
+    raise exception 'La prueba no anda: el dueño no ve su agencia de prueba';
+  end if;
+  update public.ledgers set version = version + 1 where agency_id = 'aislamiento-propia';
+  get diagnostics n = row_count;
+  if n <> 1 then
+    raise exception 'La prueba no anda: el dueño no puede guardar su agencia de prueba';
+  end if;
+  select count(*) into n from public.agencies where agency_id = 'aislamiento-propia';
+  if n <> 1 then
+    raise exception 'La prueba no anda: el dueño no ve el nombre de su agencia de prueba';
+  end if;
+  select count(*) into n from storage.objects
+  where bucket_id = 'day-photos' and name = 'aislamiento-propia/dia';
+  if n <> 1 then
+    raise exception 'La prueba no anda: el dueño no ve la imagen de su agencia de prueba';
+  end if;
+  select count(*) into n from storage.objects
+  where bucket_id = 'deposit-photos' and name = 'aislamiento-propia/deposito';
+  if n <> 1 then
+    raise exception 'La prueba no anda: el dueño no ve la imagen de depósito de su agencia de prueba';
+  end if;
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-b';
+  if n <> 0 then
+    raise exception 'FUGA: el dueño de una prueba lee el libro de otra agencia';
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a002', 'role', 'authenticated')::text,
+    true
+  );
+
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-propia';
+  if n <> 0 then
+    raise exception 'FUGA: otra persona lee la agencia de prueba';
+  end if;
+  update public.ledgers set version = version + 1 where agency_id = 'aislamiento-propia';
+  get diagnostics n = row_count;
+  if n <> 0 then
+    raise exception 'FUGA: otra persona modifica la agencia de prueba';
+  end if;
+  select count(*) into n from storage.objects
+  where bucket_id = 'day-photos' and name = 'aislamiento-propia/dia';
+  if n <> 0 then
+    raise exception 'FUGA: otra persona ve la imagen de la agencia de prueba';
+  end if;
+  select count(*) into n from storage.objects
+  where bucket_id = 'deposit-photos' and name = 'aislamiento-propia/deposito';
+  if n <> 0 then
+    raise exception 'FUGA: otra persona ve la imagen de depósito de la agencia de prueba';
+  end if;
+  begin
+    insert into storage.objects (bucket_id, name) values ('day-photos', 'aislamiento-propia/intruso');
+    raise exception 'FUGA: otra persona sube una imagen en la agencia de prueba';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name) values ('deposit-photos', 'aislamiento-propia/intruso');
+    raise exception 'FUGA: otra persona sube una imagen de depósito en la agencia de prueba';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 

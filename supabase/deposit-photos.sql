@@ -21,7 +21,7 @@ create policy deposit_photos_select on storage.objects
 for select to authenticated
 using (
   bucket_id = 'deposit-photos'
-  and (storage.foldername(name))[1] = public.caller_agency_id()
+  and public.caller_can_use_agency((storage.foldername(name))[1])
 );
 
 drop policy if exists deposit_photos_insert on storage.objects;
@@ -29,7 +29,7 @@ create policy deposit_photos_insert on storage.objects
 for insert to authenticated
 with check (
   bucket_id = 'deposit-photos'
-  and (storage.foldername(name))[1] = public.caller_agency_id()
+  and public.caller_can_use_agency((storage.foldername(name))[1])
 );
 
 drop policy if exists deposit_photos_update on storage.objects;
@@ -37,11 +37,11 @@ create policy deposit_photos_update on storage.objects
 for update to authenticated
 using (
   bucket_id = 'deposit-photos'
-  and (storage.foldername(name))[1] = public.caller_agency_id()
+  and public.caller_can_use_agency((storage.foldername(name))[1])
 )
 with check (
   bucket_id = 'deposit-photos'
-  and (storage.foldername(name))[1] = public.caller_agency_id()
+  and public.caller_can_use_agency((storage.foldername(name))[1])
 );
 
 drop policy if exists deposit_photos_delete on storage.objects;
@@ -49,5 +49,5 @@ create policy deposit_photos_delete on storage.objects
 for delete to authenticated
 using (
   bucket_id = 'deposit-photos'
-  and (storage.foldername(name))[1] = public.caller_agency_id()
+  and public.caller_can_use_agency((storage.foldername(name))[1])
 );

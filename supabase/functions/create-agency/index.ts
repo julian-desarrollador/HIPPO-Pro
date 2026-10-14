@@ -1,6 +1,7 @@
 // Creates an agency with an empty book and invites its first owner.
-// Only a profile with can_create_agencies may call it. The caller gets no
-// profile in the new agency, and "list" returns names only, never a book.
+// create-personal makes an empty book for the caller only, with no invite
+// and no change to the caller's profile. list hides other people's personal
+// agencies. Only a profile with can_create_agencies may call it.
 // Runs with the service role inside Supabase.
 // The app calls it with the caller's session and the anon key only.
 // Keep the Spanish messages aligned with src/modules/identity/agency-invite.ts.
@@ -39,7 +40,7 @@ function agencyIdFromName(name: string): string {
     .replace(/-+$/g, "");
 }
 
-function newAgencyProblem(agencyName: string, ownerName: string, ownerEmail: string): string | null {
+function personalAgencyNameProblem(agencyName: string): string | null {
   const name = agencyName.trim();
   if (!name) {
     return "Escribí el nombre de la agencia.";
@@ -49,6 +50,19 @@ function newAgencyProblem(agencyName: string, ownerName: string, ownerEmail: str
   }
   if (!agencyIdFromName(name)) {
     return "El nombre de la agencia necesita letras o números.";
+  }
+  return null;
+}
+
+function personalAgencyId(name: string): string {
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+  return `${agencyIdFromName(name)}-${suffix}`;
+}
+
+function newAgencyProblem(agencyName: string, ownerName: string, ownerEmail: string): string | null {
+  const nameProblem = personalAgencyNameProblem(agencyName);
+  if (nameProblem) {
+    return nameProblem;
   }
   if (!ownerName.trim()) {
     return "Escribí el nombre del dueño.";
@@ -115,6 +129,22 @@ function readText(body: object, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+async function removePhotoFolder(admin: SupabaseClient, bucket: string, agencyId: string): Promise<boolean> {
+  const { data, error } = await admin.storage.from(bucket).list(agencyId, { limit: 1000 });
+  if (error) {
+    return false;
+  }
+  const paths = (data ?? [])
+    .map((file) => file.name)
+    .filter((name) => name.length > 0)
+    .map((name) => `${agencyId}/${name}`);
+  if (paths.length === 0) {
+    return true;
+  }
+  const { error: removeError } = await admin.storage.from(bucket).remove(paths);
+  return !removeError;
+}
+
 async function removeAgency(admin: SupabaseClient, agencyId: string): Promise<void> {
   await admin.from("ledgers").delete().eq("agency_id", agencyId);
   await admin.from("agencies").delete().eq("agency_id", agencyId);
@@ -151,7 +181,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: caller, error: callerError } = await admin
     .from("profiles")
-    .select("can_create_agencies")
+    .select("can_create_agencies, agency_id")
     .eq("user_id", callerId)
     .maybeSingle();
 
@@ -178,10 +208,13 @@ Deno.serve(async (req: Request) => {
     }
     const { data: agency, error: agencyError } = await admin
       .from("agencies")
-      .select("name")
+      .select("name, personal_user_id")
       .eq("agency_id", agencyId)
       .maybeSingle();
     if (agencyError || !agency || typeof agency.name !== "string" || !agency.name.trim()) {
+      return json(400, { message: "No se pudo abrir la agencia." });
+    }
+    if (typeof agency.personal_user_id === "string" && agency.personal_user_id !== callerId) {
       return json(400, { message: "No se pudo abrir la agencia." });
     }
     const { data: ledger, error: ledgerError } = await admin
@@ -196,11 +229,88 @@ Deno.serve(async (req: Request) => {
   }
 
   if (action === "list") {
-    const { data, error } = await admin.from("agencies").select("agency_id, name").order("created_at");
+    const homeId = typeof caller.agency_id === "string" ? caller.agency_id : "";
+    const { data, error } = await admin
+      .from("agencies")
+      .select("agency_id, name, personal_user_id")
+      .order("created_at");
     if (error || !data) {
       return json(400, { message: "No se pudo cargar la lista." });
     }
-    return json(200, { agencies: data.map((row) => ({ agencyId: row.agency_id, name: row.name })) });
+    const agencies = data
+      .filter((row) => row.personal_user_id == null || row.personal_user_id === callerId)
+      .map((row) => ({
+        agencyId: row.agency_id,
+        name: row.name,
+        kind: row.agency_id === homeId ? "home" : row.personal_user_id === callerId ? "personal" : "other",
+      }));
+    return json(200, { agencies });
+  }
+
+  if (action === "create-personal") {
+    const agencyName = readText(body, "agencyName");
+    const problem = personalAgencyNameProblem(agencyName);
+    if (problem) {
+      return json(400, { message: problem });
+    }
+    const name = agencyName.trim().replace(/\s+/g, " ");
+    let agencyId = "";
+    let created = false;
+    for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
+      agencyId = personalAgencyId(name);
+      const { error: agencyError } = await admin.from("agencies").insert({
+        agency_id: agencyId,
+        name,
+        personal_user_id: callerId,
+      });
+      if (!agencyError) {
+        created = true;
+        break;
+      }
+      if (agencyError.code !== "23505") {
+        return json(400, { message: "No se pudo crear la agencia." });
+      }
+    }
+    if (!created) {
+      return json(400, { message: "No se pudo crear la agencia." });
+    }
+    const { error: ledgerError } = await admin
+      .from("ledgers")
+      .insert({ agency_id: agencyId, snapshot: emptyAgencySnapshot(agencyId) });
+    if (ledgerError) {
+      await removeAgency(admin, agencyId);
+      return json(400, { message: "No se pudo crear la agencia." });
+    }
+    return json(200, { agencyId, name });
+  }
+
+  if (action === "delete-personal") {
+    const agencyId = readText(body, "agencyId");
+    if (!agencyId) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    const { data: agency, error: agencyError } = await admin
+      .from("agencies")
+      .select("personal_user_id")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    if (agencyError || !agency || agency.personal_user_id !== callerId) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    const { count, error: profileError } = await admin
+      .from("profiles")
+      .select("user_id", { count: "exact", head: true })
+      .eq("agency_id", agencyId);
+    if (profileError || (count ?? 0) > 0) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    const photosRemoved = await removePhotoFolder(admin, "day-photos", agencyId)
+      && await removePhotoFolder(admin, "deposit-photos", agencyId);
+    if (!photosRemoved) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    await removeAgency(admin, agencyId);
+    return json(200, { ok: true });
   }
 
   if (action === "create") {

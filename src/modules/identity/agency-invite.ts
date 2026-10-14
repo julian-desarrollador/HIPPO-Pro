@@ -15,7 +15,7 @@ export function agencyIdFromName(name: string): string {
 }
 
 /** Keep the Spanish messages aligned with supabase/functions/create-agency/index.ts. */
-export function newAgencyProblem(agencyName: string, ownerName: string, ownerEmail: string): string | null {
+export function personalAgencyNameProblem(agencyName: string): string | null {
   const name = agencyName.trim();
   if (!name) {
     return "Escribí el nombre de la agencia.";
@@ -25,6 +25,14 @@ export function newAgencyProblem(agencyName: string, ownerName: string, ownerEma
   }
   if (!agencyIdFromName(name)) {
     return "El nombre de la agencia necesita letras o números.";
+  }
+  return null;
+}
+
+export function newAgencyProblem(agencyName: string, ownerName: string, ownerEmail: string): string | null {
+  const nameProblem = personalAgencyNameProblem(agencyName);
+  if (nameProblem) {
+    return nameProblem;
   }
   if (!ownerName.trim()) {
     return "Escribí el nombre del dueño.";

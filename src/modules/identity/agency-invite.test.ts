@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { agencyIdFromName, newAgencyProblem } from "./agency-invite";
+import { agencyIdFromName, newAgencyProblem, personalAgencyNameProblem } from "./agency-invite";
 
 describe("nueva agencia", () => {
   it("pide el nombre de la agencia, el del dueño y un correo válido", () => {
@@ -13,6 +13,12 @@ describe("nueva agencia", () => {
     assert.equal(newAgencyProblem("Agencia Norte", "Ana", ""), "Escribí el correo.");
     assert.equal(newAgencyProblem("Agencia Norte", "Ana", "no-es-correo"), "El correo no es válido.");
     assert.equal(newAgencyProblem("  Agencia Norte  ", "  Ana  ", "  ana@norte.com  "), null);
+  });
+
+  it("una agencia de prueba solo pide el nombre", () => {
+    assert.equal(personalAgencyNameProblem(""), "Escribí el nombre de la agencia.");
+    assert.equal(personalAgencyNameProblem("¡¡!!"), "El nombre de la agencia necesita letras o números.");
+    assert.equal(personalAgencyNameProblem("Agencia Norte"), null);
   });
 
   it("arma el id de la agencia sin tildes ni espacios", () => {

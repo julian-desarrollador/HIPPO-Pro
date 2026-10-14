@@ -60,9 +60,11 @@ type LedgerContextValue = {
   userId: string;
   canInviteOwners: boolean;
   canCreateAgencies: boolean;
+  sessionAgencyId: string;
   setRole: (role: ViewerRole) => void;
   persistence: "browser" | "agency";
   readOnly: boolean;
+  personalVisit: boolean;
   leaveVisit: () => void;
   signOut: (() => void) | null;
   canViewBalances: boolean;
@@ -131,8 +133,10 @@ export function LedgerProvider({
   userId = "",
   canInviteOwners = false,
   canCreateAgencies = false,
+  sessionAgencyId = "",
   persistence = "browser",
   readOnly = false,
+  personalVisit = false,
   leaveVisit = () => {},
   signOut = null,
 }: {
@@ -144,8 +148,10 @@ export function LedgerProvider({
   userId?: string;
   canInviteOwners?: boolean;
   canCreateAgencies?: boolean;
+  sessionAgencyId?: string;
   persistence?: "browser" | "agency";
   readOnly?: boolean;
+  personalVisit?: boolean;
   leaveVisit?: () => void;
   signOut?: (() => void) | null;
 }) {
@@ -198,6 +204,7 @@ export function LedgerProvider({
       userId,
       canInviteOwners,
       canCreateAgencies,
+      sessionAgencyId,
       setRole: (next) => {
         if (!lockedRole) {
           setPreviewRole(next);
@@ -205,6 +212,7 @@ export function LedgerProvider({
       },
       persistence,
       readOnly,
+      personalVisit,
       leaveVisit,
       signOut,
       canViewBalances: canViewAgencyBalances(role),
@@ -262,7 +270,7 @@ export function LedgerProvider({
       removeBettorPayment: (id) => publish(() => deleteBettorPayment(repository, id)),
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, readOnly, repository, role, signOut, userId, version]);
+  }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, repository, role, sessionAgencyId, signOut, userId, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }
