@@ -149,10 +149,12 @@ export function TabButton({
       : Boolean(isFocused);
 
   if (variant === "bottom") {
+    const bottomLabel = children === "Cuentas corrientes" ? "Cuentas" : children;
     return (
       <Pressable
         {...props}
         accessibilityRole="link"
+        accessibilityLabel={typeof bottomLabel === "string" ? bottomLabel : undefined}
         className="min-w-0 flex-1 items-center gap-1 py-1"
         style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
       >
@@ -162,14 +164,14 @@ export function TabButton({
           color={focused ? palette.celeste : palette.chromeMuted}
         />
         <Text
-          numberOfLines={2}
+          numberOfLines={1}
           className={
             focused
-              ? "text-center text-[13px] font-semibold leading-4 text-white"
-              : "text-center text-[13px] font-medium leading-4 text-chrome-muted"
+              ? "text-center text-[11px] font-semibold leading-4 text-white"
+              : "text-center text-[11px] font-medium leading-4 text-chrome-muted"
           }
         >
-          {children}
+          {bottomLabel}
         </Text>
       </Pressable>
     );
