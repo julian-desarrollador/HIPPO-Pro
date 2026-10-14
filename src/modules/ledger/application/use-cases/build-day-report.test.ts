@@ -35,6 +35,11 @@ describe("texto de la venta del día", () => {
     assert.equal(report.includes("Saldo del mes"), false);
   });
 
+  it("nombra la terminal cuando la fila la tiene", () => {
+    const report = buildDayReport([{ ...sanIsidro, terminalId: "2" }], "2026-08-16", "Agencia Dolores");
+    assert.match(report ?? "", /San Isidro · Terminal 2/);
+  });
+
   it("lleva el nombre de la agencia que lo comparte", () => {
     const report = buildDayReport([{ ...sanIsidro, agencyId: "agencia-norte" }], "2026-08-16", "Agencia Norte");
     assert.ok(report);

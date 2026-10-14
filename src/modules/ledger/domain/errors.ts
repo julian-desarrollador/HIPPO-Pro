@@ -5,6 +5,7 @@ export type LedgerErrorCode =
   | "invalid-amount"
   | "empty-entry"
   | "duplicate-day"
+  | "duplicate-terminal"
   | "invalid-date"
   | "outside-month"
   | "unknown-entry"

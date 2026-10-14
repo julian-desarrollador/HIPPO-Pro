@@ -37,7 +37,12 @@ export function listSettledDays(snapshot: LedgerSnapshot, month = snapshot.month
       racetrackName: getRacetrack(day.racetrackId, snapshot).name,
       ...settleSnapshotDay(snapshot, day),
     }))
-    .sort((left, right) => left.date.localeCompare(right.date) || left.racetrackId.localeCompare(right.racetrackId));
+    .sort(
+      (left, right) =>
+        left.date.localeCompare(right.date) ||
+        left.racetrackId.localeCompare(right.racetrackId) ||
+        (left.terminalId ?? "").localeCompare(right.terminalId ?? ""),
+    );
 }
 
 export type RacetrackMonth = {
@@ -132,7 +137,7 @@ export function summarizeMonth(snapshot: LedgerSnapshot, month = snapshot.month)
     return {
       racetrackId,
       name: rule.name,
-      meetingCount: trackDays.length,
+      meetingCount: new Set(trackDays.map((day) => day.date)).size,
       netCents,
       commissionCents,
       amountToDepositCents,

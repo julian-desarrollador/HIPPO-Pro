@@ -20,7 +20,7 @@ function trackBlock(day: SettledDay): string {
     depositAdjustmentBasisPoints: day.depositAdjustmentBasisPoints,
   });
   return [
-    day.racetrackName,
+    day.terminalId ? `${day.racetrackName} · Terminal ${day.terminalId}` : day.racetrackName,
     `Vendido: ${formatCents(day.soldCents)}`,
     `Cancelados: ${formatCents(day.cancelledCents)}`,
     `Neto: ${formatCents(settlement.netCents)}`,

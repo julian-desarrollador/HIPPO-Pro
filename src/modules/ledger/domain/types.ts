@@ -19,11 +19,15 @@ export type ViewerRole = "owner" | "operator";
 
 export type ExpenseKind = "agency" | "partner-withdrawal";
 
+export type TerminalId = "1" | "2" | "3" | "4";
+
 export type DailySale = {
   id: string;
   agencyId: string;
   date: string;
   racetrackId: RacetrackId;
+  /** Missing on a day loaded before terminals were stored. That row occupies the whole date and racetrack. */
+  terminalId?: TerminalId;
   soldCents: Cents;
   cancelledCents: Cents;
   paidCents: Cents;

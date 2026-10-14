@@ -6,7 +6,7 @@ export { EXPENSE_CATEGORIES, categoryHasExpenses, listExpenseCategories } from "
 export { formatCents, formatSignedPercent } from "./domain/money";
 export { RACETRACKS, currentCommissionBasisPoints, listRacetracks, racetrackHasMovements } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
-export type { RacetrackId, ViewerRole } from "./domain/types";
+export type { RacetrackId, TerminalId, ViewerRole } from "./domain/types";
 export { ledgerErrorMessage } from "./adapters/inbound/error-messages";
 export { AppShell } from "./adapters/inbound/app-shell";
 export { useAgencyVisit } from "./adapters/inbound/agency-visit";

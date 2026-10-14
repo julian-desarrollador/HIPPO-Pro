@@ -3,7 +3,7 @@ import { currentCommissionBasisPoints, getRacetrack } from "../../domain/racetra
 import type { DailySale, RacetrackId } from "../../domain/types";
 import { assertCents, assertIsoDate } from "../../domain/validation";
 import type { LedgerRepository } from "../ports/ledger-repository";
-import type { RecordDayInput } from "./record-day";
+import { daySlotConflict, isTerminalId, type RecordDayInput } from "./record-day";
 
 export type UpdateDayInput = RecordDayInput & { id: string };
 
@@ -25,25 +25,27 @@ export function updateDay(repository: LedgerRepository, input: UpdateDayInput): 
   }
 
   const racetrackId = racetrack.id as RacetrackId;
-  const duplicate = snapshot.days.some(
-    (day) =>
-      day.id !== input.id &&
-      day.date === input.date &&
-      day.racetrackId === racetrackId &&
-      day.agencyId === snapshot.agencyId,
-  );
-  if (duplicate) {
-    throw new LedgerError("duplicate-day");
-  }
-
   const current = snapshot.days[index];
   if (!current) {
     throw new LedgerError("unknown-entry");
   }
+  const terminalId = current.terminalId === undefined ? undefined : isTerminalId(input.terminalId) ? input.terminalId : current.terminalId;
+  const conflict = daySlotConflict(snapshot.days, {
+    id: input.id,
+    date: input.date,
+    racetrackId,
+    agencyId: snapshot.agencyId,
+    terminalId,
+  });
+  if (conflict) {
+    throw new LedgerError(conflict);
+  }
+
   const updated: DailySale = {
     ...current,
     date: input.date,
     racetrackId,
+    terminalId,
     soldCents: input.soldCents,
     cancelledCents: input.cancelledCents,
     paidCents: input.paidCents,

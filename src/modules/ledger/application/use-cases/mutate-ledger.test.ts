@@ -19,6 +19,66 @@ import { updateDeposit } from "./update-deposit";
 import { updateExpense } from "./update-expense";
 import { createInMemoryLedgerRepository } from "../../adapters/outbound/in-memory-ledger-repository";
 
+describe("terminales del mismo día", () => {
+  it("guarda dos terminales, suma el neto y cuenta una reunión", () => {
+    const repository = createInMemoryLedgerRepository();
+    const first = recordDay(repository, {
+      date: "2026-09-02",
+      racetrackId: "san-isidro",
+      terminalId: "1",
+      soldCents: 1_000_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    const second = recordDay(repository, {
+      date: "2026-09-02",
+      racetrackId: "san-isidro",
+      terminalId: "2",
+      soldCents: 500_000,
+      cancelledCents: 0,
+      paidCents: 0,
+    });
+    const track = summarizeMonth(repository.load(), "2026-09").racetracks.find((item) => item.racetrackId === "san-isidro");
+    const settled = listSettledDays(repository.load(), "2026-09");
+    const firstNet = settled.find((day) => day.id === first.id)?.netCents ?? 0;
+    const secondNet = settled.find((day) => day.id === second.id)?.netCents ?? 0;
+    assert.equal(track?.meetingCount, 1);
+    assert.equal(track?.netCents, firstNet + secondNet);
+
+    assert.throws(
+      () =>
+        recordDay(repository, {
+          date: "2026-09-02",
+          racetrackId: "san-isidro",
+          terminalId: "1",
+          soldCents: 100,
+          cancelledCents: 0,
+          paidCents: 0,
+        }),
+      (error: unknown) => error instanceof LedgerError && error.code === "duplicate-terminal",
+    );
+  });
+
+  it("una fila sin terminal no deja cargar otra en ese día", () => {
+    const repository = createInMemoryLedgerRepository();
+    const seed = repository.load().days.find((day) => day.racetrackId === "san-isidro");
+    assert.ok(seed);
+    assert.equal(seed.terminalId, undefined);
+    assert.throws(
+      () =>
+        recordDay(repository, {
+          date: seed.date,
+          racetrackId: seed.racetrackId,
+          terminalId: "2",
+          soldCents: 100,
+          cancelledCents: 0,
+          paidCents: 0,
+        }),
+      (error: unknown) => error instanceof LedgerError && error.code === "duplicate-day",
+    );
+  });
+});
+
 describe("quitar movimientos", () => {
   it("quita un día por id y deja cargar de nuevo esa fecha y hipódromo", () => {
     const repository = createInMemoryLedgerRepository();

@@ -17,6 +17,11 @@ function trackName(snapshot: LedgerSnapshot, id: string): string {
   return listRacetracks(snapshot).find((track) => track.id === id)?.name ?? id;
 }
 
+function dayLabel(snapshot: LedgerSnapshot, day: { date: string; racetrackId: string; terminalId?: string }): string {
+  const terminal = day.terminalId ? ` en Terminal ${day.terminalId}` : "";
+  return `${formatDay(day.date)} de ${trackName(snapshot, day.racetrackId)}${terminal}`;
+}
+
 function categoryName(snapshot: LedgerSnapshot, id: string): string {
   return listExpenseCategories(snapshot).find((category) => category.id === id)?.label ?? id;
 }
@@ -106,7 +111,7 @@ function diffDays(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
   for (const [id, day] of next) {
     const old = previous.get(id);
     if (!old) {
-      lines.push(`Cargó el día ${formatDay(day.date)} de ${trackName(after, day.racetrackId)}.`);
+      lines.push(`Cargó el día ${dayLabel(after, day)}.`);
       continue;
     }
     const clauses: string[] = [];
@@ -115,6 +120,9 @@ function diffDays(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
     }
     if (old.racetrackId !== day.racetrackId) {
       clauses.push(`El hipódromo pasó a ${trackName(after, day.racetrackId)}.`);
+    }
+    if (old.terminalId !== day.terminalId && day.terminalId) {
+      clauses.push(`La terminal pasó a Terminal ${day.terminalId}.`);
     }
     if (old.soldCents !== day.soldCents) {
       clauses.push(`Vendido pasó de ${formatCents(old.soldCents)} a ${formatCents(day.soldCents)}.`);
@@ -126,12 +134,12 @@ function diffDays(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
       clauses.push(`Pagado pasó de ${formatCents(old.paidCents)} a ${formatCents(day.paidCents)}.`);
     }
     if (clauses.length > 0) {
-      lines.push(`Editó el día ${formatDay(old.date)} de ${trackName(before, old.racetrackId)}. ${clauses.join(" ")}`);
+      lines.push(`Editó el día ${dayLabel(before, old)}. ${clauses.join(" ")}`);
     }
   }
   for (const [id, day] of previous) {
     if (!next.has(id)) {
-      lines.push(`Quitó el día ${formatDay(day.date)} de ${trackName(before, day.racetrackId)}.`);
+      lines.push(`Quitó el día ${dayLabel(before, day)}.`);
     }
   }
   return lines;

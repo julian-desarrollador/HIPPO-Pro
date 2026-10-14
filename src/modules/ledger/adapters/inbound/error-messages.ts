@@ -7,6 +7,7 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "invalid-amount": "El importe no es válido.",
   "empty-entry": "Cargá un importe.",
   "duplicate-day": "Ese día y ese hipódromo ya están cargados.",
+  "duplicate-terminal": "Esa terminal ya está cargada para ese día y ese hipódromo.",
   "invalid-date": "La fecha tiene que ser AAAA-MM-DD.",
   "outside-month": "La fecha no pertenece a agosto 2026.",
   "unknown-entry": "Ese movimiento no está.",

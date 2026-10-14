@@ -36,9 +36,10 @@ import {
   type DaySettlement,
   type RacetrackId,
   type SettledDay,
+  type TerminalId,
 } from "@/modules/ledger";
 
-const terminalOptions = [
+const terminalOptions: readonly { id: TerminalId; label: string }[] = [
   { id: "1", label: "Terminal 1" },
   { id: "2", label: "Terminal 2" },
   { id: "3", label: "Terminal 3" },
@@ -71,16 +72,16 @@ function DayEntryScreen() {
   const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
   const [date, setDate] = useState(() => openingDate(viewMonth));
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
-  const [terminalId, setTerminalId] = useState("1");
+  const [terminalId, setTerminalId] = useState<TerminalId>("1");
   const [sold, setSold] = useState("");
   const [cancelled, setCancelled] = useState("");
   const [paid, setPaid] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setTerminalId("1");
     if (!editingId) {
       setDate(openingDate(viewMonth));
+      setTerminalId("1");
     }
   }, [editingId, viewMonth]);
 
@@ -161,12 +162,12 @@ function DayEntryScreen() {
     setEditingId(row.id);
     setDate(row.date);
     setRacetrackId(row.racetrackId);
+    setTerminalId(row.terminalId ?? "1");
     setSold(formatAmountInput(row.soldCents));
     setCancelled(formatAmountInput(row.cancelledCents));
     setPaid(formatAmountInput(row.paidCents));
     setPendingPhoto(null);
     setDropPhoto(false);
-    setTerminalId("1");
     setError("");
     setMessage("");
   }
@@ -269,11 +270,11 @@ function DayEntryScreen() {
     try {
       let dayId = editingId;
       if (editingId) {
-        await updateDay({ id: editingId, date, racetrackId: selected.id, soldCents, cancelledCents, paidCents });
+        await updateDay({ id: editingId, date, racetrackId: selected.id, terminalId, soldCents, cancelledCents, paidCents });
         setEditingId(null);
         setMessage("Día actualizado.");
       } else {
-        const created = await recordDay({ date, racetrackId: selected.id, soldCents, cancelledCents, paidCents });
+        const created = await recordDay({ date, racetrackId: selected.id, terminalId, soldCents, cancelledCents, paidCents });
         dayId = created.id;
         setMessage("Día cargado.");
       }
@@ -417,6 +418,12 @@ function DayEntryScreen() {
         columns={[
           { key: "date", header: "Fecha", compact: true, render: (row) => formatIsoDate(row.date) },
           { key: "track", header: "Hipódromo", compact: true, render: (row) => row.racetrackName },
+          {
+            key: "terminal",
+            header: "Terminal",
+            compact: true,
+            render: (row) => (row.terminalId ? `Terminal ${row.terminalId}` : ""),
+          },
           { key: "sold", header: "Vendido", align: "right", cents: (row) => row.soldCents },
           { key: "cancelled", header: "Cancelados", align: "right", cents: (row) => row.cancelledCents },
           { key: "net", header: "Venta neta", align: "right", compact: true, cents: (row) => row.netCents },
