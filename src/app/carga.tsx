@@ -333,8 +333,8 @@ function DayEntryScreen() {
               <Field label="Fecha">
                 <DateField value={date} onChange={setDate} />
               </Field>
-              <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
-                <View className="min-w-0 flex-1">
+              <View className="flex-row flex-wrap items-start gap-4">
+                <View className="min-w-[8rem] max-w-full grow basis-[8rem]">
                   <Field label="Hipódromo">
                     <ChoiceChips
                       options={racetracks.map((track) => ({ id: track.id, label: track.name }))}
@@ -343,13 +343,15 @@ function DayEntryScreen() {
                     />
                   </Field>
                 </View>
-                <Field label="Terminal">
-                  <ChoiceChips
-                    options={terminalOptions}
-                    value={terminalId}
-                    onChange={setTerminalId}
-                  />
-                </Field>
+                <View className="w-max max-w-full">
+                  <Field label="Terminal">
+                    <ChoiceChips
+                      options={terminalOptions}
+                      value={terminalId}
+                      onChange={setTerminalId}
+                    />
+                  </Field>
+                </View>
               </View>
               <Field label="Vendido">
                 <AmountField value={sold} onChangeText={setSold} />
