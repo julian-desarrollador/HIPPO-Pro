@@ -5,6 +5,7 @@ import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, Tex
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
 import { useOperatorAdmin, type AgencyOperator, type AgencyOwner } from "@/modules/identity/operator-admin";
+import { cashAndScheduleEnabled, ledgerErrorMessage, useLedger } from "@/modules/ledger";
 
 type PendingRemoval = { kind: "operator" | "owner"; person: AgencyOperator };
 
@@ -32,6 +33,11 @@ export function OperatorsPanel({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingRemoval | null>(null);
+  const [staffName, setStaffName] = useState("");
+  const [pendingStaffId, setPendingStaffId] = useState<string | null>(null);
+  const { snapshot, readOnly, addStaffMember, removeStaffMember } = useLedger();
+  const staffEnabled = cashAndScheduleEnabled(snapshot.agencyId) && !readOnly;
+  const staff = (snapshot.staff ?? []).filter((person) => person.agencyId === snapshot.agencyId);
 
   useEffect(() => {
     if (!visible || !admin) {
@@ -80,6 +86,8 @@ export function OperatorsPanel({
     setError("");
     setMessage("");
     setPending(null);
+    setPendingStaffId(null);
+    setStaffName("");
     onClose();
   }
 
@@ -155,6 +163,41 @@ export function OperatorsPanel({
     setBusy(false);
   }
 
+  async function addStaff() {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await addStaffMember({ name: staffName });
+      setStaffName("");
+      setMessage("Persona agregada.");
+    } catch (caught) {
+      setError(ledgerErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmRemoveStaff() {
+    if (!pendingStaffId) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await removeStaffMember(pendingStaffId);
+      setPendingStaffId(null);
+    } catch (caught) {
+      setError(ledgerErrorMessage(caught));
+      setPendingStaffId(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <Dialog visible={visible && pending === null} title="Operadores" onClose={close} wide={wide}>
@@ -219,6 +262,25 @@ export function OperatorsPanel({
             </View>
           ) : null}
         </View>
+        {staffEnabled ? (
+          <View className="mt-5 gap-4">
+            <SectionTitle title="Sin cuenta" />
+            <Text className="text-[15px] text-muted">Personas del calendario que no entran a HippoPro.</Text>
+            {staff.length === 0 ? <Text className="text-[17px] text-ink">Todavía no hay personas sin cuenta.</Text> : null}
+            {staff.map((person) => (
+              <View key={person.id} className="flex-row items-center justify-between gap-3">
+                <Text className="text-[17px] font-semibold text-navy">{person.name}</Text>
+                <Pressable accessibilityRole="button" onPress={() => setPendingStaffId(person.id)}>
+                  <Text className="text-[16px] font-semibold text-negative">Quitar</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Field label="Nombre">
+              <TextField value={staffName} onChangeText={setStaffName} placeholder="Nombre" accessibilityLabel="Nombre de la persona sin cuenta" />
+            </Field>
+            <PrimaryButton label="Agregar" onPress={() => void addStaff()} />
+          </View>
+        ) : null}
         <Feedback error={error} message={message} />
       </Dialog>
       <ConfirmDialog
@@ -226,6 +288,13 @@ export function OperatorsPanel({
         title={pending?.kind === "owner" ? "¿Quitar este dueño?" : "¿Quitar este operador?"}
         onCancel={() => setPending(null)}
         onConfirm={() => void confirmRemove()}
+      />
+      <ConfirmDialog
+        visible={pendingStaffId !== null}
+        title="¿Quitar esta persona?"
+        detail="Si está en el calendario, primero sacala de esos días."
+        onCancel={() => setPendingStaffId(null)}
+        onConfirm={() => void confirmRemoveStaff()}
       />
     </>
   );

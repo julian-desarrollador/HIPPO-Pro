@@ -6,7 +6,11 @@ export { EXPENSE_CATEGORIES, categoryHasExpenses, listExpenseCategories } from "
 export { formatCents, formatSignedPercent } from "./domain/money";
 export { RACETRACKS, currentCommissionBasisPoints, listRacetracks, racetrackHasMovements } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
-export type { RacetrackId, TerminalId, ViewerRole } from "./domain/types";
+export { cashAndScheduleEnabled } from "./domain/features";
+export type { CashExpense, CashIncome, CashIncomeKind, RacetrackId, ScheduleDay, TerminalId, ViewerRole } from "./domain/types";
+export type { CashLine, CashPersonLine, CashSummary } from "./application/use-cases/summarize-cash-day";
+export { incomeKindLabel, summarizeCashDay, type CashDayDraft } from "./application/use-cases/summarize-cash-day";
+export { buildScheduleReport, emptyScheduleReportMessage } from "./application/use-cases/build-schedule-report";
 export { ledgerErrorMessage } from "./adapters/inbound/error-messages";
 export { AppShell } from "./adapters/inbound/app-shell";
 export { useAgencyVisit } from "./adapters/inbound/agency-visit";
@@ -14,6 +18,7 @@ export { LedgerProvider, useLedger } from "./adapters/inbound/ledger-provider";
 export { chooseImageFile } from "./adapters/inbound/choose-image-file";
 export { useDayPhotos } from "./adapters/inbound/day-photo-context";
 export { useDepositPhotos } from "./adapters/inbound/deposit-photo-context";
+export { useCashPhotos } from "./adapters/inbound/cash-photo-context";
 export { dayPhotoProblem, type DayPhotoFile } from "./adapters/outbound/day-photos";
 export {
   completeAmountInput,

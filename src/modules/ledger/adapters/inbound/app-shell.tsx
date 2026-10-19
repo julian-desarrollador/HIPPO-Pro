@@ -12,6 +12,7 @@ import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
 import { readSupabaseConfig, type SupabaseConfig } from "../outbound/supabase-config";
 import { AgencyVisitProvider } from "./agency-visit";
+import { CashPhotoProvider } from "./cash-photo-context";
 import { DayPhotoProvider } from "./day-photo-context";
 import { DepositPhotoProvider } from "./deposit-photo-context";
 import { LedgerProvider } from "./ledger-provider";
@@ -423,7 +424,9 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         pages
       ) : (
         <DayPhotoProvider client={client}>
-          <DepositPhotoProvider client={client}>{pages}</DepositPhotoProvider>
+          <DepositPhotoProvider client={client}>
+            <CashPhotoProvider client={client}>{pages}</CashPhotoProvider>
+          </DepositPhotoProvider>
         </DayPhotoProvider>
       )}
     </LedgerProvider>

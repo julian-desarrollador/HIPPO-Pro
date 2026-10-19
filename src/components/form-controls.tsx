@@ -106,6 +106,34 @@ export function ChoiceChips<T extends string>({
   );
 }
 
+export function MultiChoiceChips<T extends string>({
+  options,
+  values,
+  onChange,
+}: {
+  options: readonly { id: T; label: string }[];
+  values: readonly T[];
+  onChange: (values: T[]) => void;
+}) {
+  return (
+    <View className="w-full flex-row flex-wrap gap-1.5">
+      {options.map((option) => {
+        const selected = values.includes(option.id);
+        return (
+          <Pressable
+            key={option.id}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(selected ? values.filter((id) => id !== option.id) : [...values, option.id])}
+            className={selected ? "rounded-full border border-accent bg-tint px-3 py-1.5" : "rounded-full border border-line bg-card px-3 py-1.5"}>
+            <Text className={selected ? "text-[15px] font-semibold text-navy" : "text-[15px] text-muted"}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function PrimaryButton({ label, onPress, className = "" }: { label: string; onPress: () => void; className?: string }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} className={`cursor-pointer items-center rounded-[10px] bg-accent px-5 py-2.5 ${className}`}>

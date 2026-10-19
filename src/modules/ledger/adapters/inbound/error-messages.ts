@@ -25,6 +25,10 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "duplicate-bettor": "Ya hay un apostador con ese nombre.",
   "unknown-bettor": "Ese apostador no está.",
   "bettor-in-use": "Este apostador ya tiene días o pagos. Quitá esos movimientos antes.",
+  "duplicate-staff": "Ya hay una persona con ese nombre.",
+  "unknown-staff": "Esa persona no está.",
+  "staff-in-use": "Esa persona está en el calendario. Sacala de esos días antes.",
+  "unknown-cash": "Esa caja no está.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

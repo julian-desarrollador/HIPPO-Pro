@@ -1,8 +1,9 @@
 import { bettorPlayAmounts } from "../../domain/bettor-account";
+import { incomeKindLabel } from "./summarize-cash-day";
 import { listExpenseCategories } from "../../domain/expense-categories";
 import { formatCents, formatSignedPercent } from "../../domain/money";
 import { currentCommissionBasisPoints, listRacetracks } from "../../domain/racetracks";
-import type { AuditEntry, BettorPlay, LedgerSnapshot, ViewerRole } from "../../domain/types";
+import type { AuditEntry, BettorPlay, CashIncome, LedgerSnapshot, ViewerRole } from "../../domain/types";
 import { createId } from "../create-id";
 
 function formatDay(iso: string): string {
@@ -292,6 +293,107 @@ function diffPlays(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
   return lines;
 }
 
+function incomePhrase(income: CashIncome): string {
+  return `${formatCents(income.amountCents)} en ${incomeKindLabel(income.kind).toLocaleLowerCase("es")}`;
+}
+
+function diffCash(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
+  const lines: string[] = [];
+  const previous = new Map((before.cashDays ?? []).map((day) => [day.id, day]));
+  const next = new Map((after.cashDays ?? []).map((day) => [day.id, day]));
+  for (const [id, day] of next) {
+    const old = previous.get(id);
+    const oldIncomes = new Map((old?.incomes ?? []).map((income) => [income.id, income]));
+    const newIncomes = new Map(day.incomes.map((income) => [income.id, income]));
+    for (const [incomeId, income] of newIncomes) {
+      const prior = oldIncomes.get(incomeId);
+      if (!prior) {
+        lines.push(`Ingresó ${incomePhrase(income)} en la caja del ${formatDay(day.date)}.`);
+        continue;
+      }
+      if (prior.kind !== income.kind || prior.detail !== income.detail || prior.amountCents !== income.amountCents) {
+        lines.push(`Cambió un ingreso de ${incomePhrase(prior)} a ${incomePhrase(income)} en la caja del ${formatDay(day.date)}.`);
+      }
+    }
+    for (const [incomeId, income] of oldIncomes) {
+      if (!newIncomes.has(incomeId)) {
+        lines.push(`Quitó un ingreso de ${incomePhrase(income)} de la caja del ${formatDay(day.date)}.`);
+      }
+    }
+    if (!old) {
+      lines.push(`Guardó la caja del ${formatDay(day.date)}.`);
+      continue;
+    }
+    const manualChanged =
+      old.openingCents !== day.openingCents ||
+      old.commissionCents !== day.commissionCents ||
+      old.otherSalesCents !== day.otherSalesCents ||
+      old.salesTaxCents !== day.salesTaxCents ||
+      old.otherPaymentsCents !== day.otherPaymentsCents ||
+      old.bankOutCents !== day.bankOutCents ||
+      old.personalWithdrawalCents !== day.personalWithdrawalCents ||
+      old.countedCents !== day.countedCents ||
+      old.expenses.length !== day.expenses.length;
+    if (manualChanged) {
+      lines.push(`Editó la caja del ${formatDay(day.date)}.`);
+    }
+  }
+  for (const [id, day] of previous) {
+    if (!next.has(id)) {
+      lines.push(`Quitó la caja del ${formatDay(day.date)}.`);
+    }
+  }
+  return lines;
+}
+
+function diffStaff(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
+  const lines: string[] = [];
+  const previous = new Map((before.staff ?? []).map((person) => [person.id, person]));
+  const next = new Map((after.staff ?? []).map((person) => [person.id, person]));
+  for (const [id, person] of next) {
+    if (!previous.has(id)) {
+      lines.push(`Agregó a ${person.name} sin cuenta.`);
+    }
+  }
+  for (const [id, person] of previous) {
+    if (!next.has(id)) {
+      lines.push(`Quitó a ${person.name} sin cuenta.`);
+    }
+  }
+  return lines;
+}
+
+function diffSchedule(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
+  const lines: string[] = [];
+  const previous = new Map((before.schedule ?? []).map((day) => [day.id, day]));
+  const next = new Map((after.schedule ?? []).map((day) => [day.id, day]));
+  for (const [id, day] of next) {
+    const old = previous.get(id);
+    const label = day.inactive
+      ? "Sin actividad"
+      : [...day.racetrackIds.map((trackId) => trackName(after, trackId)), ...day.people.map((person) => person.name)]
+          .filter(Boolean)
+          .join(", ");
+    if (!old) {
+      lines.push(`Armó el ${formatDay(day.date)}: ${label}.`);
+      continue;
+    }
+    const same =
+      old.inactive === day.inactive &&
+      old.racetrackIds.join() === day.racetrackIds.join() &&
+      old.people.map((person) => person.id).join() === day.people.map((person) => person.id).join();
+    if (!same) {
+      lines.push(`Cambió el ${formatDay(day.date)}: ${label}.`);
+    }
+  }
+  for (const [id, day] of previous) {
+    if (!next.has(id)) {
+      lines.push(`Quitó el ${formatDay(day.date)} del calendario.`);
+    }
+  }
+  return lines;
+}
+
 function diffPayments(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
   const lines: string[] = [];
   const previous = new Map((before.bettorPayments ?? []).map((payment) => [payment.id, payment]));
@@ -336,6 +438,9 @@ export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapsh
     ...diffBettors(before, after),
     ...diffPlays(before, after),
     ...diffPayments(before, after),
+    ...diffCash(before, after),
+    ...diffStaff(before, after),
+    ...diffSchedule(before, after),
   ];
   if (lines.length === 0) {
     return null;

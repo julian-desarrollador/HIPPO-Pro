@@ -22,7 +22,11 @@ export type LedgerErrorCode =
   | "category-in-use"
   | "duplicate-bettor"
   | "unknown-bettor"
-  | "bettor-in-use";
+  | "bettor-in-use"
+  | "duplicate-staff"
+  | "unknown-staff"
+  | "staff-in-use"
+  | "unknown-cash";
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;

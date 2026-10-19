@@ -18,18 +18,27 @@ export function AmountField({
   onChangeText,
   debt = false,
   gain = false,
+  compact = false,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   debt?: boolean;
   gain?: boolean;
+  compact?: boolean;
 }) {
   const showDebt = debt && value.trim().length > 0;
   const showGain = gain && !showDebt && value.trim().length > 0;
   const color = showDebt ? "text-negative" : showGain ? "text-positive" : "text-ink";
+  const size = compact ? "text-[15px]" : "text-[17px]";
   return (
-    <View className="flex-row items-center rounded-[10px] border border-line bg-card px-3 py-2.5">
-      <Text className={`mr-1.5 text-[17px] tabular-nums ${color}`}>{showDebt ? "-$" : "$"}</Text>
+    <View
+      className={
+        compact
+          ? "w-40 max-w-full flex-row items-center rounded-[10px] border border-line bg-card px-2 py-1"
+          : "flex-row items-center rounded-[10px] border border-line bg-card px-3 py-2.5"
+      }
+    >
+      <Text className={`${compact ? "" : "mr-1.5"} tabular-nums ${size} ${color}`}>{showDebt ? "-$" : "$"}</Text>
       <TextInput
         value={value}
         onChangeText={(text) => onChangeText(maskAmountInput(text))}
@@ -39,8 +48,8 @@ export function AmountField({
         placeholder="0,00"
         placeholderTextColor={palette.placeholder}
         underlineColorAndroid="transparent"
-        className={`flex-1 border-0 text-[17px] outline-none ${color}`}
-        style={valueStyle.input}
+        className={`min-w-0 flex-1 border-0 outline-none ${compact ? "text-right" : ""} ${size} ${color}`}
+        style={[valueStyle.input, compact ? { textAlign: "right" } : null]}
       />
     </View>
   );

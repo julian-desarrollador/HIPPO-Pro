@@ -21,6 +21,9 @@ export function isLedgerSnapshot(value: unknown): value is LedgerSnapshot {
     (snapshot.bettors === undefined || Array.isArray(snapshot.bettors)) &&
     (snapshot.bettorPlays === undefined || Array.isArray(snapshot.bettorPlays)) &&
     (snapshot.bettorPayments === undefined || Array.isArray(snapshot.bettorPayments)) &&
-    (snapshot.audit === undefined || Array.isArray(snapshot.audit))
+    (snapshot.audit === undefined || Array.isArray(snapshot.audit)) &&
+    (snapshot.cashDays === undefined || Array.isArray(snapshot.cashDays)) &&
+    (snapshot.staff === undefined || Array.isArray(snapshot.staff)) &&
+    (snapshot.schedule === undefined || Array.isArray(snapshot.schedule))
   );
 }

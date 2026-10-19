@@ -102,6 +102,63 @@ export type CategoryLabel = {
   label: string;
 };
 
+export type CashIncomeKind = "bank" | "partner" | "other";
+
+export type CashIncome = {
+  id: string;
+  kind: CashIncomeKind;
+  detail: string;
+  amountCents: Cents;
+  createdBy: string;
+  createdAt: string;
+  updatedBy?: string;
+  updatedAt?: string;
+};
+
+export type CashExpense = {
+  id: string;
+  detail: string;
+  amountCents: Cents;
+};
+
+/** One cash close for a date. Automatic lines are not stored: they come from the day and the bettors. */
+export type CashDay = {
+  id: string;
+  agencyId: string;
+  date: string;
+  openingCents: Cents;
+  commissionCents: Cents;
+  otherSalesCents: Cents;
+  salesTaxCents: Cents;
+  otherPaymentsCents: Cents;
+  bankOutCents: Cents;
+  personalWithdrawalCents: Cents;
+  countedCents?: Cents;
+  incomes: CashIncome[];
+  expenses: CashExpense[];
+};
+
+/** A person who appears on the schedule and does not sign in. */
+export type StaffMember = {
+  id: string;
+  agencyId: string;
+  name: string;
+};
+
+export type SchedulePerson = {
+  id: string;
+  name: string;
+};
+
+export type ScheduleDay = {
+  id: string;
+  agencyId: string;
+  date: string;
+  racetrackIds: string[];
+  people: SchedulePerson[];
+  inactive: boolean;
+};
+
 export type AuditEntry = {
   id: string;
   at: string;
@@ -136,4 +193,10 @@ export type LedgerSnapshot = {
   bettorPayments?: BettorPayment[];
   /** Who changed the book. Missing on the August seed. */
   audit?: AuditEntry[];
+  /** Daily cash closes. Missing on the August seed. */
+  cashDays?: CashDay[];
+  /** People without an account, for the schedule. Missing on the August seed. */
+  staff?: StaffMember[];
+  /** Who works each day. Missing on the August seed. */
+  schedule?: ScheduleDay[];
 };

@@ -9,7 +9,7 @@ import {
   type TabListProps,
   type TabTriggerSlotProps,
 } from "expo-router/ui";
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, Children, isValidElement, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,7 +25,7 @@ import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
-import { useLedger, type ViewerRole } from "@/modules/ledger";
+import { cashAndScheduleEnabled, useLedger, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
   home: "home",
@@ -33,6 +33,8 @@ const TAB_ICONS = {
   depositos: "swap-horizontal",
   gastos: "receipt",
   cuentas: "people",
+  caja: "wallet",
+  calendario: "calendar",
   historial: "time",
   resultado: "stats-chart",
 } as const;
@@ -46,6 +48,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/gastos": "Gastos",
   "/cuentas": "Cuentas corrientes",
   "/cuentas/index": "Cuentas corrientes",
+  "/caja": "Caja del día",
+  "/calendario": "Calendario",
   "/historial": "Historial",
   "/resultado": "Resultado",
 };
@@ -74,7 +78,7 @@ const pinnedToViewport = (
 ) as ViewStyle;
 
 export default function AppTabs() {
-  const { canViewBalances } = useLedger();
+  const { canViewBalances, snapshot } = useLedger();
   const [collapsed, setCollapsed] = useState(false);
   const [railOnly, setRailOnly] = useState(false);
   const width = useRef(new Animated.Value(sidebarWidth)).current;
@@ -118,6 +122,18 @@ export default function AppTabs() {
           <TabTrigger name="cuentas" href={"/cuentas" as Href} asChild>
             <TabButton icon="cuentas">Cuentas corrientes</TabButton>
           </TabTrigger>
+          {/* Registers the bettor folder so /cuentas/{id} can open. It is not a menu item. */}
+          <TabTrigger name="carpeta" href={"/cuentas/carpeta" as Href} />
+          {cashAndScheduleEnabled(snapshot.agencyId) ? (
+            <TabTrigger name="caja" href={"/caja" as Href} asChild>
+              <TabButton icon="caja">Caja del día</TabButton>
+            </TabTrigger>
+          ) : null}
+          {cashAndScheduleEnabled(snapshot.agencyId) ? (
+            <TabTrigger name="calendario" href={"/calendario" as Href} asChild>
+              <TabButton icon="calendario">Calendario</TabButton>
+            </TabTrigger>
+          ) : null}
           <TabTrigger name="historial" href="/historial" asChild>
             <TabButton icon="historial">Historial</TabButton>
           </TabTrigger>
@@ -228,10 +244,21 @@ export function CustomTabList(props: TabListProps) {
   const { collapsed, railOnly, toggle, width } = useContext(SidebarContext);
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
   const pageTitle =
     bettorPageTitle(pathname, snapshot.bettors) ??
     PAGE_TITLES[pathname] ??
     "HippoPro";
+  const items = Children.toArray(children).filter(
+    (child) => !(isValidElement(child) && (child.props as { name?: string }).name === "carpeta"),
+  );
+  const overflow = !wide && items.length > 7;
+  const barItems = overflow ? items.slice(0, 4) : items;
+  const moreItems = overflow ? items.slice(4) : [];
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   return (
     <NavChromeContext.Provider value={wide ? "sidebar" : "bottom"}>
@@ -296,7 +323,7 @@ export function CustomTabList(props: TabListProps) {
               </Pressable>
             </View>
             <AgencyBlock name={agencyName} railOnly={railOnly} />
-            {children}
+            {items}
           </Animated.View>
         ) : null}
 
@@ -360,9 +387,25 @@ export function CustomTabList(props: TabListProps) {
               },
             ]}
           >
-            {children}
+            {barItems}
+            {overflow ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Más"
+                onPress={() => setMoreOpen(true)}
+                className="min-w-0 flex-1 items-center gap-1 py-1"
+              >
+                <Ionicons name="ellipsis-horizontal" size={24} color={moreOpen ? palette.celeste : palette.chromeMuted} />
+                <Text className="text-center text-[11px] font-medium leading-4 text-chrome-muted">Más</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
+        {moreItems.length > 0 ? (
+          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+            {moreItems}
+          </MoreSheet>
+        ) : null}
       </View>
       <OperatorsPanel
         visible={operatorsOpen}
@@ -372,6 +415,54 @@ export function CustomTabList(props: TabListProps) {
       />
       <AgenciesPanel visible={agenciesOpen} onClose={() => setAgenciesOpen(false)} />
     </NavChromeContext.Provider>
+  );
+}
+
+function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  return (
+    <View
+      pointerEvents={open ? "box-none" : "none"}
+      accessibilityElementsHidden={!open}
+      importantForAccessibility={open ? "yes" : "no-hide-descendants"}
+      style={
+        open
+          ? {
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              zIndex: 30,
+              justifyContent: "flex-end",
+            }
+        : { display: "none" }
+      }
+    >
+      {open ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+          onPress={onClose}
+          style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: palette.ink, opacity: 0.45 }}
+        />
+      ) : null}
+      <View
+        style={
+          open
+            ? {
+                backgroundColor: palette.navy,
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                paddingTop: 12,
+                paddingBottom: 24,
+                paddingHorizontal: 8,
+              }
+            : undefined
+        }
+      >
+        <NavChromeContext.Provider value="sidebar">{children}</NavChromeContext.Provider>
+      </View>
+    </View>
   );
 }
 

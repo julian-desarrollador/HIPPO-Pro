@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useRef, useState, type ReactNode } 
 import { canViewAgencyBalances } from "../../domain/access";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { listRacetracks, type RacetrackRule } from "../../domain/racetracks";
-import type { DailySale, HippodromeDeposit, ViewerRole } from "../../domain/types";
+import type { CashDay, DailySale, HippodromeDeposit, ScheduleDay, StaffMember, ViewerRole } from "../../domain/types";
 import { buildMonthReport } from "../../application/use-cases/build-month-report";
 import {
   addBettor as saveBettor,
@@ -30,6 +30,9 @@ import {
   type UpdateBettorPaymentInput,
   type UpdateBettorPlayInput,
 } from "../../application/use-cases/mutate-bettor-ledger";
+import { addStaffMember as saveStaff, removeStaffMember as deleteStaff, type AddStaffInput } from "../../application/use-cases/manage-staff";
+import { removeCashDay as deleteCashDay, saveCashDay as storeCashDay, type SaveCashDayInput } from "../../application/use-cases/save-cash-day";
+import { removeScheduleDay as deleteScheduleDay, saveScheduleDay as storeScheduleDay, type SaveScheduleDayInput } from "../../application/use-cases/save-schedule-day";
 import { recordDay as saveDay, type RecordDayInput } from "../../application/use-cases/record-day";
 import {
   recordDeposit as saveDeposit,
@@ -102,6 +105,12 @@ type LedgerContextValue = {
   recordBettorPayment: (input: RecordBettorPaymentInput) => Promise<void>;
   updateBettorPayment: (input: UpdateBettorPaymentInput) => Promise<void>;
   removeBettorPayment: (id: string) => Promise<void>;
+  saveCashDay: (input: SaveCashDayInput) => Promise<CashDay>;
+  removeCashDay: (id: string) => Promise<void>;
+  saveScheduleDay: (input: SaveScheduleDayInput) => Promise<ScheduleDay>;
+  removeScheduleDay: (id: string) => Promise<void>;
+  addStaffMember: (input: AddStaffInput) => Promise<StaffMember>;
+  removeStaffMember: (id: string) => Promise<void>;
   reset: () => Promise<void>;
 };
 
@@ -268,6 +277,39 @@ export function LedgerProvider({
       recordBettorPayment: (input) => publish(() => saveBettorPayment(repository, input)),
       updateBettorPayment: (input) => publish(() => saveUpdatedBettorPayment(repository, input)),
       removeBettorPayment: (id) => publish(() => deleteBettorPayment(repository, id)),
+      saveCashDay: async (input) => {
+        let created: CashDay | null = null;
+        await publish(() => {
+          created = storeCashDay(repository, input);
+        });
+        if (!created) {
+          throw new Error("La caja no quedó guardada.");
+        }
+        return created;
+      },
+      removeCashDay: (id) => publish(() => deleteCashDay(repository, id)),
+      saveScheduleDay: async (input) => {
+        let created: ScheduleDay | null = null;
+        await publish(() => {
+          created = storeScheduleDay(repository, input);
+        });
+        if (!created) {
+          throw new Error("El día no quedó guardado.");
+        }
+        return created;
+      },
+      removeScheduleDay: (id) => publish(() => deleteScheduleDay(repository, id)),
+      addStaffMember: async (input) => {
+        let created: StaffMember | null = null;
+        await publish(() => {
+          created = saveStaff(repository, input);
+        });
+        if (!created) {
+          throw new Error("La persona no quedó guardada.");
+        }
+        return created;
+      },
+      removeStaffMember: (id) => publish(() => deleteStaff(repository, id)),
       reset: () => publish(() => repository.reset(), true),
     };
   }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, repository, role, sessionAgencyId, signOut, userId, version]);

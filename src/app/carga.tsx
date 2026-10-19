@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Image } from "expo-image";
+import { useLocalSearchParams } from "expo-router";
 import { Linking, Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { monthTitle, openingDate } from "@/components/calendar-grid";
@@ -58,8 +59,22 @@ export default function CargaScreen() {
   return <DayEntryScreen />;
 }
 
+function requestedDate(value: string | string[] | undefined, viewMonth: string): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw) || !raw.startsWith(`${viewMonth}-`)) {
+    return null;
+  }
+  const parsed = new Date(`${raw}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw) {
+    return null;
+  }
+  return raw;
+}
+
 function DayEntryScreen() {
+  const params = useLocalSearchParams<{ fecha?: string }>();
   const { agencyName, days, recordDay, updateDay, removeDay, snapshot, racetracks, viewMonth, setViewMonth, readOnly } = useLedger();
+  const fecha = requestedDate(params.fecha, viewMonth);
   const photos = useDayPhotos();
   const window = useWindowDimensions();
   const wide = window.width >= wideLayout;
@@ -70,7 +85,7 @@ function DayEntryScreen() {
   const [dropPhoto, setDropPhoto] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
-  const [date, setDate] = useState(() => openingDate(viewMonth));
+  const [date, setDate] = useState(() => fecha ?? openingDate(viewMonth));
   const [racetrackId, setRacetrackId] = useState<RacetrackId>("san-isidro");
   const [terminalId, setTerminalId] = useState<TerminalId>("1");
   const [sold, setSold] = useState("");
@@ -80,10 +95,10 @@ function DayEntryScreen() {
 
   useEffect(() => {
     if (!editingId) {
-      setDate(openingDate(viewMonth));
+      setDate(fecha ?? openingDate(viewMonth));
       setTerminalId("1");
     }
-  }, [editingId, viewMonth]);
+  }, [editingId, fecha, viewMonth]);
 
   useEffect(() => {
     if (!racetracks.some((track) => track.id === racetrackId)) {
