@@ -6,7 +6,6 @@ export { EXPENSE_CATEGORIES, categoryHasExpenses, listExpenseCategories } from "
 export { formatCents, formatSignedPercent } from "./domain/money";
 export { RACETRACKS, currentCommissionBasisPoints, listRacetracks, racetrackHasMovements } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
-export { cashAndScheduleEnabled } from "./domain/features";
 export type { CashExpense, CashIncome, CashIncomeKind, RacetrackId, ScheduleDay, TerminalId, ViewerRole } from "./domain/types";
 export type { CashLine, CashPersonLine, CashSummary } from "./application/use-cases/summarize-cash-day";
 export { incomeKindLabel, summarizeCashDay, type CashDayDraft } from "./application/use-cases/summarize-cash-day";

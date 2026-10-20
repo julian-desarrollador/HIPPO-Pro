@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect, router, type Href } from "expo-router";
+import { router, type Href } from "expo-router";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { openingDate } from "@/components/calendar-grid";
@@ -22,7 +22,6 @@ import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import { palette } from "@/constants/palette";
 import {
-  cashAndScheduleEnabled,
   chooseImageFile,
   formatAmountInput,
   incomeKindLabel,
@@ -148,10 +147,6 @@ export default function CajaScreen() {
       alive = false;
     };
   }, [photos, savedKey]);
-
-  if (!cashAndScheduleEnabled(snapshot.agencyId)) {
-    return <Redirect href="/" />;
-  }
 
   function addIncome() {
     const amountCents = readAmount(incomeAmount, false);

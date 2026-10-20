@@ -25,7 +25,7 @@ import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
-import { cashAndScheduleEnabled, useLedger, type ViewerRole } from "@/modules/ledger";
+import { useLedger, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
   home: "home",
@@ -78,7 +78,7 @@ const pinnedToViewport = (
 ) as ViewStyle;
 
 export default function AppTabs() {
-  const { canViewBalances, snapshot } = useLedger();
+  const { canViewBalances } = useLedger();
   const [collapsed, setCollapsed] = useState(false);
   const [railOnly, setRailOnly] = useState(false);
   const width = useRef(new Animated.Value(sidebarWidth)).current;
@@ -124,16 +124,12 @@ export default function AppTabs() {
           </TabTrigger>
           {/* Registers the bettor folder so /cuentas/{id} can open. It is not a menu item. */}
           <TabTrigger name="carpeta" href={"/cuentas/carpeta" as Href} />
-          {cashAndScheduleEnabled(snapshot.agencyId) ? (
-            <TabTrigger name="caja" href={"/caja" as Href} asChild>
-              <TabButton icon="caja">Caja del día</TabButton>
-            </TabTrigger>
-          ) : null}
-          {cashAndScheduleEnabled(snapshot.agencyId) ? (
-            <TabTrigger name="calendario" href={"/calendario" as Href} asChild>
-              <TabButton icon="calendario">Calendario</TabButton>
-            </TabTrigger>
-          ) : null}
+          <TabTrigger name="caja" href={"/caja" as Href} asChild>
+            <TabButton icon="caja">Caja del día</TabButton>
+          </TabTrigger>
+          <TabTrigger name="calendario" href={"/calendario" as Href} asChild>
+            <TabButton icon="calendario">Calendario</TabButton>
+          </TabTrigger>
           <TabTrigger name="historial" href="/historial" asChild>
             <TabButton icon="historial">Historial</TabButton>
           </TabTrigger>

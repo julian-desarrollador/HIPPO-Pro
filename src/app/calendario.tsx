@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Redirect } from "expo-router";
 import { Linking, Pressable, Text, useWindowDimensions, View, type TextStyle } from "react-native";
 
 import { buildMonthGrid, monthTitle } from "@/components/calendar-grid";
@@ -10,7 +9,6 @@ import { wideLayout } from "@/constants/layout";
 import { useOperatorAdmin } from "@/modules/identity/operator-admin";
 import {
   buildScheduleReport,
-  cashAndScheduleEnabled,
   emptyScheduleReportMessage,
   ledgerErrorMessage,
   listRacetracks,
@@ -66,10 +64,6 @@ export default function CalendarioScreen() {
       alive = false;
     };
   }, [admin, ledger.role]);
-
-  if (!cashAndScheduleEnabled(ledger.snapshot.agencyId)) {
-    return <Redirect href="/" />;
-  }
 
   const tracks = listRacetracks(ledger.snapshot);
   const staff: PersonOption[] = (ledger.snapshot.staff ?? [])

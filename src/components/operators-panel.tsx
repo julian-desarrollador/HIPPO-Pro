@@ -5,7 +5,7 @@ import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, Tex
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
 import { useOperatorAdmin, type AgencyOperator, type AgencyOwner } from "@/modules/identity/operator-admin";
-import { cashAndScheduleEnabled, ledgerErrorMessage, useLedger } from "@/modules/ledger";
+import { ledgerErrorMessage, useLedger } from "@/modules/ledger";
 
 type PendingRemoval = { kind: "operator" | "owner"; person: AgencyOperator };
 
@@ -36,7 +36,7 @@ export function OperatorsPanel({
   const [staffName, setStaffName] = useState("");
   const [pendingStaffId, setPendingStaffId] = useState<string | null>(null);
   const { snapshot, readOnly, addStaffMember, removeStaffMember } = useLedger();
-  const staffEnabled = cashAndScheduleEnabled(snapshot.agencyId) && !readOnly;
+  const staffEnabled = !readOnly;
   const staff = (snapshot.staff ?? []).filter((person) => person.agencyId === snapshot.agencyId);
 
   useEffect(() => {
