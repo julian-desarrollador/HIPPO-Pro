@@ -23,6 +23,9 @@ export function saveScheduleDay(repository: LedgerRepository, input: SaveSchedul
   const people = input.inactive
     ? []
     : input.people.filter((person, index, all) => person.name.trim() && all.findIndex((item) => item.id === person.id) === index);
+  if (!input.inactive && racetrackIds.length > 0 && people.length === 0) {
+    throw new LedgerError("schedule-person-required");
+  }
   const existing = (snapshot.schedule ?? []).find((day) => day.agencyId === snapshot.agencyId && day.date === input.date);
   const day: ScheduleDay = {
     id: existing?.id ?? createId("schedule"),

@@ -29,6 +29,7 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "unknown-staff": "Esa persona no está.",
   "staff-in-use": "Esa persona está en el calendario. Sacala de esos días antes.",
   "unknown-cash": "Esa caja no está.",
+  "schedule-person-required": "Elegí quién se hace cargo del hipódromo.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

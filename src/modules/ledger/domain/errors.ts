@@ -26,7 +26,8 @@ export type LedgerErrorCode =
   | "duplicate-staff"
   | "unknown-staff"
   | "staff-in-use"
-  | "unknown-cash";
+  | "unknown-cash"
+  | "schedule-person-required";
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;

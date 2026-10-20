@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createInMemoryLedgerRepository } from "../../adapters/outbound/in-memory-ledger-repository";
+import { LedgerError } from "../../domain/errors";
 import { describeLedgerChange } from "./describe-ledger-change";
 import { addBettor } from "./manage-bettors";
 import { recordBettorPayment, recordBettorPlay } from "./mutate-bettor-ledger";
@@ -234,5 +235,9 @@ describe("calendario", () => {
     assert.match(report ?? "", /Jue 1 · San Isidro · Ana/);
     assert.match(report ?? "", /Vie 2 · Palermo · Ana, Luis/);
     assert.match(report ?? "", /Mar 6 · Sin actividad/);
+    assert.throws(
+      () => saveScheduleDay(repository, { date: "2026-10-03", racetrackIds: ["san-isidro"], people: [], inactive: false }),
+      (error: unknown) => error instanceof LedgerError && error.code === "schedule-person-required",
+    );
   });
 });
