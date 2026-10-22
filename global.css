@@ -23,6 +23,14 @@
   --color-positive: #1b7a32;
   --color-amber-soft: #fef6e7;
   --color-amber-ink: #8a5a00;
+  /* Entry page only. Keep in sync with palette.ts. Not swapped by .theme-lottery. */
+  --color-deep: #0f2a4a;
+  --color-mist: #f4f8fb;
+  --color-wash: #eaf2f8;
+  --color-paper: #ffffff;
+  --color-hairline: #d7e3ec;
+  --color-slate: #334155;
+  --color-caption: #64748b;
 }
 
 /* Quiniela. Same roles, in green; keep in sync with lotteryPalette. */

@@ -18,6 +18,20 @@ export const palette = {
   amberSoft: "#FEF6E7",
   amberInk: "#8A5A00",
   placeholder: "#546F83",
+  /** Entry page only. Darker than `navy`: bar, title, both buttons and the pills. */
+  deep: "#0F2A4A",
+  /** Entry page background, left stop of the wash. */
+  mist: "#F4F8FB",
+  /** Entry page background, right stop, and the check circles. */
+  wash: "#EAF2F8",
+  /** Entry page panels. The rest of the app does not use pure white. */
+  paper: "#FFFFFF",
+  /** Entry page panel borders. */
+  hairline: "#D7E3EC",
+  /** Entry page subtitle. */
+  slate: "#334155",
+  /** Entry page footer. */
+  caption: "#64748B",
 } as const;
 
 export type Palette = { [Key in keyof typeof palette]: string };

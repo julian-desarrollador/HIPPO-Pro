@@ -10,7 +10,7 @@ import {
   PlayfairDisplay_600SemiBold,
   PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
-import { DefaultTheme, ThemeProvider } from "expo-router";
+import { DefaultTheme, Slot, ThemeProvider, usePathname } from "expo-router";
 import Head from "expo-router/head";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -23,7 +23,11 @@ import { AppShell } from "@/modules/ledger";
 
 SplashScreen.preventAutoHideAsync();
 
+/** Public pages: no ledger, no sign-in and no menu. */
+const PUBLIC_PATHS = new Set(["/entrada", "/entrada2", "/entrada3"]);
+
 export default function RootLayout() {
+  const pathname = usePathname();
   const [loaded, error] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -54,9 +58,13 @@ export default function RootLayout() {
       </Head>
       <StatusBar style="light" />
       <View className="flex-1 bg-canvas font-sans">
-        <AppShell>
-          <AppTabs />
-        </AppShell>
+        {PUBLIC_PATHS.has(pathname) ? (
+          <Slot />
+        ) : (
+          <AppShell>
+            <AppTabs />
+          </AppShell>
+        )}
       </View>
     </ThemeProvider>
   );
