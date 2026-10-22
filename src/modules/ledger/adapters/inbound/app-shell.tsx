@@ -7,15 +7,35 @@ import { OperatorAdminProvider } from "@/modules/identity/operator-admin";
 import type { ViewerRole } from "../../domain/types";
 import { openAgencyLedger } from "../outbound/agency-ledger";
 import { createInMemoryLedgerRepository } from "../outbound/in-memory-ledger-repository";
+import { createInMemoryLotteryRepository } from "../outbound/in-memory-lottery-repository";
+import { createLocalStorageLotteryRepository } from "../outbound/local-storage-lottery-repository";
+import { openLotteryLedger } from "../outbound/lottery-ledger";
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
+import type { LotteryRepository } from "../../application/ports/lottery-repository";
 import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-seed";
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
+import { createSupabaseLotteryRemote } from "../outbound/supabase-lottery-remote";
 import { readSupabaseConfig, type SupabaseConfig } from "../outbound/supabase-config";
 import { AgencyVisitProvider } from "./agency-visit";
 import { CashPhotoProvider } from "./cash-photo-context";
 import { DayPhotoProvider } from "./day-photo-context";
 import { DepositPhotoProvider } from "./deposit-photo-context";
 import { LedgerProvider } from "./ledger-provider";
+import { LotteryProvider } from "./lottery-provider";
+
+let browserLottery: LotteryRepository | null = null;
+
+function openBrowserLottery(): Promise<LotteryRepository> {
+  if (!browserLottery) {
+    try {
+      const storage = globalThis.localStorage;
+      browserLottery = storage ? createLocalStorageLotteryRepository(storage) : createInMemoryLotteryRepository();
+    } catch {
+      browserLottery = createInMemoryLotteryRepository();
+    }
+  }
+  return Promise.resolve(browserLottery);
+}
 
 type Phase =
   | { status: "loading" }
@@ -124,7 +144,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
   if (!config) {
-    return <LedgerProvider>{children}</LedgerProvider>;
+    return (
+      <LedgerProvider>
+        <LotteryProvider open={openBrowserLottery}>{children}</LotteryProvider>
+      </LedgerProvider>
+    );
   }
   if (config.publicAccess) {
     return <PublicLedger config={config}>{children}</PublicLedger>;
@@ -198,6 +222,10 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     personal: boolean;
   } | null>(null);
   const request = useRef(0);
+  const openLottery = useCallback(
+    (agencyId: string) => openLotteryLedger(createSupabaseLotteryRemote(client), agencyId),
+    [client],
+  );
 
   async function adopt(session: Session | null) {
     const id = ++request.current;
@@ -420,15 +448,17 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       leaveVisit={() => setVisit(null)}
       signOut={signOut}
     >
-      {visit?.readOnly ? (
-        pages
-      ) : (
-        <DayPhotoProvider client={client}>
-          <DepositPhotoProvider client={client}>
-            <CashPhotoProvider client={client}>{pages}</CashPhotoProvider>
-          </DepositPhotoProvider>
-        </DayPhotoProvider>
-      )}
+      <LotteryProvider open={visit ? null : openLottery}>
+        {visit?.readOnly ? (
+          pages
+        ) : (
+          <DayPhotoProvider client={client}>
+            <DepositPhotoProvider client={client}>
+              <CashPhotoProvider client={client}>{pages}</CashPhotoProvider>
+            </DepositPhotoProvider>
+          </DayPhotoProvider>
+        )}
+      </LotteryProvider>
     </LedgerProvider>
   );
 }

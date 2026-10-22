@@ -155,6 +155,44 @@ create policy ledgers_update_own_agency
   using (public.caller_can_use_agency(agency_id))
   with check (public.caller_can_use_agency(agency_id));
 
+-- Agencia de Quiniela: its own book, apart from ledgers. Same as lottery-ledgers.sql.
+create table public.lottery_ledgers (
+  agency_id text primary key references public.agencies (agency_id),
+  snapshot jsonb not null check (snapshot ->> 'agencyId' = agency_id),
+  version integer not null default 1 check (version > 0),
+  updated_at timestamptz not null default now()
+);
+
+create trigger lottery_ledgers_touch_updated_at
+  before update on public.lottery_ledgers
+  for each row
+  execute function public.touch_ledger_updated_at();
+
+alter table public.lottery_ledgers enable row level security;
+
+revoke all on public.lottery_ledgers from anon, authenticated;
+grant select, insert, update on public.lottery_ledgers to authenticated;
+grant select, insert, update, delete on public.lottery_ledgers to service_role;
+
+create policy lottery_ledgers_select_own_agency
+  on public.lottery_ledgers
+  for select
+  to authenticated
+  using (public.caller_can_use_agency(agency_id));
+
+create policy lottery_ledgers_insert_owner
+  on public.lottery_ledgers
+  for insert
+  to authenticated
+  with check (public.caller_can_use_agency(agency_id) and public.caller_is_owner());
+
+create policy lottery_ledgers_update_own_agency
+  on public.lottery_ledgers
+  for update
+  to authenticated
+  using (public.caller_can_use_agency(agency_id))
+  with check (public.caller_can_use_agency(agency_id));
+
 -- After creating an owner in Authentication (auto-confirm), enable them.
 -- can_invite_owners lets that owner invite other owners from the app.
 -- can_create_agencies lets them create other agencies from the app.

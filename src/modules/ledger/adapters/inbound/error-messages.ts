@@ -30,6 +30,11 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "staff-in-use": "Esa persona está en el calendario. Sacala de esos días antes.",
   "unknown-cash": "Esa caja no está.",
   "schedule-person-required": "Elegí quién se hace cargo del hipódromo.",
+  "lottery-inactive": "La quiniela todavía no está activada.",
+  "lottery-owner-only": "La quiniela la activa el dueño.",
+  "unknown-game": "Ese juego no está.",
+  "unknown-terminal": "Elegí una terminal.",
+  "duplicate-lottery-day": "Esa terminal ya está cargada ese día. Editala desde la tabla.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

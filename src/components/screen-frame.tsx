@@ -8,7 +8,7 @@ import { ConfirmDialog, SecondaryButton } from "@/components/form-controls";
 import { useAgencyAdmin } from "@/modules/identity/agency-admin";
 import { useDesktopSidebarWidth } from "@/components/sidebar-menu";
 import { desktopTopbarHeight, mobileBarHeight, mobileTabBarHeight, wideLayout } from "@/constants/layout";
-import { palette } from "@/constants/palette";
+import { usePalette } from "@/constants/palette";
 import { useLedger } from "@/modules/ledger";
 
 export function ScreenFrame({
@@ -21,6 +21,7 @@ export function ScreenFrame({
   const wide = useWindowDimensions().width >= wideLayout;
   const menuWidth = useDesktopSidebarWidth();
   const insets = useSafeAreaInsets();
+  const palette = usePalette();
   const { viewMonth, setViewMonth, readOnly, personalVisit, agencyName, snapshot, leaveVisit } = useLedger();
   const admin = useAgencyAdmin();
   const [confirmingRemoval, setConfirmingRemoval] = useState(false);

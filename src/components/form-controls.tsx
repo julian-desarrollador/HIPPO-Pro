@@ -2,7 +2,7 @@ import { type ReactNode, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, type TextInputProps, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-import { palette } from "@/constants/palette";
+import { usePalette } from "@/constants/palette";
 import { choiceQueryMatchesAny, filterChoiceOptions } from "@/components/choice-filter";
 
 const confirmStyles = StyleSheet.create({
@@ -18,7 +18,6 @@ const confirmStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: palette.navy,
     opacity: 0.4,
   },
   card: {
@@ -55,6 +54,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export function TextField(props: TextInputProps) {
+  const palette = usePalette();
   return (
     <TextInput
       placeholderTextColor={palette.placeholder}
@@ -196,6 +196,7 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const palette = usePalette();
   if (!visible) {
     return null;
   }
@@ -204,7 +205,12 @@ export function ConfirmDialog({
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onCancel}>
       <View style={confirmStyles.frame} pointerEvents="box-none">
-        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onCancel} style={confirmStyles.dim} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+          onPress={onCancel}
+          style={[confirmStyles.dim, { backgroundColor: palette.navy }]}
+        />
         <View className="rounded-[14px] border border-line bg-card p-5" style={confirmStyles.card}>
           <Text className="text-[18px] font-semibold text-navy">{title}</Text>
           {detail ? <Text className="mt-2 text-[17px] leading-6 text-ink">{detail}</Text> : null}
@@ -244,6 +250,7 @@ export function Dialog({
   contentMaxHeight?: number;
 }) {
   const windowHeight = useWindowDimensions().height;
+  const palette = usePalette();
   if (!visible) {
     return null;
   }
@@ -253,7 +260,12 @@ export function Dialog({
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
       <View style={confirmStyles.frame} pointerEvents="box-none">
-        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={confirmStyles.dim} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+          onPress={onClose}
+          style={[confirmStyles.dim, { backgroundColor: palette.navy }]}
+        />
         <View className="rounded-[14px] border border-line bg-card p-5" style={wide ? dialogStyles.wideCard : dialogStyles.card}>
           <View className="flex-row items-start justify-between gap-3">
             <Text className="min-w-0 flex-1 font-sans text-[24px] font-semibold text-navy">{title}</Text>

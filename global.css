@@ -25,6 +25,20 @@
   --color-amber-ink: #8a5a00;
 }
 
+/* Quiniela. Same roles, in green; keep in sync with lotteryPalette. */
+.theme-lottery {
+  --color-canvas: #e2ebe6;
+  --color-card: #f6f8f7;
+  --color-line: #c0cfc6;
+  --color-muted: #44584e;
+  --color-navy: #17382e;
+  --color-tint: #e5eee9;
+  --color-accent: #1f5a44;
+  --color-celeste: #b9d0c4;
+  --color-chrome-active: #2a4d40;
+  --color-chrome-muted: #d4dfd9;
+}
+
 .table-scroll {
   scrollbar-color: var(--color-muted) var(--color-tint);
   scrollbar-width: auto;

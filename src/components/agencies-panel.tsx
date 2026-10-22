@@ -12,7 +12,7 @@ import {
 } from "@/components/form-controls";
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
-import { palette } from "@/constants/palette";
+import { usePalette } from "@/constants/palette";
 import {
   useAgencyAdmin,
   type AgencyEntry,
@@ -35,6 +35,7 @@ export function AgencyMenuList({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<AgencyEntry | null>(null);
+  const palette = usePalette();
 
   useEffect(() => {
     if (!active || !admin) {

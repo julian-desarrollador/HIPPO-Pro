@@ -33,3 +33,8 @@ export type { BettorAccount, BettorTotals } from "./application/use-cases/summar
 export { findBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./application/use-cases/summarize-bettors";
 export type { SettledDay } from "./application/use-cases/summarize-month";
 export { buildDayReport, emptyDayReportMessage } from "./application/use-cases/build-day-report";
+export { TERMINAL_IDS } from "./domain/lottery";
+export type { LotteryDeposit, LotteryExpense, LotteryGame } from "./domain/lottery";
+export type { LotteryAmount, LotteryDayPreview } from "./application/use-cases/lottery-sales";
+export type { AgencyMonth, BusinessMonth, LotteryDayRow, LotteryMonthSummary } from "./application/use-cases/lottery-summary";
+export { useLottery, type LotteryStatus } from "./adapters/inbound/lottery-provider";

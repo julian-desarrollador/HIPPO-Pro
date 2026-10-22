@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
-import { palette } from "@/constants/palette";
+import { usePalette } from "@/constants/palette";
 import { completeAmountInput, maskAmountInput } from "@/modules/ledger";
 
 const valueStyle = StyleSheet.create({
@@ -26,6 +26,7 @@ export function AmountField({
   gain?: boolean;
   compact?: boolean;
 }) {
+  const palette = usePalette();
   const showDebt = debt && value.trim().length > 0;
   const showGain = gain && !showDebt && value.trim().length > 0;
   const color = showDebt ? "text-negative" : showGain ? "text-positive" : "text-ink";

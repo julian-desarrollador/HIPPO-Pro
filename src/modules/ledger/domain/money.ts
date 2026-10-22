@@ -19,7 +19,7 @@ export function formatCents(cents: Cents): string {
 
 export function formatSignedPercent(basisPoints: number): string {
   const percent = basisPoints / 100;
-  const amount = String(Math.abs(percent));
+  const amount = String(Math.abs(percent)).replace(".", ",");
   if (basisPoints < 0) {
     return `−${amount} %`;
   }

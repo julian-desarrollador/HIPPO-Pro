@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { buildMonthGrid, monthTitle, shiftMonth, WEEKDAYS } from "@/components/calendar-grid";
 import { formatIsoDate } from "@/components/format-date";
-import { palette } from "@/constants/palette";
+import { usePalette } from "@/constants/palette";
 
 export function DateField({
   value,
@@ -13,6 +13,7 @@ export function DateField({
   value: string;
   onChange: (iso: string) => void;
 }) {
+  const palette = usePalette();
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(value.slice(0, 7));
 
@@ -50,7 +51,7 @@ export function DateField({
             accessibilityRole="button"
             accessibilityLabel="Cerrar calendario"
             onPress={() => setOpen(false)}
-            style={styles.dim}
+            style={[styles.dim, { backgroundColor: palette.navy }]}
           />
           <View className="rounded-[14px] border border-line bg-card p-5" pointerEvents="auto" style={styles.card}>
             <View className="flex-row items-center justify-between">
@@ -131,7 +132,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: palette.navy,
     opacity: 0.4,
   },
   card: {

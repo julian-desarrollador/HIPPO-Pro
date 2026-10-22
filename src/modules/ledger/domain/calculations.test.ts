@@ -101,4 +101,9 @@ describe("formatSignedPercent", () => {
     assert.equal(formatSignedPercent(-500), "−5 %");
     assert.equal(formatSignedPercent(100), "+1 %");
   });
+
+  it("usa coma para los decimales", () => {
+    assert.equal(formatSignedPercent(1350), "13,5 %");
+    assert.equal(formatSignedPercent(1460), "14,6 %");
+  });
 });

@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import { usePathname, type Href } from "expo-router";
+import { router, usePathname, type Href } from "expo-router";
 import {
   TabList,
   Tabs,
@@ -20,12 +20,12 @@ import {
   sidebarWidth,
   wideLayout,
 } from "@/constants/layout";
-import { palette } from "@/constants/palette";
+import { isLotteryPath, palette, usePalette } from "@/constants/palette";
 import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
-import { useLedger, type ViewerRole } from "@/modules/ledger";
+import { useLedger, useLottery, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
   home: "home",
@@ -52,7 +52,33 @@ const PAGE_TITLES: Record<string, string> = {
   "/calendario": "Calendario",
   "/historial": "Historial",
   "/resultado": "Resultado",
+  "/quiniela": "Quiniela",
+  "/quiniela/index": "Quiniela",
+  "/quiniela/carga": "Carga de quiniela",
+  "/quiniela/depositos": "Depósitos a la lotería",
+  "/quiniela/gastos": "Gastos de quiniela",
+  "/quiniela/historial": "Historial de quiniela",
+  "/quiniela/resultado": "Resultado de la agencia",
 };
+
+type Product = "racing" | "lottery";
+
+const LOTTERY_TRIGGER_PREFIX = "quiniela";
+
+function productOf(pathname: string): Product {
+  return isLotteryPath(pathname) ? "lottery" : "racing";
+}
+
+/** On web the class switches the CSS colors, including dialogs rendered outside the menu. */
+function useProductTheme(product: Product, navy: string) {
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    document.documentElement.classList.toggle("theme-lottery", product === "lottery");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", navy);
+  }, [navy, product]);
+}
 
 function bettorPageTitle(
   pathname: string,
@@ -138,6 +164,26 @@ export default function AppTabs() {
               <TabButton icon="resultado">Resultado</TabButton>
             </TabTrigger>
           ) : null}
+          <TabTrigger name="quiniela-inicio" href={"/quiniela" as Href} asChild>
+            <TabButton icon="home">Inicio</TabButton>
+          </TabTrigger>
+          <TabTrigger name="quiniela-carga" href={"/quiniela/carga" as Href} asChild>
+            <TabButton icon="carga">Carga</TabButton>
+          </TabTrigger>
+          <TabTrigger name="quiniela-depositos" href={"/quiniela/depositos" as Href} asChild>
+            <TabButton icon="depositos">Depósitos</TabButton>
+          </TabTrigger>
+          <TabTrigger name="quiniela-gastos" href={"/quiniela/gastos" as Href} asChild>
+            <TabButton icon="gastos">Gastos</TabButton>
+          </TabTrigger>
+          <TabTrigger name="quiniela-historial" href={"/quiniela/historial" as Href} asChild>
+            <TabButton icon="historial">Historial</TabButton>
+          </TabTrigger>
+          {canViewBalances ? (
+            <TabTrigger name="quiniela-resultado" href={"/quiniela/resultado" as Href} asChild>
+              <TabButton icon="resultado">Resultado</TabButton>
+            </TabTrigger>
+          ) : null}
         </CustomTabList>
       </TabList>
     </Tabs>
@@ -155,6 +201,7 @@ export function TabButton({
   const { collapsed } = useContext(SidebarContext);
   const iconOnly = variant === "sidebar" && collapsed;
   const pathname = usePathname();
+  const palette = usePalette();
   const focused =
     icon === "cuentas"
       ? pathname === "/cuentas" || pathname.startsWith("/cuentas/")
@@ -241,14 +288,31 @@ export function CustomTabList(props: TabListProps) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const lottery = useLottery();
+  const product = productOf(pathname);
+  const palette = usePalette();
+  useProductTheme(product, palette.navy);
+  const showSwitch =
+    lottery.status !== "unavailable" && (lottery.status === "active" || role === "owner");
   const pageTitle =
     bettorPageTitle(pathname, snapshot.bettors) ??
     PAGE_TITLES[pathname] ??
     "HippoPro";
-  const items = Children.toArray(children).filter(
-    (child) => !(isValidElement(child) && (child.props as { name?: string }).name === "carpeta"),
-  );
-  const overflow = !wide && items.length > 7;
+  const items = Children.toArray(children).filter((child) => {
+    const name = isValidElement(child) ? (child.props as { name?: string }).name : undefined;
+    if (name === "carpeta") {
+      return false;
+    }
+    const lotteryItem = name?.startsWith(LOTTERY_TRIGGER_PREFIX) ?? false;
+    return product === "lottery" ? lotteryItem : !lotteryItem;
+  });
+  const productSwitch = showSwitch ? (
+    <ProductSwitch
+      product={product}
+      onChange={(next) => router.navigate((next === "lottery" ? "/quiniela" : "/") as Href)}
+    />
+  ) : null;
+  const overflow = !wide && (items.length > 7 || showSwitch);
   const barItems = overflow ? items.slice(0, 4) : items;
   const moreItems = overflow ? items.slice(4) : [];
 
@@ -319,6 +383,7 @@ export function CustomTabList(props: TabListProps) {
               </Pressable>
             </View>
             <AgencyBlock name={agencyName} railOnly={railOnly} />
+            {railOnly || !productSwitch ? null : <View style={{ marginHorizontal: 12, marginBottom: 12 }}>{productSwitch}</View>}
             {items}
           </Animated.View>
         ) : null}
@@ -346,7 +411,7 @@ export function CustomTabList(props: TabListProps) {
                 {pageTitle}
               </Text>
             ) : (
-              <Brand compact agencyName={agencyName} />
+              <Brand compact agencyName={product === "lottery" ? `${agencyName} · Quiniela` : agencyName} />
             )}
             {signOut ? (
               <AccountMenu
@@ -397,8 +462,9 @@ export function CustomTabList(props: TabListProps) {
             ) : null}
           </View>
         )}
-        {moreItems.length > 0 ? (
+        {overflow ? (
           <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+            {productSwitch ? <View style={{ marginHorizontal: 8, marginBottom: 12 }}>{productSwitch}</View> : null}
             {moreItems}
           </MoreSheet>
         ) : null}
@@ -415,6 +481,7 @@ export function CustomTabList(props: TabListProps) {
 }
 
 function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  const palette = usePalette();
   return (
     <View
       pointerEvents={open ? "box-none" : "none"}
@@ -510,6 +577,7 @@ function Brand({ compact = false, agencyName = "" }: { compact?: boolean; agency
 }
 
 function AgencyBlock({ name, railOnly }: { name: string; railOnly: boolean }) {
+  const palette = usePalette();
   if (railOnly) {
     return (
       <View style={{ alignItems: "center", paddingTop: 12 }}>
@@ -677,6 +745,29 @@ function RoleSwitch({
         onPress={() => onChange("operator")}
       />
     </View>
+  );
+}
+
+function ProductSwitch({ product, onChange }: { product: Product; onChange: (product: Product) => void }) {
+  return (
+    <View accessibilityRole="tablist" accessibilityLabel="Agencia" className="flex-row rounded-lg bg-chrome-active p-0.5">
+      <ProductOption label="Hípica" selected={product === "racing"} onPress={() => onChange("racing")} />
+      <ProductOption label="Quiniela" selected={product === "lottery"} onPress={() => onChange("lottery")} />
+    </View>
+  );
+}
+
+function ProductOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      onPress={selected ? undefined : onPress}
+      className={selected ? "flex-1 items-center rounded-md bg-celeste py-2" : "flex-1 cursor-pointer items-center rounded-md py-2"}
+    >
+      <Text className={selected ? "text-[15px] font-semibold text-navy" : "text-[15px] text-white"}>{label}</Text>
+    </Pressable>
   );
 }
 
