@@ -36,6 +36,7 @@ export default function EntryScreen() {
               maxWidth: 1200,
               alignSelf: "center",
               borderRadius: 28,
+              overflow: wide ? "visible" : "hidden",
               paddingHorizontal: wide ? 32 : 16,
               paddingTop: wide ? 56 : 32,
               paddingBottom: wide ? 64 : 40,
@@ -45,14 +46,29 @@ export default function EntryScreen() {
             <EntryHero wide={wide} />
             <View
               className="border border-hairline bg-paper"
-              style={{ borderRadius: wide ? 28 : 22, padding: wide ? 24 : 12, gap: wide ? 24 : 16 }}
+              style={{
+                borderRadius: wide ? 28 : 22,
+                padding: wide ? 24 : 0,
+                gap: wide ? 24 : 16,
+                overflow: wide ? "visible" : "hidden",
+              }}
             >
-              <View style={{ flexDirection: wide ? "row" : "column", gap: wide ? 24 : 16, alignItems: "stretch" }}>
+              <View
+                style={{
+                  flexDirection: wide ? "row" : "column",
+                  flexWrap: "nowrap",
+                  width: wide ? "100%" : undefined,
+                  gap: wide ? 24 : 16,
+                  alignItems: "stretch",
+                }}
+              >
                 {ENTRY_PLANS.map((plan) => (
                   <PlanCard key={plan.key} plan={plan} wide={wide} />
                 ))}
               </View>
-              <BothBanner wide={wide} />
+              <View style={{ paddingHorizontal: wide ? 0 : 12, paddingBottom: wide ? 0 : 12 }}>
+                <BothBanner wide={wide} />
+              </View>
             </View>
             <Text className="text-center text-[14px] text-caption" style={{ fontFamily: entryBody }}>
               HippoPro · hippopro.com.ar
@@ -77,7 +93,16 @@ function PlanCard({ plan, wide }: { plan: EntryPlan; wide: boolean }) {
       colors={headerColors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
-      style={{ flex: wide ? 1 : undefined, borderRadius: 24, overflow: "hidden", padding: pad, gap: 22 }}
+      style={{
+        flexGrow: wide ? 1 : undefined,
+        flexShrink: wide ? 1 : undefined,
+        flexBasis: wide ? 0 : undefined,
+        minWidth: wide ? 0 : undefined,
+        borderRadius: wide ? 24 : 0,
+        overflow: "hidden",
+        padding: pad,
+        gap: 22,
+      }}
     >
       <View style={{ gap: 16, overflow: "hidden" }}>
         <MaterialCommunityIcons
