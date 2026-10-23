@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
-import { useState } from "react";
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { AccountLink, EntryAccount } from "@/components/entry-account";
 
@@ -24,6 +24,31 @@ export default function EntryScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= wideLayout;
   const [panel, setPanel] = useState<"sign-in" | "lottery" | null>(null);
+  const [scrollToken, setScrollToken] = useState(0);
+
+  function openPanel(next: "sign-in" | "lottery") {
+    setPanel(next);
+    setScrollToken((current) => current + 1);
+  }
+
+  useEffect(() => {
+    if (!panel || Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const form = document.getElementById("entrada-form");
+      if (!form) {
+        return;
+      }
+      form.style.scrollMarginTop = "24px";
+      form.scrollIntoView({ behavior: "smooth", block: "start" });
+      const field = form.querySelector("input");
+      if (field instanceof HTMLElement) {
+        field.focus({ preventScroll: true });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [panel, scrollToken]);
 
   return (
     <LinearGradient colors={[palette.mist, palette.wash]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }}>
@@ -48,7 +73,11 @@ export default function EntryScreen() {
             }}
           >
             <EntryHero wide={wide} />
-            {panel ? <EntryAccount panel={panel} onClose={() => setPanel(null)} /> : null}
+            {panel ? (
+              <View nativeID="entrada-form" collapsable={false}>
+                <EntryAccount panel={panel} onClose={() => setPanel(null)} />
+              </View>
+            ) : null}
             <View
               className="border border-hairline bg-paper"
               style={{
@@ -72,7 +101,7 @@ export default function EntryScreen() {
                     key={plan.key}
                     plan={plan}
                     wide={wide}
-                    onPress={() => setPanel(plan.key === "lottery" ? "lottery" : "sign-in")}
+                    onPress={() => openPanel(plan.key === "lottery" ? "lottery" : "sign-in")}
                   />
                 ))}
               </View>
@@ -80,7 +109,7 @@ export default function EntryScreen() {
                 <BothBanner wide={wide} />
               </View>
             </View>
-            <AccountLink label="Ya tengo cuenta" onPress={() => setPanel("sign-in")} />
+            <AccountLink label="Ya tengo cuenta" onPress={() => openPanel("sign-in")} />
             <Text className="text-center text-[14px] text-caption" style={{ fontFamily: entryBody }}>
               HippoPro · hippopro.com.ar
             </Text>
