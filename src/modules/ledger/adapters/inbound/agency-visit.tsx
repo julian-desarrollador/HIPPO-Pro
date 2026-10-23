@@ -1,10 +1,11 @@
 import { createContext, useContext, type ReactNode } from "react";
 
+import type { AgencyMode } from "@/modules/ledger";
 import type { OpenedAgency } from "@/modules/identity/agency-admin";
 
 type AgencyVisit = {
   open: (agency: OpenedAgency) => void;
-  openPersonal: (agencyId: string, agencyName: string) => Promise<string | null>;
+  openPersonal: (agencyId: string, agencyName: string, agencyMode?: AgencyMode) => Promise<string | null>;
   leave: () => void;
 };
 

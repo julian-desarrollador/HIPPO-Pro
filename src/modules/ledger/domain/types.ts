@@ -199,4 +199,9 @@ export type LedgerSnapshot = {
   staff?: StaffMember[];
   /** Who works each day. Missing on the August seed. */
   schedule?: ScheduleDay[];
+  /**
+   * Which books each terminal loads when the agency uses both.
+   * Missing means every terminal loads racing and lottery. August rows have no terminal.
+   */
+  terminalServices?: { terminalId: TerminalId; racing: boolean; lottery: boolean }[];
 };

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import {
+  ChoiceChips,
   ConfirmDialog,
   Dialog,
   Feedback,
@@ -17,7 +18,7 @@ import {
   useAgencyAdmin,
   type AgencyEntry,
 } from "@/modules/identity/agency-admin";
-import { useAgencyVisit, useLedger } from "@/modules/ledger";
+import { useAgencyVisit, useLedger, type AgencyMode } from "@/modules/ledger";
 
 export function AgencyMenuList({
   active,
@@ -215,6 +216,8 @@ export function AgenciesPanel({
   const [personalName, setPersonalName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [createMode, setCreateMode] = useState<AgencyMode>("racing");
+  const [personalMode, setPersonalMode] = useState<AgencyMode>("racing");
   const [error, setError] = useState("");
   const [personalError, setPersonalError] = useState("");
   const [message, setMessage] = useState("");
@@ -262,6 +265,8 @@ export function AgenciesPanel({
     setPersonalName("");
     setOwnerName("");
     setOwnerEmail("");
+    setCreateMode("racing");
+    setPersonalMode("racing");
     setError("");
     setPersonalError("");
     setMessage("");
@@ -276,13 +281,13 @@ export function AgenciesPanel({
     setPersonalError("");
     setError("");
     setMessage("");
-    const created = await directory.createPersonal(personalName);
+    const created = await directory.createPersonal(personalName, personalMode);
     if (typeof created === "string") {
       setPersonalError(created);
       setPersonalBusy(false);
       return;
     }
-    const problem = await visit.openPersonal(created.agencyId, created.name);
+    const problem = await visit.openPersonal(created.agencyId, created.name, personalMode);
     if (problem) {
       setPersonalError(problem);
       setPersonalBusy(false);
@@ -300,7 +305,7 @@ export function AgenciesPanel({
     setBusy(true);
     setError("");
     setMessage("");
-    const problem = await directory.create(agencyName, ownerName, ownerEmail);
+    const problem = await directory.create(agencyName, ownerName, ownerEmail, createMode);
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -413,6 +418,7 @@ export function AgenciesPanel({
               accessibilityLabel="Correo del dueño"
             />
           </Field>
+          <ModeField value={createMode} onChange={setCreateMode} />
           <PrimaryButton
             label={busy ? "Enviando…" : "Crear e invitar"}
             onPress={() => void create()}
@@ -430,6 +436,7 @@ export function AgenciesPanel({
                 accessibilityLabel="Nombre de la prueba"
               />
             </Field>
+            <ModeField value={personalMode} onChange={setPersonalMode} />
             <PrimaryButton
               label={personalBusy ? "Creando…" : "Crear y entrar"}
               onPress={() => void createPersonalAgency()}
@@ -489,5 +496,19 @@ export function AgenciesPanel({
       onConfirm={() => void confirmRemoval()}
     />
     </>
+  );
+}
+
+const MODE_OPTIONS: { id: AgencyMode; label: string }[] = [
+  { id: "racing", label: "Hípica" },
+  { id: "lottery", label: "Lotería" },
+  { id: "both", label: "Las dos" },
+];
+
+function ModeField({ value, onChange }: { value: AgencyMode; onChange: (mode: AgencyMode) => void }) {
+  return (
+    <Field label="Qué usa">
+      <ChoiceChips options={MODE_OPTIONS} value={value} onChange={onChange} />
+    </Field>
   );
 }

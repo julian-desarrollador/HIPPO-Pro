@@ -24,6 +24,16 @@ export function isLedgerSnapshot(value: unknown): value is LedgerSnapshot {
     (snapshot.audit === undefined || Array.isArray(snapshot.audit)) &&
     (snapshot.cashDays === undefined || Array.isArray(snapshot.cashDays)) &&
     (snapshot.staff === undefined || Array.isArray(snapshot.staff)) &&
-    (snapshot.schedule === undefined || Array.isArray(snapshot.schedule))
+    (snapshot.schedule === undefined || Array.isArray(snapshot.schedule)) &&
+    (snapshot.terminalServices === undefined ||
+      (Array.isArray(snapshot.terminalServices) &&
+        snapshot.terminalServices.every(
+          (row) =>
+            !!row &&
+            typeof row === "object" &&
+            typeof row.terminalId === "string" &&
+            typeof row.racing === "boolean" &&
+            typeof row.lottery === "boolean",
+        )))
   );
 }

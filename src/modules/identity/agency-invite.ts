@@ -39,3 +39,19 @@ export function newAgencyProblem(agencyName: string, ownerName: string, ownerEma
   }
   return inviteOperatorProblem(ownerName, ownerEmail);
 }
+
+export function lotterySignupProblem(
+  agencyName: string,
+  ownerName: string,
+  ownerEmail: string,
+  password: string,
+): string | null {
+  const problem = newAgencyProblem(agencyName, ownerName, ownerEmail);
+  if (problem) {
+    return problem;
+  }
+  if (password.length < 6) {
+    return "La contraseña tiene que tener al menos 6 caracteres.";
+  }
+  return null;
+}

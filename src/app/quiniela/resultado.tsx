@@ -16,9 +16,10 @@ export default function LotteryResultScreen() {
 }
 
 function LotteryResult() {
-  const { canViewBalances } = useLedger();
+  const { canViewBalances, agencyMode } = useLedger();
   const { agencyMonth } = useLottery();
   const wide = useWindowDimensions().width >= wideLayout;
+  const lotteryOnly = agencyMode === "lottery";
 
   if (!canViewBalances || !agencyMonth) {
     return (
@@ -37,13 +38,13 @@ function LotteryResult() {
           Saldo del mes de la agencia
         </Text>
         <View className="mt-2 w-full">
-          <MoneyText cents={agencyMonth.total.balanceCents} size="md" tone="navy" align="center" fill />
+          <MoneyText cents={lotteryOnly ? agencyMonth.lottery.balanceCents : agencyMonth.total.balanceCents} size="md" tone="navy" align="center" fill />
         </View>
       </View>
-      <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
+      <View className={wide && !lotteryOnly ? "flex-row items-start gap-4" : "gap-4"}>
         <BusinessCard title="Quiniela" month={agencyMonth.lottery} />
-        <BusinessCard title="Hípica" month={agencyMonth.racing} />
-        <BusinessCard title="Total" month={agencyMonth.total} />
+        {lotteryOnly ? null : <BusinessCard title="Hípica" month={agencyMonth.racing} />}
+        {lotteryOnly ? null : <BusinessCard title="Total" month={agencyMonth.total} />}
       </View>
     </ScreenFrame>
   );

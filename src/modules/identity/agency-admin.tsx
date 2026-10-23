@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { agencyModeFrom, type AgencyMode } from "@/modules/ledger";
 import { isLedgerSnapshot } from "@/modules/ledger/adapters/outbound/ledger-snapshot";
 import type { LedgerSnapshot } from "@/modules/ledger/domain/types";
 
@@ -10,6 +11,7 @@ import { readFunctionMessage } from "./operator-admin";
 export type OpenedAgency = {
   agencyId: string;
   agencyName: string;
+  agencyMode: AgencyMode;
   snapshot: LedgerSnapshot;
 };
 
@@ -28,8 +30,8 @@ export type CreatedPersonalAgency = {
 
 type AgencyAdmin = {
   list: () => Promise<AgencyEntry[]>;
-  create: (agencyName: string, ownerName: string, ownerEmail: string) => Promise<string | null>;
-  createPersonal: (agencyName: string) => Promise<CreatedPersonalAgency | string>;
+  create: (agencyName: string, ownerName: string, ownerEmail: string, productMode: AgencyMode) => Promise<string | null>;
+  createPersonal: (agencyName: string, productMode: AgencyMode) => Promise<CreatedPersonalAgency | string>;
   removePersonal: (agencyId: string) => Promise<string | null>;
   read: (agencyId: string) => Promise<OpenedAgency | string>;
 };
@@ -58,7 +60,7 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
       }
       return agencies.filter(isAgencyEntry);
     },
-    async create(agencyName, ownerName, ownerEmail) {
+    async create(agencyName, ownerName, ownerEmail, productMode) {
       const problem = newAgencyProblem(agencyName, ownerName, ownerEmail);
       if (problem) {
         return problem;
@@ -70,18 +72,19 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
           agencyName: agencyName.trim(),
           ownerName: ownerName.trim(),
           ownerEmail: ownerEmail.trim(),
+          productMode,
           redirectTo,
         },
       });
       return error ? readFunctionMessage(error, data) : null;
     },
-    async createPersonal(agencyName) {
+    async createPersonal(agencyName, productMode) {
       const problem = personalAgencyNameProblem(agencyName);
       if (problem) {
         return problem;
       }
       const { data, error } = await client.functions.invoke("create-agency", {
-        body: { action: "create-personal", agencyName: agencyName.trim() },
+        body: { action: "create-personal", agencyName: agencyName.trim(), productMode },
       });
       if (error) {
         return readFunctionMessage(error, data);
@@ -111,7 +114,7 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
       if (!name || !isLedgerSnapshot(snapshot) || snapshot.agencyId !== agencyId) {
         return "No se pudo abrir la agencia.";
       }
-      return { agencyId, agencyName: name, snapshot };
+      return { agencyId, agencyName: name, agencyMode: agencyModeFrom(data && typeof data === "object" && "productMode" in data ? data.productMode : "racing"), snapshot };
     },
   };
 }

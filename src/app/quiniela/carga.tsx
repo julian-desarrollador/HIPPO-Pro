@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
 import { AmountField } from "@/components/amount-field";
@@ -31,17 +31,25 @@ type DayKey = { date: string; terminalId: TerminalId };
 export default function LotteryEntryScreen() {
   return (
     <LotteryGate title="Carga de quiniela">
-      <LotteryEntry />
+      <LotteryDayEntry />
     </LotteryGate>
   );
 }
 
-function LotteryEntry() {
+export function LotteryDayEntry({
+  embedded = false,
+  lockedDate,
+  lockedTerminal,
+}: {
+  embedded?: boolean;
+  lockedDate?: string;
+  lockedTerminal?: TerminalId;
+}) {
   const { viewMonth, setViewMonth } = useLedger();
   const { games, days, previewDay, recordDay, updateDay, removeDay } = useLottery();
   const wide = useWindowDimensions().width >= wideLayout;
-  const [date, setDate] = useState(() => openingDate(viewMonth));
-  const [terminalId, setTerminalId] = useState<TerminalId>("1");
+  const [date, setDate] = useState(() => lockedDate ?? openingDate(viewMonth));
+  const [terminalId, setTerminalId] = useState<TerminalId>(lockedTerminal ?? "1");
   const [sold, setSold] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<DayKey | null>(null);
   const [pendingRemove, setPendingRemove] = useState<DayKey | null>(null);
@@ -49,7 +57,17 @@ function LotteryEntry() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [dateMonth, setDateMonth] = useState(viewMonth);
-  if (dateMonth !== viewMonth) {
+  useEffect(() => {
+    if (lockedDate) {
+      setDate(lockedDate);
+    }
+  }, [lockedDate]);
+  useEffect(() => {
+    if (lockedTerminal) {
+      setTerminalId(lockedTerminal);
+    }
+  }, [lockedTerminal]);
+  if (dateMonth !== viewMonth && !lockedDate) {
     setDateMonth(viewMonth);
     if (!editing) {
       setDate(openingDate(viewMonth));
@@ -63,7 +81,9 @@ function LotteryEntry() {
 
   function clearForm() {
     setSold({});
-    setTerminalId("1");
+    if (!lockedTerminal) {
+      setTerminalId("1");
+    }
   }
 
   function startEdit(row: LotteryDayRow) {
@@ -103,7 +123,9 @@ function LotteryEntry() {
       if (editing) {
         await updateDay({ fromDate: editing.date, fromTerminalId: editing.terminalId, date, terminalId, amounts });
         setEditing(null);
-        setDate(openingDate(date.slice(0, 7)));
+        if (!lockedDate) {
+          setDate(openingDate(date.slice(0, 7)));
+        }
         setMessage("Día actualizado.");
       } else {
         await recordDay({ date, terminalId, amounts });
@@ -145,18 +167,22 @@ function LotteryEntry() {
     cents: (row) => row.soldByGame[game.id] ?? 0,
   }));
 
-  return (
-    <ScreenFrame title="Carga de quiniela">
+  const body = (
+    <>
       <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
         <View className="flex-1">
           <Card>
             <View className="gap-4">
+              {lockedDate ? null : (
               <Field label="Fecha">
                 <DateField value={date} onChange={setDate} />
               </Field>
+              )}
+              {lockedTerminal ? null : (
               <Field label="Terminal">
                 <ChoiceChips options={terminalOptions} value={terminalId} onChange={setTerminalId} />
               </Field>
+              )}
               <Text className="text-[17px] font-semibold text-navy">Vendido por juego</Text>
               {games.map((game) => (
                 <Field key={game.id} label={game.name}>
@@ -204,6 +230,8 @@ function LotteryEntry() {
         </View>
       </View>
 
+      {embedded ? null : (
+      <>
       <SectionTitle title={monthTitle(viewMonth)} />
       <DataTable
         columns={[
@@ -231,8 +259,12 @@ function LotteryEntry() {
         empty="Todavía no hay días cargados."
       />
       <ConfirmDialog visible={pendingRemove !== null} onCancel={() => setPendingRemove(null)} onConfirm={() => void confirmRemove()} />
-    </ScreenFrame>
+      </>
+      )}
+    </>
   );
+
+  return embedded ? body : <ScreenFrame title="Carga de quiniela">{body}</ScreenFrame>;
 }
 
 function BreakdownLine({

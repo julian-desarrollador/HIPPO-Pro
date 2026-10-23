@@ -25,6 +25,22 @@ grant select, insert, update, delete on public.ledgers to service_role;
 alter table public.agencies
   add column if not exists personal_user_id uuid references auth.users (id);
 
+-- racing, lottery or both. Existing rows, including Agencia Dolores, stay racing.
+alter table public.agencies
+  add column if not exists product_mode text not null default 'racing';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.agencies'::regclass and conname = 'agencies_product_mode_check'
+  ) then
+    alter table public.agencies
+      add constraint agencies_product_mode_check
+      check (product_mode in ('racing', 'lottery', 'both'));
+  end if;
+end $$;
+
 -- Same rule as personal-agencies.sql. Re-running this file must not take it away.
 create or replace function public.caller_can_use_agency(target text)
 returns boolean

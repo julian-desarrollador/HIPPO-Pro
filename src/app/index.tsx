@@ -1,3 +1,4 @@
+import { Redirect } from "expo-router";
 import { useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
@@ -25,6 +26,14 @@ import {
 } from "@/modules/ledger";
 
 export default function HomeScreen() {
+  const { agencyMode } = useLedger();
+  if (agencyMode === "lottery") {
+    return <Redirect href="/quiniela" />;
+  }
+  return <RacingHome />;
+}
+
+function RacingHome() {
   const { canViewBalances, summary, reset, persistence, snapshot, racetracks, addRacetrack, updateRacetrack, removeRacetrack, readOnly } = useLedger();
   const wide = useWindowDimensions().width >= wideLayout;
   const [name, setName] = useState("");

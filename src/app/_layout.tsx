@@ -10,7 +10,7 @@ import {
   PlayfairDisplay_600SemiBold,
   PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
-import { DefaultTheme, Slot, ThemeProvider, usePathname } from "expo-router";
+import { DefaultTheme, Redirect, Slot, ThemeProvider, usePathname } from "expo-router";
 import Head from "expo-router/head";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 import AppTabs from "@/components/app-tabs";
+import { useRemoteSession } from "@/components/entry-gate";
 import { AppShell } from "@/modules/ledger";
 
 SplashScreen.preventAutoHideAsync();
@@ -28,6 +29,7 @@ const PUBLIC_PATHS = new Set(["/entrada", "/entrada2", "/entrada3"]);
 
 export default function RootLayout() {
   const pathname = usePathname();
+  const session = useRemoteSession();
   const [loaded, error] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -43,7 +45,7 @@ export default function RootLayout() {
     }
   }, [loaded, error]);
 
-  if (!loaded && !error) {
+  if (!loaded && !error || session === "loading") {
     return (
       <Head>
         <title>HippoPro</title>
@@ -58,14 +60,26 @@ export default function RootLayout() {
       </Head>
       <StatusBar style="light" />
       <View className="flex-1 bg-canvas font-sans">
-        {PUBLIC_PATHS.has(pathname) ? (
-          <Slot />
-        ) : (
-          <AppShell>
-            <AppTabs />
-          </AppShell>
-        )}
+        <EntryRoutes pathname={pathname} session={session} />
       </View>
     </ThemeProvider>
+  );
+}
+
+function EntryRoutes({ pathname, session }: { pathname: string; session: "local" | "in" | "out" }) {
+  const isPublic = PUBLIC_PATHS.has(pathname);
+  if ((session === "local" || session === "out") && isPublic) {
+    return <Slot />;
+  }
+  if (session === "out") {
+    return <Redirect href="/entrada" />;
+  }
+  if (session === "in" && isPublic) {
+    return <Redirect href="/" />;
+  }
+  return (
+    <AppShell>
+      <AppTabs />
+    </AppShell>
   );
 }

@@ -4,6 +4,8 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
 import { AgencyAdminProvider, type OpenedAgency } from "@/modules/identity/agency-admin";
 import { OperatorAdminProvider } from "@/modules/identity/operator-admin";
+import type { AgencyMode } from "../../domain/features";
+import { agencyModeFrom } from "../../domain/features";
 import type { ViewerRole } from "../../domain/types";
 import { openAgencyLedger } from "../outbound/agency-ledger";
 import { createInMemoryLedgerRepository } from "../outbound/in-memory-ledger-repository";
@@ -52,6 +54,7 @@ type Phase =
       userId: string;
       canInviteOwners: boolean;
       canCreateAgencies: boolean;
+      agencyMode: AgencyMode;
       repository: Awaited<ReturnType<typeof openAgencyLedger>>;
     };
 
@@ -125,12 +128,44 @@ async function loadProfile(client: SupabaseClient, userId: string): Promise<Prof
   };
 }
 
-async function loadAgencyName(client: SupabaseClient, agencyId: string): Promise<string> {
-  const { data, error } = await client.from("agencies").select("name").eq("agency_id", agencyId).maybeSingle();
-  if (!error && data && typeof data.name === "string" && data.name.trim()) {
-    return data.name.trim();
+async function loadAgency(
+  client: SupabaseClient,
+  agencyId: string,
+): Promise<{ name: string; mode: AgencyMode }> {
+  const fallbackName = agencyId === PREVIEW_AGENCY_ID ? PREVIEW_AGENCY_NAME : "Agencia";
+  const { data, error } = await client
+    .from("agencies")
+    .select("name, product_mode")
+    .eq("agency_id", agencyId)
+    .maybeSingle();
+  if (error) {
+    const nameOnly = await client.from("agencies").select("name").eq("agency_id", agencyId).maybeSingle();
+    const name =
+      !nameOnly.error && nameOnly.data && typeof nameOnly.data.name === "string" && nameOnly.data.name.trim()
+        ? nameOnly.data.name.trim()
+        : fallbackName;
+    return { name, mode: "racing" };
   }
-  return agencyId === PREVIEW_AGENCY_ID ? PREVIEW_AGENCY_NAME : "Agencia";
+  const name = data && typeof data.name === "string" && data.name.trim() ? data.name.trim() : fallbackName;
+  return { name, mode: agencyModeFrom(data?.product_mode) };
+}
+
+function localPreviewMode(): AgencyMode {
+  if (typeof window === "undefined") {
+    return "racing";
+  }
+  const value = new URLSearchParams(window.location.search).get("modo");
+  if (value) {
+    window.sessionStorage.setItem("hippo-preview-mode", value);
+  }
+  const stored = value || window.sessionStorage.getItem("hippo-preview-mode");
+  if (stored === "lottery" || stored === "loteria") {
+    return "lottery";
+  }
+  if (stored === "both" || stored === "ambas") {
+    return "both";
+  }
+  return "racing";
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -145,7 +180,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
   if (!config) {
     return (
-      <LedgerProvider>
+      <LedgerProvider agencyMode={localPreviewMode()}>
         <LotteryProvider open={openBrowserLottery}>{children}</LotteryProvider>
       </LedgerProvider>
     );
@@ -218,6 +253,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     agencyId: string;
     agencyName: string;
     repository: LedgerRepository;
+    agencyMode: AgencyMode;
     readOnly: boolean;
     personal: boolean;
   } | null>(null);
@@ -252,9 +288,9 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       return;
     }
     try {
-      const [repository, agencyName] = await Promise.all([
+      const [repository, agency] = await Promise.all([
         openAgencyLedger(createSupabaseLedgerRemote(client), profile.agencyId),
-        loadAgencyName(client, profile.agencyId),
+        loadAgency(client, profile.agencyId),
       ]);
       if (id !== request.current) {
         return;
@@ -263,11 +299,12 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         status: "ready",
         role: profile.role,
         displayName: profile.displayName,
-        agencyName,
+        agencyName: agency.name,
         agencyId: profile.agencyId,
         userId: session.user.id,
         canInviteOwners: profile.canInviteOwners,
         canCreateAgencies: profile.canCreateAgencies,
+        agencyMode: agency.mode,
         repository,
       });
     } catch {
@@ -352,18 +389,20 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     setVisit({
       agencyId: agency.agencyId,
       agencyName: agency.agencyName,
+      agencyMode: agency.agencyMode,
       repository: createInMemoryLedgerRepository(agency.snapshot),
       readOnly: true,
       personal: false,
     });
   }
 
-  async function openPersonal(agencyId: string, agencyName: string): Promise<string | null> {
+  async function openPersonal(agencyId: string, agencyName: string, agencyMode: AgencyMode = "racing"): Promise<string | null> {
     try {
       const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), agencyId);
       setVisit({
         agencyId,
         agencyName,
+        agencyMode,
         repository,
         readOnly: false,
         personal: true,
@@ -411,12 +450,14 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     ? {
         repository: visit.repository,
         agencyName: visit.agencyName,
+        agencyMode: visit.agencyMode,
         readOnly: visit.readOnly,
         personalVisit: visit.personal,
       }
     : {
         repository: phase.repository,
         agencyName: phase.agencyName,
+        agencyMode: phase.agencyMode,
         readOnly: false,
         personalVisit: false,
       };
@@ -438,6 +479,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       role={phase.role}
       displayName={phase.displayName}
       agencyName={book.agencyName}
+      agencyMode={book.agencyMode}
       userId={phase.userId}
       canInviteOwners={phase.canInviteOwners}
       canCreateAgencies={phase.canCreateAgencies}
@@ -448,7 +490,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       leaveVisit={() => setVisit(null)}
       signOut={signOut}
     >
-      <LotteryProvider open={visit ? null : openLottery}>
+      <LotteryProvider open={visit?.readOnly ? null : openLottery}>
         {visit?.readOnly ? (
           pages
         ) : (

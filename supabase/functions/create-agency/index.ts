@@ -124,6 +124,10 @@ function alreadyRegistered(message: string): boolean {
   return /already|registered|exists/i.test(message);
 }
 
+function productModeOf(value: unknown): "racing" | "lottery" | "both" {
+  return value === "lottery" || value === "both" ? value : "racing";
+}
+
 function readText(body: object, key: string): string {
   const value = (body as Record<string, unknown>)[key];
   return typeof value === "string" ? value : "";
@@ -208,7 +212,7 @@ Deno.serve(async (req: Request) => {
     }
     const { data: agency, error: agencyError } = await admin
       .from("agencies")
-      .select("name, personal_user_id")
+      .select("name, personal_user_id, product_mode")
       .eq("agency_id", agencyId)
       .maybeSingle();
     if (agencyError || !agency || typeof agency.name !== "string" || !agency.name.trim()) {
@@ -225,14 +229,14 @@ Deno.serve(async (req: Request) => {
     if (ledgerError || !ledger || ledger.snapshot === null || typeof ledger.snapshot !== "object") {
       return json(400, { message: "No se pudo abrir la agencia." });
     }
-    return json(200, { name: agency.name.trim(), snapshot: ledger.snapshot });
+    return json(200, { name: agency.name.trim(), productMode: productModeOf(agency.product_mode), snapshot: ledger.snapshot });
   }
 
   if (action === "list") {
     const homeId = typeof caller.agency_id === "string" ? caller.agency_id : "";
     const { data, error } = await admin
       .from("agencies")
-      .select("agency_id, name, personal_user_id")
+      .select("agency_id, name, personal_user_id, product_mode")
       .order("created_at");
     if (error || !data) {
       return json(400, { message: "No se pudo cargar la lista." });
@@ -243,6 +247,7 @@ Deno.serve(async (req: Request) => {
         agencyId: row.agency_id,
         name: row.name,
         kind: row.agency_id === homeId ? "home" : row.personal_user_id === callerId ? "personal" : "other",
+        productMode: productModeOf(row.product_mode),
       }));
     return json(200, { agencies });
   }
@@ -254,6 +259,7 @@ Deno.serve(async (req: Request) => {
       return json(400, { message: problem });
     }
     const name = agencyName.trim().replace(/\s+/g, " ");
+    const productMode = productModeOf(readText(body, "productMode"));
     let agencyId = "";
     let created = false;
     for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
@@ -262,6 +268,7 @@ Deno.serve(async (req: Request) => {
         agency_id: agencyId,
         name,
         personal_user_id: callerId,
+        product_mode: productMode,
       });
       if (!agencyError) {
         created = true;
@@ -281,7 +288,7 @@ Deno.serve(async (req: Request) => {
       await removeAgency(admin, agencyId);
       return json(400, { message: "No se pudo crear la agencia." });
     }
-    return json(200, { agencyId, name });
+    return json(200, { agencyId, name, productMode });
   }
 
   if (action === "delete-personal") {
@@ -323,11 +330,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const name = agencyName.trim().replace(/\s+/g, " ");
+    const productMode = productModeOf(readText(body, "productMode"));
     const agencyId = agencyIdFromName(name);
     const cleanOwner = ownerName.trim();
     const cleanEmail = ownerEmail.trim().toLowerCase();
 
-    const { error: agencyError } = await admin.from("agencies").insert({ agency_id: agencyId, name });
+    const { error: agencyError } = await admin.from("agencies").insert({ agency_id: agencyId, name, product_mode: productMode });
     if (agencyError) {
       return agencyError.code === "23505"
         ? json(409, { message: "Ya hay una agencia con ese nombre." })

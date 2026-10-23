@@ -37,4 +37,8 @@ export { TERMINAL_IDS } from "./domain/lottery";
 export type { LotteryDeposit, LotteryExpense, LotteryGame } from "./domain/lottery";
 export type { LotteryAmount, LotteryDayPreview } from "./application/use-cases/lottery-sales";
 export type { AgencyMonth, BusinessMonth, LotteryDayRow, LotteryMonthSummary } from "./application/use-cases/lottery-summary";
+export type { AgencyMode } from "./domain/features";
+export { agencyModeFrom, homeHref, seesLottery, seesRacing } from "./domain/features";
+export { terminalServices } from "./domain/terminal-services";
+export type { TerminalServiceSet } from "./domain/terminal-services";
 export { useLottery, type LotteryStatus } from "./adapters/inbound/lottery-provider";

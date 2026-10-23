@@ -32,6 +32,7 @@ export type LedgerErrorCode =
   | "lottery-owner-only"
   | "unknown-game"
   | "unknown-terminal"
+  | "terminal-needs-service"
   | "duplicate-lottery-day";
 
 export class LedgerError extends Error {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { lotteryAvailable } from "../../domain/features";
+import { seesLottery } from "../../domain/features";
 import type { LotteryGame, LotterySnapshot } from "../../domain/lottery";
 import type { LotteryRepository } from "../../application/ports/lottery-repository";
 import { activateLottery } from "../../application/use-cases/lottery-activate";
@@ -107,7 +107,7 @@ type Opened = { key: string } & ({ status: "error" } | { status: "open"; reposit
 export function LotteryProvider({ open, children }: { open: OpenLottery | null; children: ReactNode }) {
   const ledger = useLedger();
   const agencyId = ledger.snapshot.agencyId;
-  const available = open !== null && lotteryAvailable(agencyId) && !ledger.readOnly && !ledger.personalVisit;
+  const available = open !== null && seesLottery(ledger.agencyMode) && !ledger.readOnly;
   const [opened, setOpened] = useState<Opened | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [version, setVersion] = useState(0);

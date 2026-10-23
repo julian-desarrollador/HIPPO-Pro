@@ -34,6 +34,7 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "lottery-owner-only": "La quiniela la activa el dueño.",
   "unknown-game": "Ese juego no está.",
   "unknown-terminal": "Elegí una terminal.",
+  "terminal-needs-service": "La terminal necesita al menos un servicio.",
   "duplicate-lottery-day": "Esa terminal ya está cargada ese día. Editala desde la tabla.",
 };
 

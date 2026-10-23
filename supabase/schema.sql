@@ -8,6 +8,7 @@ create table public.agencies (
     check (agency_id ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(agency_id) <= 60),
   name text not null check (length(btrim(name)) between 1 and 80),
   personal_user_id uuid references auth.users (id),
+  product_mode text not null default 'racing' check (product_mode in ('racing', 'lottery', 'both')),
   created_at timestamptz not null default now()
 );
 

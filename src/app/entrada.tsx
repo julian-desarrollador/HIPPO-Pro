@@ -2,7 +2,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+
+import { AccountLink, EntryAccount } from "@/components/entry-account";
 
 import {
   BothBanner,
@@ -20,6 +23,7 @@ import { palette } from "@/constants/palette";
 export default function EntryScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= wideLayout;
+  const [panel, setPanel] = useState<"sign-in" | "lottery" | null>(null);
 
   return (
     <LinearGradient colors={[palette.mist, palette.wash]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }}>
@@ -44,6 +48,7 @@ export default function EntryScreen() {
             }}
           >
             <EntryHero wide={wide} />
+            {panel ? <EntryAccount panel={panel} onClose={() => setPanel(null)} /> : null}
             <View
               className="border border-hairline bg-paper"
               style={{
@@ -63,13 +68,19 @@ export default function EntryScreen() {
                 }}
               >
                 {ENTRY_PLANS.map((plan) => (
-                  <PlanCard key={plan.key} plan={plan} wide={wide} />
+                  <PlanCard
+                    key={plan.key}
+                    plan={plan}
+                    wide={wide}
+                    onPress={() => setPanel(plan.key === "lottery" ? "lottery" : "sign-in")}
+                  />
                 ))}
               </View>
               <View style={{ paddingHorizontal: wide ? 0 : 12, paddingBottom: wide ? 0 : 12 }}>
                 <BothBanner wide={wide} />
               </View>
             </View>
+            <AccountLink label="Ya tengo cuenta" onPress={() => setPanel("sign-in")} />
             <Text className="text-center text-[14px] text-caption" style={{ fontFamily: entryBody }}>
               HippoPro · hippopro.com.ar
             </Text>
@@ -80,7 +91,7 @@ export default function EntryScreen() {
   );
 }
 
-function PlanCard({ plan, wide }: { plan: EntryPlan; wide: boolean }) {
+function PlanCard({ plan, wide, onPress }: { plan: EntryPlan; wide: boolean; onPress: () => void }) {
   const colors = plan.colors;
   const pad = wide ? 28 : 20;
   const headerColors =
@@ -182,6 +193,7 @@ function PlanCard({ plan, wide }: { plan: EntryPlan; wide: boolean }) {
         <View style={{ marginTop: "auto", paddingTop: 12, gap: 10 }}>
           <Pressable
             accessibilityRole="button"
+            onPress={onPress}
             style={({ pressed }) => ({
               backgroundColor: "white",
               borderRadius: 12,

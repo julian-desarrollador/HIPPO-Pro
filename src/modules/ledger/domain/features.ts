@@ -1,6 +1,18 @@
-const LOTTERY_AGENCY_IDS: readonly string[] = ["agencia-dolores"];
+/** What an agency uses. Missing or unknown values stay on racing. */
+export type AgencyMode = "racing" | "lottery" | "both";
 
-/** Agencies that see Agencia de Quiniela. The racing book never depends on this. */
-export function lotteryAvailable(agencyId: string): boolean {
-  return LOTTERY_AGENCY_IDS.includes(agencyId);
+export function agencyModeFrom(value: unknown): AgencyMode {
+  return value === "lottery" || value === "both" ? value : "racing";
+}
+
+export function seesRacing(mode: AgencyMode): boolean {
+  return mode !== "lottery";
+}
+
+export function seesLottery(mode: AgencyMode): boolean {
+  return mode !== "racing";
+}
+
+export function homeHref(mode: AgencyMode): "/" | "/quiniela" {
+  return mode === "lottery" ? "/quiniela" : "/";
 }

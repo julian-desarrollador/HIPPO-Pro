@@ -1,16 +1,26 @@
 import { Redirect } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 
-import { Feedback, PrimaryButton, SecondaryButton } from "@/components/form-controls";
+import { Feedback, SecondaryButton } from "@/components/form-controls";
 import { Card, ScreenFrame } from "@/components/screen-frame";
 import { ledgerErrorMessage, useLedger, useLottery } from "@/modules/ledger";
 
 /** Shows a lottery screen only once its book is open. Other agencies go back to Inicio. */
 export function LotteryGate({ title, children }: { title: string; children: ReactNode }) {
   const lottery = useLottery();
+  const { agencyMode } = useLedger();
 
   if (lottery.status === "unavailable") {
+    if (agencyMode === "lottery") {
+      return (
+        <ScreenFrame title={title}>
+          <Card>
+            <Text className="text-[17px] leading-6 text-ink">No se pudo abrir la quiniela.</Text>
+          </Card>
+        </ScreenFrame>
+      );
+    }
     return <Redirect href="/" />;
   }
   if (lottery.status === "active") {
@@ -41,23 +51,18 @@ export function LotteryGate({ title, children }: { title: string; children: Reac
 function ActivateCard() {
   const { canViewBalances } = useLedger();
   const lottery = useLottery();
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const started = useRef(false);
 
-  async function activate() {
-    if (saving) {
+  useEffect(() => {
+    if (!canViewBalances || lottery.status !== "inactive" || started.current) {
       return;
     }
-    setSaving(true);
-    setError("");
-    try {
-      await lottery.activate();
-    } catch (caught) {
+    started.current = true;
+    void lottery.activate().catch((caught) => {
       setError(ledgerErrorMessage(caught));
-    } finally {
-      setSaving(false);
-    }
-  }
+    });
+  }, [canViewBalances, lottery]);
 
   return (
     <Card>
@@ -66,13 +71,11 @@ function ActivateCard() {
         <Text className="text-[17px] leading-6 text-ink">
           Por terminal y por día se carga lo vendido de cada juego. La comisión y el saldo con la lotería salen solos.
         </Text>
-        <Text className="text-[17px] leading-6 text-ink">
-          Es un libro aparte: lo que se cargue acá no cambia nada de la hípica.
-        </Text>
         {canViewBalances ? (
           <>
-            <Feedback error={error} message={saving ? "Activando…" : ""} />
-            <PrimaryButton className="self-start" label="Activar" onPress={() => void activate()} />
+            <Text className="text-[17px] leading-6 text-ink">Abriendo la quiniela…</Text>
+            {error ? <Feedback error={error} message="" /> : null}
+            {error ? <SecondaryButton className="self-start" label="Reintentar" onPress={lottery.retry} /> : null}
           </>
         ) : (
           <Text className="text-[17px] font-semibold text-navy">La quiniela la activa el dueño.</Text>

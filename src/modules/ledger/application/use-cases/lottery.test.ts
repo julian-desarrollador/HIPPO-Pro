@@ -6,7 +6,6 @@ import { createInMemoryLotteryRepository } from "../../adapters/outbound/in-memo
 import { lotterySync, openLotteryLedger, type LotteryRemote } from "../../adapters/outbound/lottery-ledger";
 import type { LedgerRemoteRow } from "../../adapters/outbound/agency-ledger";
 import { LedgerError } from "../../domain/errors";
-import { lotteryAvailable } from "../../domain/features";
 import { LOTTERY_GAMES, settleLotterySale, type LotterySnapshot } from "../../domain/lottery";
 import { activateLottery } from "./lottery-activate";
 import { describeLotteryChange, withLotteryAudit } from "./lottery-audit";
@@ -30,13 +29,6 @@ const hundredThousandEach = LOTTERY_GAMES.map((game) => ({ gameId: game.id, sold
 function hasCode(code: LedgerError["code"]) {
   return (error: unknown) => error instanceof LedgerError && error.code === code;
 }
-
-describe("quiniela: solo Dolores", () => {
-  it("está solo para Agencia Dolores", () => {
-    assert.equal(lotteryAvailable("agencia-dolores"), true);
-    assert.equal(lotteryAvailable("otra-agencia"), false);
-  });
-});
 
 describe("quiniela: activar", () => {
   it("el dueño la activa con los seis juegos y el saldo en cero", () => {

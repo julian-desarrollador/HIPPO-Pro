@@ -25,7 +25,7 @@ import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
-import { useLedger, useLottery, type ViewerRole } from "@/modules/ledger";
+import { useLedger, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
   home: "home",
@@ -44,6 +44,7 @@ type TabIcon = keyof typeof TAB_ICONS;
 const PAGE_TITLES: Record<string, string> = {
   "/": "Inicio",
   "/carga": "Carga del día",
+  "/carga-dia": "Carga del día",
   "/depositos": "Depósitos",
   "/gastos": "Gastos",
   "/cuentas": "Cuentas corrientes",
@@ -65,7 +66,13 @@ type Product = "racing" | "lottery";
 
 const LOTTERY_TRIGGER_PREFIX = "quiniela";
 
-function productOf(pathname: string): Product {
+function productOf(pathname: string, mode: "racing" | "lottery" | "both"): Product {
+  if (mode === "lottery") {
+    return "lottery";
+  }
+  if (mode === "racing") {
+    return "racing";
+  }
   return isLotteryPath(pathname) ? "lottery" : "racing";
 }
 
@@ -137,6 +144,9 @@ export default function AppTabs() {
             <TabButton icon="home">Inicio</TabButton>
           </TabTrigger>
           <TabTrigger name="carga" href="/carga" asChild>
+            <TabButton icon="carga">Carga</TabButton>
+          </TabTrigger>
+          <TabTrigger name="carga-dia" href={"/carga-dia" as Href} asChild>
             <TabButton icon="carga">Carga</TabButton>
           </TabTrigger>
           <TabTrigger name="depositos" href="/depositos" asChild>
@@ -280,7 +290,7 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, agencyName, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot } = useLedger();
+  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot } = useLedger();
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const [agenciesOpen, setAgenciesOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
@@ -288,22 +298,32 @@ export function CustomTabList(props: TabListProps) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const lottery = useLottery();
-  const product = productOf(pathname);
+  const product = productOf(pathname, agencyMode);
   const palette = usePalette();
   useProductTheme(product, palette.navy);
-  const showSwitch =
-    lottery.status !== "unavailable" && (lottery.status === "active" || role === "owner");
+  const showSwitch = agencyMode === "both";
   const pageTitle =
     bettorPageTitle(pathname, snapshot.bettors) ??
     PAGE_TITLES[pathname] ??
     "HippoPro";
   const items = Children.toArray(children).filter((child) => {
     const name = isValidElement(child) ? (child.props as { name?: string }).name : undefined;
-    if (name === "carpeta") {
+    if (name === "carpeta" || name === "carga-dia" && agencyMode !== "both") {
+      return false;
+    }
+    if (name === "carga-dia") {
+      return true;
+    }
+    if (agencyMode === "both" && (name === "carga" || name === "quiniela-carga")) {
       return false;
     }
     const lotteryItem = name?.startsWith(LOTTERY_TRIGGER_PREFIX) ?? false;
+    if (agencyMode === "lottery") {
+      return lotteryItem;
+    }
+    if (agencyMode === "racing") {
+      return !lotteryItem;
+    }
     return product === "lottery" ? lotteryItem : !lotteryItem;
   });
   const productSwitch = showSwitch ? (
@@ -315,6 +335,16 @@ export function CustomTabList(props: TabListProps) {
   const overflow = !wide && (items.length > 7 || showSwitch);
   const barItems = overflow ? items.slice(0, 4) : items;
   const moreItems = overflow ? items.slice(4) : [];
+
+  useEffect(() => {
+    if (agencyMode === "lottery" && !isLotteryPath(pathname)) {
+      router.replace("/quiniela");
+    } else if (agencyMode === "racing" && (isLotteryPath(pathname) || pathname === "/carga-dia")) {
+      router.replace("/");
+    } else if (agencyMode === "both" && (pathname === "/carga" || pathname === "/quiniela/carga")) {
+      router.replace("/carga-dia" as Href);
+    }
+  }, [agencyMode, pathname]);
 
   useEffect(() => {
     setMoreOpen(false);

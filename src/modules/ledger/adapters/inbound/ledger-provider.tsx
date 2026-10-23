@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { canViewAgencyBalances } from "../../domain/access";
+import type { AgencyMode } from "../../domain/features";
+import type { TerminalServiceSet } from "../../domain/terminal-services";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { listRacetracks, type RacetrackRule } from "../../domain/racetracks";
 import type { CashDay, DailySale, HippodromeDeposit, ScheduleDay, StaffMember, ViewerRole } from "../../domain/types";
@@ -34,6 +36,7 @@ import { addStaffMember as saveStaff, removeStaffMember as deleteStaff, type Add
 import { removeCashDay as deleteCashDay, saveCashDay as storeCashDay, type SaveCashDayInput } from "../../application/use-cases/save-cash-day";
 import { removeScheduleDay as deleteScheduleDay, saveScheduleDay as storeScheduleDay, type SaveScheduleDayInput } from "../../application/use-cases/save-schedule-day";
 import { recordDay as saveDay, type RecordDayInput } from "../../application/use-cases/record-day";
+import { setTerminalServices as saveTerminalServices } from "../../application/use-cases/set-terminal-services";
 import {
   recordDeposit as saveDeposit,
   type RecordDepositInput,
@@ -60,6 +63,7 @@ type LedgerContextValue = {
   role: ViewerRole;
   displayName: string;
   agencyName: string;
+  agencyMode: AgencyMode;
   userId: string;
   canInviteOwners: boolean;
   canCreateAgencies: boolean;
@@ -111,6 +115,7 @@ type LedgerContextValue = {
   removeScheduleDay: (id: string) => Promise<void>;
   addStaffMember: (input: AddStaffInput) => Promise<StaffMember>;
   removeStaffMember: (id: string) => Promise<void>;
+  setTerminalServices: (input: TerminalServiceSet) => Promise<void>;
   reset: () => Promise<void>;
 };
 
@@ -139,6 +144,7 @@ export function LedgerProvider({
   role: lockedRole,
   displayName = "",
   agencyName = PREVIEW_AGENCY_NAME,
+  agencyMode = "racing",
   userId = "",
   canInviteOwners = false,
   canCreateAgencies = false,
@@ -154,6 +160,7 @@ export function LedgerProvider({
   role?: ViewerRole;
   displayName?: string;
   agencyName?: string;
+  agencyMode?: AgencyMode;
   userId?: string;
   canInviteOwners?: boolean;
   canCreateAgencies?: boolean;
@@ -210,6 +217,7 @@ export function LedgerProvider({
       role,
       displayName,
       agencyName,
+      agencyMode,
       userId,
       canInviteOwners,
       canCreateAgencies,
@@ -310,9 +318,10 @@ export function LedgerProvider({
         return created;
       },
       removeStaffMember: (id) => publish(() => deleteStaff(repository, id)),
+      setTerminalServices: (input) => publish(() => saveTerminalServices(repository, input)),
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, repository, role, sessionAgencyId, signOut, userId, version]);
+  }, [agencyMode, agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, repository, role, sessionAgencyId, signOut, userId, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }
