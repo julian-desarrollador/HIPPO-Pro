@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { Pressable, Text, View } from "react-native";
 
 import { Feedback, Field, PrimaryButton, SecondaryButton, TextField } from "@/components/form-controls";
@@ -7,6 +6,7 @@ import { Card } from "@/components/screen-frame";
 import { SignInScreen } from "@/components/sign-in-screen";
 import { lotterySignupProblem } from "@/modules/identity/agency-invite";
 import { readFunctionMessage } from "@/modules/identity/operator-admin";
+import { browserSupabase } from "@/modules/ledger/adapters/outbound/supabase-browser";
 import { readSupabaseConfig } from "@/modules/ledger/adapters/outbound/supabase-config";
 
 export function EntryAccount({
@@ -44,9 +44,7 @@ function LandingSignIn() {
   if (!config || config === "incomplete") {
     return <Text className="text-[17px] leading-6 text-ink">El ingreso abre cuando el sitio está conectado.</Text>;
   }
-  const client = createClient(config.url, config.anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-  });
+  const client = browserSupabase(config);
 
   return (
     <SignInScreen
@@ -96,9 +94,7 @@ function LotterySignup() {
     setBusy(true);
     setMessage("Creando la agencia…");
     setError("");
-    const client = createClient(config.url, config.anonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-    });
+    const client = browserSupabase(config);
     const { data, error: invokeError } = await client.functions.invoke("signup-lottery", {
       body: {
         agencyName: agencyName.trim(),

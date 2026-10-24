@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 
+import { browserSupabase } from "@/modules/ledger/adapters/outbound/supabase-browser";
 import { readSupabaseConfig } from "@/modules/ledger/adapters/outbound/supabase-config";
 
 export type RemoteSession = "local" | "loading" | "in" | "out";
@@ -18,17 +18,23 @@ export function useRemoteSession(): RemoteSession {
     if (!url || !anonKey) {
       return;
     }
-    const client = createClient(url, anonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-    });
+    const client = browserSupabase({ url, anonKey, publicAccess: false });
     let alive = true;
+    let settled = false;
     void client.auth.getSession().then(({ data }) => {
+      settled = true;
       if (alive) {
         setState(data.session ? "in" : "out");
       }
     });
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setState(session ? "in" : "out");
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION can arrive with null before the stored session is read.
+      if (!settled && event === "INITIAL_SESSION") {
+        return;
+      }
+      if (alive) {
+        setState(session ? "in" : "out");
+      }
     });
     return () => {
       alive = false;

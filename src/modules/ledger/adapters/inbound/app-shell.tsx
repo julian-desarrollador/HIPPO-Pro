@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
+import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
 import { AgencyAdminProvider, type OpenedAgency } from "@/modules/identity/agency-admin";
@@ -17,6 +17,7 @@ import type { LotteryRepository } from "../../application/ports/lottery-reposito
 import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-seed";
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
 import { createSupabaseLotteryRemote } from "../outbound/supabase-lottery-remote";
+import { browserSupabase } from "../outbound/supabase-browser";
 import { readSupabaseConfig, type SupabaseConfig } from "../outbound/supabase-config";
 import { AgencyVisitProvider } from "./agency-visit";
 import { CashPhotoProvider } from "./cash-photo-context";
@@ -104,13 +105,7 @@ function signInProblem(message: string): string {
 }
 
 function createAgencyClient(config: SupabaseConfig): SupabaseClient {
-  return createClient(config.url, config.anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
+  return browserSupabase(config);
 }
 
 async function loadProfile(client: SupabaseClient, userId: string): Promise<Profile | null> {
