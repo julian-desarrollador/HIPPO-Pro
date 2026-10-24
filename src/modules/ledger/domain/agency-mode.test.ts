@@ -5,8 +5,10 @@ import { createAugust2026Snapshot } from "../adapters/outbound/august-2026-seed"
 import { createInMemoryLedgerRepository } from "../adapters/outbound/in-memory-ledger-repository";
 import { summarizeMonth } from "../application/use-cases/summarize-month";
 import { setTerminalServices } from "../application/use-cases/set-terminal-services";
+import { addAgencyService } from "../application/use-cases/add-agency-service";
+import { removeAgencyService } from "../application/use-cases/remove-agency-service";
 import { LedgerError } from "./errors";
-import { agencyModeFrom, homeHref, seesLottery, seesRacing } from "./features";
+import { agencyModeFrom, canAddService, homeHref, seesLottery, seesRacing, withService, withoutService } from "./features";
 import { terminalServices } from "./terminal-services";
 
 describe("modo de la agencia", () => {
@@ -26,6 +28,39 @@ describe("modo de la agencia", () => {
     assert.equal(seesRacing("both"), true);
     assert.equal(seesLottery("both"), true);
     assert.equal(homeHref("both"), "/");
+  });
+
+  it("el dueño suma el servicio que falta y no puede sacar uno", () => {
+    assert.equal(canAddService("racing"), "lottery");
+    assert.equal(canAddService("lottery"), "racing");
+    assert.equal(canAddService("both"), null);
+    assert.equal(withService("racing", "lottery"), "both");
+    assert.equal(withService("lottery", "racing"), "both");
+    assert.equal(withService("racing", "racing"), "racing");
+    assert.equal(withService("both", "lottery"), "both");
+    assert.equal(addAgencyService("racing", "lottery"), "both");
+    assert.equal(addAgencyService("lottery", "racing"), "both");
+    assert.throws(
+      () => addAgencyService("both", "lottery"),
+      (error: unknown) => error instanceof LedgerError && error.code === "service-already-on",
+    );
+  });
+
+  it("el dueño quita uno de los dos y no puede dejar la agencia sin servicio", () => {
+    assert.equal(withoutService("both", "lottery"), "racing");
+    assert.equal(withoutService("both", "racing"), "lottery");
+    assert.equal(withoutService("racing", "lottery"), "racing");
+    assert.equal(withoutService("lottery", "racing"), "lottery");
+    assert.equal(removeAgencyService("both", "lottery"), "racing");
+    assert.equal(removeAgencyService("both", "racing"), "lottery");
+    assert.throws(
+      () => removeAgencyService("racing", "lottery"),
+      (error: unknown) => error instanceof LedgerError && error.code === "service-required",
+    );
+    assert.throws(
+      () => removeAgencyService("lottery", "racing"),
+      (error: unknown) => error instanceof LedgerError && error.code === "service-required",
+    );
   });
 
   it("un valor vacío o desconocido queda en hípica", () => {

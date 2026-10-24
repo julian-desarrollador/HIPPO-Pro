@@ -35,6 +35,8 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "unknown-game": "Ese juego no está.",
   "unknown-terminal": "Elegí una terminal.",
   "terminal-needs-service": "La terminal necesita al menos un servicio.",
+  "service-already-on": "La agencia ya usa ese servicio.",
+  "service-required": "Tiene que quedar un servicio.",
   "duplicate-lottery-day": "Esa terminal ya está cargada ese día. Editala desde la tabla.",
 };
 

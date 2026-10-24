@@ -62,7 +62,7 @@ export function ScreenFrame({
           <View style={{ width: "100%", minWidth: 0 }}>
           {readOnly || personalVisit ? (
             <View className="mb-4 flex-row flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line bg-card px-4 py-3">
-              <Text className="min-w-0 flex-1 text-[17px] text-ink">
+              <Text className="min-w-0 flex-1 text-[17px] font-semibold text-navy">
                 {personalVisit ? `Estás en ${agencyName}. Agencia de prueba.` : `Estás mirando ${agencyName}. Solo lectura.`}
               </Text>
               <View className="flex-row items-center gap-3">

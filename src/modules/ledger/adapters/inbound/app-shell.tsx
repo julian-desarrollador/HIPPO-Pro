@@ -3,8 +3,11 @@ import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
 import { AgencyAdminProvider, type OpenedAgency } from "@/modules/identity/agency-admin";
-import { OperatorAdminProvider } from "@/modules/identity/operator-admin";
-import type { AgencyMode } from "../../domain/features";
+import { OperatorAdminProvider, readFunctionMessage } from "@/modules/identity/operator-admin";
+import { ledgerErrorMessage } from "./error-messages";
+import { addAgencyService } from "../../application/use-cases/add-agency-service";
+import { removeAgencyService } from "../../application/use-cases/remove-agency-service";
+import type { AgencyMode, AgencyService } from "../../domain/features";
 import { agencyModeFrom } from "../../domain/features";
 import type { ViewerRole } from "../../domain/types";
 import { openAgencyLedger } from "../outbound/agency-ledger";
@@ -174,16 +177,48 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
   if (!config) {
-    return (
-      <LedgerProvider agencyMode={localPreviewMode()}>
-        <LotteryProvider open={openBrowserLottery}>{children}</LotteryProvider>
-      </LedgerProvider>
-    );
+    return <LocalShell>{children}</LocalShell>;
   }
   if (config.publicAccess) {
     return <PublicLedger config={config}>{children}</PublicLedger>;
   }
   return <RemoteShell config={config}>{children}</RemoteShell>;
+}
+
+function LocalShell({ children }: { children: ReactNode }) {
+  const [agencyMode, setAgencyMode] = useState<AgencyMode>(localPreviewMode);
+  const modeRef = useRef(agencyMode);
+  modeRef.current = agencyMode;
+  const addService = useCallback(async (service: AgencyService) => {
+    let next: AgencyMode;
+    try {
+      next = addAgencyService(modeRef.current, service);
+    } catch (caught) {
+      throw new Error(ledgerErrorMessage(caught));
+    }
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("hippo-preview-mode", next);
+    }
+    setAgencyMode(next);
+  }, []);
+  const removeService = useCallback(async (service: AgencyService) => {
+    let next: AgencyMode;
+    try {
+      next = removeAgencyService(modeRef.current, service);
+    } catch (caught) {
+      throw new Error(ledgerErrorMessage(caught));
+    }
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("hippo-preview-mode", next);
+    }
+    setAgencyMode(next);
+  }, []);
+
+  return (
+    <LedgerProvider agencyMode={agencyMode} addService={addService} removeService={removeService}>
+      <LotteryProvider open={openBrowserLottery}>{children}</LotteryProvider>
+    </LedgerProvider>
+  );
 }
 
 function PublicLedger({ config, children }: { config: SupabaseConfig; children: ReactNode }) {
@@ -257,6 +292,80 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     (agencyId: string) => openLotteryLedger(createSupabaseLotteryRemote(client), agencyId),
     [client],
   );
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const visitRef = useRef(visit);
+  visitRef.current = visit;
+  const addService = useCallback(async (service: AgencyService) => {
+    const visit = visitRef.current;
+    if (visit && !visit.personal) {
+      throw new Error("No se pudo ampliar.");
+    }
+    const current = phaseRef.current;
+    if (current.status !== "ready") {
+      throw new Error("No se pudo ampliar.");
+    }
+    const agencyId = visit?.agencyId ?? current.agencyId;
+    const agencyMode = visit?.agencyMode ?? current.agencyMode;
+    let next: AgencyMode;
+    try {
+      next = addAgencyService(agencyMode, service);
+    } catch (caught) {
+      throw new Error(ledgerErrorMessage(caught));
+    }
+    const { data, error } = await client.functions.invoke("manage-operator", {
+      body: { action: "add-service", service, agencyId },
+    });
+    if (error) {
+      throw new Error(await readFunctionMessage(error, data));
+    }
+    let mode = next;
+    try {
+      mode = (await loadAgency(client, agencyId)).mode;
+    } catch {
+      mode = next;
+    }
+    if (visit) {
+      setVisit((prev) => (prev && prev.agencyId === agencyId ? { ...prev, agencyMode: mode } : prev));
+      return;
+    }
+    setPhase((prev) => (prev.status === "ready" ? { ...prev, agencyMode: mode } : prev));
+  }, [client]);
+  const removeService = useCallback(async (service: AgencyService) => {
+    const visit = visitRef.current;
+    if (visit && !visit.personal) {
+      throw new Error("No se pudo quitar.");
+    }
+    const current = phaseRef.current;
+    if (current.status !== "ready") {
+      throw new Error("No se pudo quitar.");
+    }
+    const agencyId = visit?.agencyId ?? current.agencyId;
+    const agencyMode = visit?.agencyMode ?? current.agencyMode;
+    let next: AgencyMode;
+    try {
+      next = removeAgencyService(agencyMode, service);
+    } catch (caught) {
+      throw new Error(ledgerErrorMessage(caught));
+    }
+    const { data, error } = await client.functions.invoke("manage-operator", {
+      body: { action: "remove-service", service, agencyId },
+    });
+    if (error) {
+      throw new Error(await readFunctionMessage(error, data));
+    }
+    let mode = next;
+    try {
+      mode = (await loadAgency(client, agencyId)).mode;
+    } catch {
+      mode = next;
+    }
+    if (visit) {
+      setVisit((prev) => (prev && prev.agencyId === agencyId ? { ...prev, agencyMode: mode } : prev));
+      return;
+    }
+    setPhase((prev) => (prev.status === "ready" ? { ...prev, agencyMode: mode } : prev));
+  }, [client]);
 
   async function adopt(session: Session | null) {
     const id = ++request.current;
@@ -391,7 +500,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     });
   }
 
-  async function openPersonal(agencyId: string, agencyName: string, agencyMode: AgencyMode = "racing"): Promise<string | null> {
+  async function openPersonal(agencyId: string, agencyName: string, agencyMode: AgencyMode): Promise<string | null> {
     try {
       const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), agencyId);
       setVisit({
@@ -484,6 +593,8 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       personalVisit={book.personalVisit}
       leaveVisit={() => setVisit(null)}
       signOut={signOut}
+      addService={addService}
+      removeService={removeService}
     >
       <LotteryProvider open={visit?.readOnly ? null : openLottery}>
         {visit?.readOnly ? (

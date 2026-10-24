@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { canViewAgencyBalances } from "../../domain/access";
-import type { AgencyMode } from "../../domain/features";
+import type { AgencyMode, AgencyService } from "../../domain/features";
 import type { TerminalServiceSet } from "../../domain/terminal-services";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { listRacetracks, type RacetrackRule } from "../../domain/racetracks";
@@ -116,6 +116,8 @@ type LedgerContextValue = {
   addStaffMember: (input: AddStaffInput) => Promise<StaffMember>;
   removeStaffMember: (id: string) => Promise<void>;
   setTerminalServices: (input: TerminalServiceSet) => Promise<void>;
+  addService: ((service: AgencyService) => Promise<void>) | null;
+  removeService: ((service: AgencyService) => Promise<void>) | null;
   reset: () => Promise<void>;
 };
 
@@ -154,6 +156,8 @@ export function LedgerProvider({
   personalVisit = false,
   leaveVisit = () => {},
   signOut = null,
+  addService = null,
+  removeService = null,
 }: {
   children: ReactNode;
   repository?: LedgerRepository;
@@ -170,6 +174,8 @@ export function LedgerProvider({
   personalVisit?: boolean;
   leaveVisit?: () => void;
   signOut?: (() => void) | null;
+  addService?: ((service: AgencyService) => Promise<void>) | null;
+  removeService?: ((service: AgencyService) => Promise<void>) | null;
 }) {
   const fallback = useRef<LedgerRepository | null>(null);
   if (!externalRepository && fallback.current === null) {
@@ -319,9 +325,11 @@ export function LedgerProvider({
       },
       removeStaffMember: (id) => publish(() => deleteStaff(repository, id)),
       setTerminalServices: (input) => publish(() => saveTerminalServices(repository, input)),
+      addService,
+      removeService,
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [agencyMode, agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, repository, role, sessionAgencyId, signOut, userId, version]);
+  }, [addService, agencyMode, agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }

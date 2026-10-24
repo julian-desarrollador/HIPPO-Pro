@@ -21,6 +21,7 @@ export type AgencyEntry = {
   agencyId: string;
   name: string;
   kind: AgencyKind;
+  productMode: AgencyMode;
 };
 
 export type CreatedPersonalAgency = {
@@ -42,12 +43,20 @@ function isAgencyKind(value: unknown): value is AgencyKind {
   return value === "home" || value === "personal" || value === "other";
 }
 
-function isAgencyEntry(value: unknown): value is AgencyEntry {
+function agencyEntryFrom(value: unknown): AgencyEntry | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
   const row = value as Record<string, unknown>;
-  return typeof row.agencyId === "string" && typeof row.name === "string" && isAgencyKind(row.kind);
+  if (typeof row.agencyId !== "string" || typeof row.name !== "string" || !isAgencyKind(row.kind)) {
+    return null;
+  }
+  return {
+    agencyId: row.agencyId,
+    name: row.name,
+    kind: row.kind,
+    productMode: agencyModeFrom(row.productMode),
+  };
 }
 
 function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
@@ -58,7 +67,10 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
       if (error || !Array.isArray(agencies)) {
         throw new Error("agencies");
       }
-      return agencies.filter(isAgencyEntry);
+      return agencies.flatMap((row) => {
+        const entry = agencyEntryFrom(row);
+        return entry ? [entry] : [];
+      });
     },
     async create(agencyName, ownerName, ownerEmail, productMode) {
       const problem = newAgencyProblem(agencyName, ownerName, ownerEmail);

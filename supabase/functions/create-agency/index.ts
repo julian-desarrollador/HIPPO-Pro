@@ -128,6 +128,11 @@ function productModeOf(value: unknown): "racing" | "lottery" | "both" {
   return value === "lottery" || value === "both" ? value : "racing";
 }
 
+/** A new agency starts with one service. Both is added later by the owner. */
+function startingModeOf(value: unknown): "racing" | "lottery" {
+  return value === "lottery" ? "lottery" : "racing";
+}
+
 function readText(body: object, key: string): string {
   const value = (body as Record<string, unknown>)[key];
   return typeof value === "string" ? value : "";
@@ -259,7 +264,7 @@ Deno.serve(async (req: Request) => {
       return json(400, { message: problem });
     }
     const name = agencyName.trim().replace(/\s+/g, " ");
-    const productMode = productModeOf(readText(body, "productMode"));
+    const productMode = startingModeOf(readText(body, "productMode"));
     let agencyId = "";
     let created = false;
     for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
@@ -330,7 +335,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const name = agencyName.trim().replace(/\s+/g, " ");
-    const productMode = productModeOf(readText(body, "productMode"));
+    const productMode = startingModeOf(readText(body, "productMode"));
     const agencyId = agencyIdFromName(name);
     const cleanOwner = ownerName.trim();
     const cleanEmail = ownerEmail.trim().toLowerCase();

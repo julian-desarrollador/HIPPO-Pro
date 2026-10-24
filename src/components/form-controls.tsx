@@ -238,6 +238,7 @@ export function Dialog({
   visible,
   title,
   onClose,
+  onBack,
   children,
   wide = false,
   contentMaxHeight,
@@ -245,6 +246,7 @@ export function Dialog({
   visible: boolean;
   title: string;
   onClose: () => void;
+  onBack?: () => void;
   children: ReactNode;
   wide?: boolean;
   contentMaxHeight?: number;
@@ -267,8 +269,22 @@ export function Dialog({
           style={[confirmStyles.dim, { backgroundColor: palette.navy }]}
         />
         <View className="rounded-[14px] border border-line bg-card p-5" style={wide ? dialogStyles.wideCard : dialogStyles.card}>
-          <View className="flex-row items-start justify-between gap-3">
-            <Text className="min-w-0 flex-1 font-sans text-[24px] font-semibold text-navy">{title}</Text>
+          <View className="flex-row items-center gap-3">
+            {onBack ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Volver"
+                onPress={onBack}
+                className="cursor-pointer flex-row items-center gap-1.5 rounded-full border border-accent bg-card px-3.5 py-1.5"
+                style={{ flexShrink: 0 }}
+              >
+                <Ionicons name="arrow-back-outline" size={18} color={palette.accent} />
+                <Text className="text-[16px] font-medium text-accent">Volver</Text>
+              </Pressable>
+            ) : null}
+            <Text className="min-w-0 flex-1 font-sans text-[24px] font-semibold text-navy" numberOfLines={1}>
+              {title}
+            </Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cerrar"

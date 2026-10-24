@@ -1,4 +1,9 @@
 // Invites or removes an operator, and an owner when the caller may invite owners.
+// add-service lets that owner turn on the missing book (racing or lottery).
+// remove-service turns one off only when both are on, and leaves the books.
+// The target is the caller's own agency, or a personal test agency they own.
+// Keep that rule aligned with withService and withoutService in
+// src/modules/ledger/domain/features.ts.
 // Runs with the service role inside Supabase.
 // The app calls it with the owner's session and the anon key only.
 // Keep the Spanish messages aligned with src/modules/identity/operator-invite.ts.
@@ -200,6 +205,67 @@ Deno.serve(async (req: Request) => {
       return json(400, { message: "No se pudo quitar." });
     }
     return json(200, { ok: true });
+  }
+
+  if (action === "add-service") {
+    const service = "service" in body && (body.service === "racing" || body.service === "lottery") ? body.service : null;
+    if (!service) {
+      return json(400, { message: "No se pudo ampliar." });
+    }
+    const requestedId = "agencyId" in body && typeof body.agencyId === "string" ? body.agencyId : caller.agency_id;
+    const { data: agency, error: agencyError } = await admin
+      .from("agencies")
+      .select("product_mode, personal_user_id")
+      .eq("agency_id", requestedId)
+      .maybeSingle();
+    const ownsPersonal = agency?.personal_user_id === callerId;
+    if (agencyError || !agency || (requestedId !== caller.agency_id && !ownsPersonal)) {
+      return json(403, { message: "No se pudo ampliar." });
+    }
+    const current = agency.product_mode === "lottery" || agency.product_mode === "both" ? agency.product_mode : "racing";
+    const expands =
+      (service === "lottery" && current === "racing") || (service === "racing" && current === "lottery");
+    const next = expands ? "both" : null;
+    if (!next) {
+      return json(400, { message: "La agencia ya usa ese servicio." });
+    }
+    const { error: updateError } = await admin
+      .from("agencies")
+      .update({ product_mode: next })
+      .eq("agency_id", requestedId);
+    if (updateError) {
+      return json(400, { message: "No se pudo ampliar." });
+    }
+    return json(200, { productMode: next });
+  }
+
+  if (action === "remove-service") {
+    const service = "service" in body && (body.service === "racing" || body.service === "lottery") ? body.service : null;
+    if (!service) {
+      return json(400, { message: "No se pudo quitar." });
+    }
+    const requestedId = "agencyId" in body && typeof body.agencyId === "string" ? body.agencyId : caller.agency_id;
+    const { data: agency, error: agencyError } = await admin
+      .from("agencies")
+      .select("product_mode, personal_user_id")
+      .eq("agency_id", requestedId)
+      .maybeSingle();
+    const ownsPersonal = agency?.personal_user_id === callerId;
+    if (agencyError || !agency || (requestedId !== caller.agency_id && !ownsPersonal)) {
+      return json(403, { message: "No se pudo quitar." });
+    }
+    if (agency.product_mode !== "both") {
+      return json(400, { message: "Tiene que quedar un servicio." });
+    }
+    const next = service === "lottery" ? "racing" : "lottery";
+    const { error: updateError } = await admin
+      .from("agencies")
+      .update({ product_mode: next })
+      .eq("agency_id", requestedId);
+    if (updateError) {
+      return json(400, { message: "No se pudo quitar." });
+    }
+    return json(200, { productMode: next });
   }
 
   return json(400, { message: "No se pudo completar." });

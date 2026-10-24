@@ -26,7 +26,7 @@ export const ENTRY_COPY = {
   includes: "Incluye",
   note: "Sin instalar nada. Desde la computadora o el celular.",
   bothTitle: "¿Tenés las dos?",
-  bothDetail: "Van juntas: un solo resultado con Hípica, Quiniela y Total.",
+  bothDetail: "Entrá con una. Adentro prendés o apagás la otra, y lo cargado queda guardado.",
 };
 
 export const ENTRY_PREVIEW_COUNT = 4;

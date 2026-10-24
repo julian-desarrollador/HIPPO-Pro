@@ -21,11 +21,12 @@ import {
   wideLayout,
 } from "@/constants/layout";
 import { isLotteryPath, palette, usePalette } from "@/constants/palette";
+import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
-import { useLedger, type ViewerRole } from "@/modules/ledger";
+import { canAddService, useLedger, type AgencyMode, type AgencyService, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
   home: "home",
@@ -290,9 +291,12 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot } = useLedger();
+  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot, addService, removeService, readOnly } = useLedger();
+  const serviceToAdd = role === "owner" && !readOnly ? canAddService(agencyMode) : null;
+  const canRemoveService = role === "owner" && !readOnly && agencyMode === "both" && removeService !== null;
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const [agenciesOpen, setAgenciesOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
   const { collapsed, railOnly, toggle, width } = useContext(SidebarContext);
   const insets = useSafeAreaInsets();
@@ -447,9 +451,16 @@ export function CustomTabList(props: TabListProps) {
               <AccountMenu
                 role={role}
                 displayName={displayName}
+                open={accountOpen}
+                onOpenChange={setAccountOpen}
                 onSignOut={signOut}
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
                 onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
+                agencyMode={agencyMode}
+                serviceToAdd={!canCreateAgencies && serviceToAdd && addService ? serviceToAdd : null}
+                onAddService={!canCreateAgencies && serviceToAdd && addService ? () => addService(serviceToAdd) : null}
+                canRemoveService={!canCreateAgencies && canRemoveService}
+                onRemoveService={!canCreateAgencies && canRemoveService ? removeService : null}
               />
             ) : (
               <RoleSwitch role={role} onChange={setRole} />
@@ -502,10 +513,21 @@ export function CustomTabList(props: TabListProps) {
       <OperatorsPanel
         visible={operatorsOpen}
         onClose={() => setOperatorsOpen(false)}
+        onBack={() => {
+          setOperatorsOpen(false);
+          setAccountOpen(true);
+        }}
         canInviteOwners={canInviteOwners}
         userId={userId}
       />
-      <AgenciesPanel visible={agenciesOpen} onClose={() => setAgenciesOpen(false)} />
+      <AgenciesPanel
+        visible={agenciesOpen}
+        onClose={() => setAgenciesOpen(false)}
+        onBack={() => {
+          setAgenciesOpen(false);
+          setAccountOpen(true);
+        }}
+      />
     </NavChromeContext.Provider>
   );
 }
@@ -668,23 +690,36 @@ function AgencyBlock({ name, railOnly }: { name: string; railOnly: boolean }) {
 function AccountMenu({
   role,
   displayName,
+  open,
+  onOpenChange,
   onSignOut,
   onOpenOperators,
   onOpenAgencies,
+  agencyMode,
+  serviceToAdd,
+  onAddService,
+  canRemoveService,
+  onRemoveService,
 }: {
   role: ViewerRole;
   displayName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSignOut: () => void;
   onOpenOperators: (() => void) | null;
   onOpenAgencies: (() => void) | null;
+  agencyMode: AgencyMode;
+  serviceToAdd: AgencyService | null;
+  onAddService: (() => Promise<void>) | null;
+  canRemoveService: boolean;
+  onRemoveService: ((service: AgencyService) => Promise<void>) | null;
 }) {
-  const [open, setOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   const roleLabel = role === "owner" ? "Dueño" : "Operador";
   const label = displayName.trim() ? `${displayName.trim()} · ${roleLabel}` : roleLabel;
 
   function askSignOut() {
-    setOpen(false);
+    onOpenChange(false);
     setConfirmingExit(true);
   }
 
@@ -703,15 +738,15 @@ function AccountMenu({
 
   if (onOpenOperators || onOpenAgencies) {
     const pick = (action: () => void) => {
-      setOpen(false);
+      onOpenChange(false);
       action();
     };
-    return (
+    const menu = (openAdd?: () => void, openRemove?: (service: AgencyService) => void) => (
       <>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cuenta"
-          onPress={() => setOpen(true)}
+          onPress={() => onOpenChange(true)}
           className="min-w-0 flex-row items-center gap-1.5 rounded-md bg-chrome-active px-3 py-1.5"
           style={{ flexShrink: 1 }}
         >
@@ -720,17 +755,52 @@ function AccountMenu({
           </Text>
           <Ionicons name="chevron-down" size={16} color="white" />
         </Pressable>
-        <Dialog visible={open} title={label} onClose={() => setOpen(false)}>
+        <Dialog visible={open} title={label} onClose={() => onOpenChange(false)}>
           <View className="gap-3">
-            {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => setOpen(false)} /> : null}
+            {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => onOpenChange(false)} /> : null}
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
             {onOpenAgencies ? <SecondaryButton label="Agencias" onPress={() => pick(onOpenAgencies)} /> : null}
+            {(serviceToAdd && openAdd) || (canRemoveService && openRemove) ? (
+              <AgencyServiceCards
+                mode={agencyMode}
+                onAdd={
+                  serviceToAdd && openAdd
+                    ? () => {
+                        onOpenChange(false);
+                        openAdd();
+                      }
+                    : undefined
+                }
+                onRemove={
+                  canRemoveService && openRemove
+                    ? (service) => {
+                        onOpenChange(false);
+                        openRemove(service);
+                      }
+                    : undefined
+                }
+              />
+            ) : null}
             <SecondaryButton label="Salir" onPress={askSignOut} />
           </View>
         </Dialog>
         {confirmExit}
       </>
     );
+    const withRemove = (openAdd?: () => void) =>
+      canRemoveService && onRemoveService ? (
+        <RemoveServiceActions onRemove={onRemoveService}>{(openRemove) => menu(openAdd, openRemove)}</RemoveServiceActions>
+      ) : (
+        menu(openAdd)
+      );
+    if (serviceToAdd && onAddService) {
+      return (
+        <AddServiceAction service={serviceToAdd} onAdd={onAddService}>
+          {withRemove}
+        </AddServiceAction>
+      );
+    }
+    return withRemove();
   }
 
   return (

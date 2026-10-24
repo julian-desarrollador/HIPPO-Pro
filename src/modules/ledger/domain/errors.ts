@@ -33,6 +33,8 @@ export type LedgerErrorCode =
   | "unknown-game"
   | "unknown-terminal"
   | "terminal-needs-service"
+  | "service-already-on"
+  | "service-required"
   | "duplicate-lottery-day";
 
 export class LedgerError extends Error {

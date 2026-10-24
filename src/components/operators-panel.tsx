@@ -12,11 +12,13 @@ type PendingRemoval = { kind: "operator" | "owner"; person: AgencyOperator };
 export function OperatorsPanel({
   visible,
   onClose,
+  onBack,
   canInviteOwners,
   userId,
 }: {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
   canInviteOwners: boolean;
   userId: string;
 }) {
@@ -77,7 +79,7 @@ export function OperatorsPanel({
   }
   const directory = admin;
 
-  function close() {
+  function reset() {
     setDisplayName("");
     setEmail("");
     setOwnerName("");
@@ -88,6 +90,19 @@ export function OperatorsPanel({
     setPending(null);
     setPendingStaffId(null);
     setStaffName("");
+  }
+
+  function close() {
+    reset();
+    onClose();
+  }
+
+  function back() {
+    reset();
+    if (onBack) {
+      onBack();
+      return;
+    }
     onClose();
   }
 
@@ -200,12 +215,12 @@ export function OperatorsPanel({
 
   return (
     <>
-      <Dialog visible={visible && pending === null} title="Operadores" onClose={close} wide={wide}>
+      <Dialog visible={visible && pending === null} title="Operadores" onClose={close} onBack={onBack ? back : undefined} wide={wide}>
         <View className={wide && canInviteOwners ? "flex-row items-start gap-6" : "w-full flex-col gap-5"}>
           <View className={wide && canInviteOwners ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
-            {loading ? <Text className="text-[17px] text-ink">Cargando…</Text> : null}
+            {loading ? <Text className="text-[17px] font-semibold text-navy">Cargando…</Text> : null}
             {!loading && operators.length === 0 ? (
-              <Text className="text-[17px] text-ink">Todavía no hay operadores.</Text>
+              <Text className="text-[17px] font-semibold text-navy">Todavía no hay operadores.</Text>
             ) : null}
             {operators.map((operator) => (
               <PersonRow
@@ -229,7 +244,7 @@ export function OperatorsPanel({
           {canInviteOwners ? (
             <View className={wide && canInviteOwners ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
               <Text className="text-[17px] font-semibold text-navy">Dueños</Text>
-              {!loading && owners.length === 0 ? <Text className="text-[17px] text-ink">Todavía no hay dueños.</Text> : null}
+              {!loading && owners.length === 0 ? <Text className="text-[17px] font-semibold text-navy">Todavía no hay dueños.</Text> : null}
               {owners.map((owner) => (
                 <PersonRow
                   key={owner.userId}
@@ -265,8 +280,8 @@ export function OperatorsPanel({
         {staffEnabled ? (
           <View className="mt-5 gap-4">
             <SectionTitle title="Sin cuenta" />
-            <Text className="text-[15px] text-muted">Personas del calendario que no entran a HippoPro.</Text>
-            {staff.length === 0 ? <Text className="text-[17px] text-ink">Todavía no hay personas sin cuenta.</Text> : null}
+            <Text className="text-[17px] font-semibold text-navy">Personas del calendario que no entran a HippoPro.</Text>
+            {staff.length === 0 ? <Text className="text-[17px] font-semibold text-navy">Todavía no hay personas sin cuenta.</Text> : null}
             {staff.map((person) => (
               <View key={person.id} className="flex-row items-center justify-between gap-3">
                 <Text className="text-[17px] font-semibold text-navy">{person.name}</Text>

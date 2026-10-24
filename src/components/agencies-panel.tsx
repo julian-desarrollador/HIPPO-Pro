@@ -11,6 +11,7 @@ import {
   PrimaryButton,
   TextField,
 } from "@/components/form-controls";
+import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { SectionTitle } from "@/components/screen-frame";
 import { wideLayout } from "@/constants/layout";
 import { usePalette } from "@/constants/palette";
@@ -18,7 +19,7 @@ import {
   useAgencyAdmin,
   type AgencyEntry,
 } from "@/modules/identity/agency-admin";
-import { useAgencyVisit, useLedger, type AgencyMode } from "@/modules/ledger";
+import { canAddService, useAgencyVisit, useLedger, type AgencyMode, type AgencyService } from "@/modules/ledger";
 
 export function AgencyMenuList({
   active,
@@ -103,7 +104,7 @@ export function AgencyMenuList({
     setBusy(true);
     setError("");
     if (agency.kind === "personal") {
-      const problem = await openPersonalVisit(agency.agencyId, agency.name);
+      const problem = await openPersonalVisit(agency.agencyId, agency.name, agency.productMode);
       if (problem) {
         setError(problem);
         setBusy(false);
@@ -129,7 +130,7 @@ export function AgencyMenuList({
       {loading || agencies.length > 0 ? (
       <View className="overflow-hidden rounded-[14px] border border-line">
         {loading && agencies.length === 0 ? (
-          <Text className="px-4 py-3 text-[17px] text-ink">Cargando…</Text>
+          <Text className="px-4 py-3 text-[17px] font-semibold text-navy">Cargando…</Text>
         ) : null}
         {agencies.map((agency, index) => {
           const isSession = agency.agencyId === sessionAgencyId;
@@ -203,14 +204,18 @@ export function AgencyMenuList({
 export function AgenciesPanel({
   visible,
   onClose,
+  onBack,
 }: {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }) {
   const admin = useAgencyAdmin();
   const visit = useAgencyVisit();
-  const { snapshot, sessionAgencyId } = useLedger();
+  const { snapshot, sessionAgencyId, role, readOnly, agencyMode, addService, removeService } = useLedger();
   const viewedAgencyId = snapshot.agencyId;
+  const serviceToAdd = role === "owner" && !readOnly ? canAddService(agencyMode) : null;
+  const canRemoveService = role === "owner" && !readOnly && agencyMode === "both" && removeService !== null;
   const [agencies, setAgencies] = useState<AgencyEntry[]>([]);
   const [agencyName, setAgencyName] = useState("");
   const [personalName, setPersonalName] = useState("");
@@ -260,7 +265,7 @@ export function AgenciesPanel({
   }
   const directory = admin;
 
-  function close() {
+  function reset() {
     setAgencyName("");
     setPersonalName("");
     setOwnerName("");
@@ -270,6 +275,19 @@ export function AgenciesPanel({
     setError("");
     setPersonalError("");
     setMessage("");
+  }
+
+  function close() {
+    reset();
+    onClose();
+  }
+
+  function back() {
+    reset();
+    if (onBack) {
+      onBack();
+      return;
+    }
     onClose();
   }
 
@@ -335,7 +353,7 @@ export function AgenciesPanel({
     setPersonalError("");
     setMessage("");
     if (agency.kind === "personal") {
-      const problem = await visit.openPersonal(agency.agencyId, agency.name);
+      const problem = await visit.openPersonal(agency.agencyId, agency.name, agency.productMode);
       if (problem) {
         setError(problem);
         setBusy(false);
@@ -378,16 +396,16 @@ export function AgenciesPanel({
     setPendingRemoval(null);
   }
 
-  return (
+  const panel = (openAdd?: () => void, openRemove?: (service: AgencyService) => void) => (
     <>
-    <Dialog visible={visible} title="Agencias" onClose={close} wide={wide}>
+    <Dialog visible={visible} title="Agencias" onClose={close} onBack={onBack ? back : undefined} wide={wide}>
       <View
         className={
           wide ? "flex-row items-start gap-6" : "w-full flex-col gap-5"
         }
       >
         <View className={wide ? "min-w-0 flex-1 gap-4" : "w-full gap-4"}>
-          <Text className="text-[17px] leading-6 text-ink">
+          <Text className="text-[17px] font-semibold leading-6 text-navy">
             El dueño recibe un correo, elige su contraseña y entra a un libro
             vacío. Vos no quedás en esa agencia.
           </Text>
@@ -425,7 +443,7 @@ export function AgenciesPanel({
           />
           <Feedback error={error} message={message} />
           <View className="gap-4 border-t border-line pt-4">
-            <Text className="text-[17px] leading-6 text-ink">
+            <Text className="text-[17px] font-semibold leading-6 text-navy">
               Queda a tu nombre. Nadie más entra. El libro empieza vacío.
             </Text>
             <Field label="Nombre de la prueba">
@@ -447,43 +465,58 @@ export function AgenciesPanel({
         <View className={wide ? "min-w-0 flex-1 gap-3" : "w-full gap-3"}>
           <SectionTitle title="Agencias" />
           {loading ? (
-            <Text className="text-[17px] text-ink">Cargando…</Text>
+            <Text className="text-[17px] font-semibold text-navy">Cargando…</Text>
           ) : null}
-          {agencies.map((agency) => (
+          {agencies.map((agency) => {
+            const current = agency.agencyId === viewedAgencyId;
+            const isSession = agency.agencyId === sessionAgencyId;
+            const place = current ? (isSession ? "Tu agencia" : "Mirando") : isSession ? "Tu agencia" : null;
+            return (
             <View
               key={agency.agencyId}
-              className="flex-row items-center gap-3 rounded-[14px] border border-line px-4 py-3"
+              className="gap-3 rounded-[14px] border border-line px-4 py-3"
             >
-              <Text
-                className="min-w-0 flex-1 text-[17px] font-semibold text-navy"
-                numberOfLines={1}
-              >
-                {agency.name}
-              </Text>
-              {visit && agency.agencyId !== sessionAgencyId && agency.agencyId !== viewedAgencyId ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Entrar a ${agency.name}`}
-                  onPress={() => void enter(agency)}
-                  className="cursor-pointer"
+              <View className="flex-row items-center gap-3">
+                <Text
+                  className="min-w-0 flex-1 text-[17px] font-semibold text-navy"
+                  numberOfLines={1}
                 >
-                  <Text className="text-[17px] font-semibold text-accent">
-                    Entrar
-                  </Text>
-                </Pressable>
-              ) : null}
-              {agency.kind === "personal" ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Quitar ${agency.name}`}
-                  onPress={() => setPendingRemoval(agency)}
-                  className="cursor-pointer"
-                >
-                  <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
-                </Pressable>
+                  {agency.name}
+                </Text>
+                {place ? <Text className="shrink-0 text-[15px] text-muted">{place}</Text> : null}
+                {visit && agency.agencyId !== sessionAgencyId && !current ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Entrar a ${agency.name}`}
+                    onPress={() => void enter(agency)}
+                    className="cursor-pointer"
+                  >
+                    <Text className="text-[17px] font-semibold text-accent">
+                      Entrar
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {agency.kind === "personal" ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${agency.name}`}
+                    onPress={() => setPendingRemoval(agency)}
+                    className="cursor-pointer"
+                  >
+                    <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {current && (serviceToAdd || canRemoveService) ? (
+                <AgencyServiceCards
+                  mode={agencyMode}
+                  onAdd={serviceToAdd && openAdd ? openAdd : undefined}
+                  onRemove={canRemoveService && openRemove ? openRemove : undefined}
+                />
               ) : null}
             </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </Dialog>
@@ -497,12 +530,28 @@ export function AgenciesPanel({
     />
     </>
   );
+
+  if (serviceToAdd && addService) {
+    const add = addService;
+    return (
+      <AddServiceAction service={serviceToAdd} onAdd={() => add(serviceToAdd)}>
+        {(openAdd) => panel(openAdd)}
+      </AddServiceAction>
+    );
+  }
+  if (canRemoveService && removeService) {
+    return (
+      <RemoveServiceActions onRemove={removeService}>
+        {(openRemove) => panel(undefined, openRemove)}
+      </RemoveServiceActions>
+    );
+  }
+  return panel();
 }
 
 const MODE_OPTIONS: { id: AgencyMode; label: string }[] = [
   { id: "racing", label: "Hípica" },
   { id: "lottery", label: "Lotería" },
-  { id: "both", label: "Las dos" },
 ];
 
 function ModeField({ value, onChange }: { value: AgencyMode; onChange: (mode: AgencyMode) => void }) {
