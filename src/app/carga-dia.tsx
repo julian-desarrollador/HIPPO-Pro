@@ -1,23 +1,30 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { Image } from "expo-image";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 
 import { AmountField } from "@/components/amount-field";
-import { openingDate } from "@/components/calendar-grid";
+import { monthTitle, openingDate } from "@/components/calendar-grid";
+import { DataTable } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
-import { ChoiceChips, Feedback, Field, PrimaryButton } from "@/components/form-controls";
-import { Card, ScreenFrame } from "@/components/screen-frame";
+import { formatIsoDate } from "@/components/format-date";
+import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, RowActions, SecondaryButton } from "@/components/form-controls";
+import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
   HIPICA_GAME_ID,
   TERMINAL_IDS,
+  chooseImageFile,
   formatAmountInput,
   ledgerErrorMessage,
   readAmount,
   terminalServices,
+  useDayPhotos,
   useLedger,
   useLottery,
+  type AgencyDayRow,
+  type DayPhotoFile,
   type LotteryAmount,
   type TerminalId,
 } from "@/modules/ledger";
@@ -38,10 +45,37 @@ function blank(): Amounts {
   return { sold: "", prizes: "", cancelled: "" };
 }
 
+function sumCents(values: Record<string, number> | undefined): number {
+  return Object.values(values ?? {}).reduce((total, value) => total + value, 0);
+}
+
+function dayPhotoId(date: string, terminalId: string): string {
+  return `${date}-${terminalId}`;
+}
+
+function amountsFromDay(games: readonly { id: string }[], row: AgencyDayRow | undefined): Record<string, Amounts> {
+  const next: Record<string, Amounts> = {};
+  for (const game of games) {
+    const sold = row?.soldByGame[game.id] ?? 0;
+    const prizes = row?.prizesByGame[game.id] ?? 0;
+    const cancelled = row?.cancelledByGame[game.id] ?? 0;
+    if (sold || prizes || cancelled) {
+      next[game.id] = {
+        sold: sold ? formatAmountInput(sold) : "",
+        prizes: prizes ? formatAmountInput(prizes) : "",
+        cancelled: cancelled ? formatAmountInput(cancelled) : "",
+      };
+    }
+  }
+  return next;
+}
+
 export default function CombinedLoadScreen() {
-  const { viewMonth, snapshot, setTerminalServices, canViewBalances, readOnly, agencyMode } = useLedger();
+  const { viewMonth, setViewMonth, snapshot, setTerminalServices, canViewBalances, readOnly, agencyMode } = useLedger();
   const lottery = useLottery();
-  const wide = useWindowDimensions().width >= wideLayout;
+  const photos = useDayPhotos();
+  const window = useWindowDimensions();
+  const wide = window.width >= wideLayout;
   const params = useLocalSearchParams<{ fecha?: string | string[]; terminal?: string | string[] }>();
   const fecha = one(params.fecha);
   const terminalParam = one(params.terminal);
@@ -53,8 +87,17 @@ export default function CombinedLoadScreen() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState<AgencyDayRow | null>(null);
+  const [photoIds, setPhotoIds] = useState<ReadonlySet<string>>(new Set());
+  const [pendingPhoto, setPendingPhoto] = useState<DayPhotoFile | null>(null);
+  const [photoDraft, setPhotoDraft] = useState<DayPhotoFile | null>(null);
+  const [photoDraftUrl, setPhotoDraftUrl] = useState<string | null>(null);
+  const [dropPhoto, setDropPhoto] = useState(false);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
   const loadedKey = useRef("");
   const started = useRef(false);
+  const editingId = editing ? dayPhotoId(editing.date, editing.terminalId) : null;
 
   if (month !== viewMonth && !fecha) {
     setMonth(viewMonth);
@@ -82,6 +125,21 @@ export default function CombinedLoadScreen() {
   }, [canViewBalances, lottery, readOnly]);
 
   useEffect(() => {
+    if (!photos) {
+      return;
+    }
+    let alive = true;
+    void photos.list().then((ids) => {
+      if (alive) {
+        setPhotoIds(ids);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [photos, lottery.agencyDays]);
+
+  useEffect(() => {
     if (!fecha || !isTerminal(terminalParam) || lottery.status !== "active") {
       return;
     }
@@ -90,24 +148,11 @@ export default function CombinedLoadScreen() {
       return;
     }
     loadedKey.current = key;
+    const row = lottery.agencyDays.find((day) => day.date === fecha && day.terminalId === terminalParam);
     setEditing({ date: fecha, terminalId: terminalParam });
     setDate(fecha);
     setTerminalId(terminalParam);
-    const row = lottery.agencyDays.find((day) => day.date === fecha && day.terminalId === terminalParam);
-    const next: Record<string, Amounts> = {};
-    for (const game of lottery.games) {
-      const sold = row?.soldByGame[game.id] ?? 0;
-      const prizes = row?.prizesByGame[game.id] ?? 0;
-      const cancelled = row?.cancelledByGame[game.id] ?? 0;
-      if (sold || prizes || cancelled) {
-        next[game.id] = {
-          sold: sold ? formatAmountInput(sold) : "",
-          prizes: prizes ? formatAmountInput(prizes) : "",
-          cancelled: cancelled ? formatAmountInput(cancelled) : "",
-        };
-      }
-    }
-    setAmounts(next);
+    setAmounts(amountsFromDay(lottery.games, row));
     setError("");
     setMessage("");
   }, [fecha, lottery.agencyDays, lottery.games, lottery.status, terminalParam]);
@@ -144,10 +189,129 @@ export default function CombinedLoadScreen() {
     ? lottery.previewAgency({ date, terminalId, amounts: lotteryAmounts, tracks: [] }, editing ?? undefined)
     : null;
 
+  function fillDay(row: AgencyDayRow) {
+    loadedKey.current = `${row.date}|${row.terminalId}`;
+    setEditing({ date: row.date, terminalId: row.terminalId });
+    setDate(row.date);
+    setTerminalId(row.terminalId);
+    setAmounts(amountsFromDay(lottery.games, row));
+    setPendingPhoto(null);
+    setDropPhoto(false);
+    setError("");
+    setMessage("");
+  }
+
   function clearForm() {
     setAmounts({});
     setEditing(null);
+    setPendingPhoto(null);
+    setDropPhoto(false);
     loadedKey.current = "";
+  }
+
+  function closePreview() {
+    if (photoDraftUrl) {
+      URL.revokeObjectURL(photoDraftUrl);
+    }
+    setPhotoDraft(null);
+    setPhotoDraftUrl(null);
+  }
+
+  async function choosePhoto() {
+    const chosen = await chooseImageFile();
+    if (typeof chosen === "string") {
+      setError(chosen);
+      setMessage("");
+      return;
+    }
+    if (!chosen) {
+      return;
+    }
+    if (photoDraftUrl) {
+      URL.revokeObjectURL(photoDraftUrl);
+    }
+    setPhotoDraft(chosen);
+    setPhotoDraftUrl(URL.createObjectURL(new Blob([chosen.bytes], { type: chosen.contentType || "image/jpeg" })));
+    setError("");
+  }
+
+  async function confirmPreview() {
+    if (!photoDraft) {
+      return;
+    }
+    if (editingId && photos) {
+      try {
+        await photos.upload(editingId, photoDraft);
+        setPhotoIds(await photos.list());
+        setPendingPhoto(null);
+        setDropPhoto(false);
+        setMessage("Imagen subida.");
+        setError("");
+        closePreview();
+      } catch {
+        setMessage("");
+        setError("No se pudo subir la imagen.");
+      }
+      return;
+    }
+    setPendingPhoto(photoDraft);
+    setDropPhoto(false);
+    setError("");
+    closePreview();
+  }
+
+  async function openPhoto(dayId: string) {
+    if (!photos || readOnly) {
+      return;
+    }
+    setViewingId(dayId);
+    setViewingUrl(undefined);
+    const url = await photos.url(dayId);
+    setViewingUrl(url);
+  }
+
+  async function keepPhoto(dayId: string) {
+    if (!photos) {
+      return null;
+    }
+    try {
+      if (pendingPhoto) {
+        await photos.upload(dayId, pendingPhoto);
+      } else if (dropPhoto) {
+        await photos.remove(dayId);
+      }
+      setPhotoIds(await photos.list());
+      return null;
+    } catch {
+      return "El día quedó guardado, pero la imagen no.";
+    }
+  }
+
+  async function confirmRemove() {
+    if (!pending || readOnly) {
+      return;
+    }
+    const row = pending;
+    setPending(null);
+    try {
+      await lottery.removeAgencyDay({ date: row.date, terminalId: row.terminalId });
+      let photoWarning = "";
+      if (photos) {
+        try {
+          await photos.remove(dayPhotoId(row.date, row.terminalId));
+          setPhotoIds(await photos.list());
+        } catch {
+          photoWarning = "El día se quitó, pero la imagen no.";
+        }
+      }
+      if (editing?.date === row.date && editing.terminalId === row.terminalId) {
+        clearForm();
+      }
+      setMessage("Día quitado.");
+      setError(photoWarning);
+    } catch (caught) {
+      setError(ledgerErrorMessage(caught));
+    }
   }
 
   async function onSave() {
@@ -167,8 +331,13 @@ export default function CombinedLoadScreen() {
         { date, terminalId, amounts: lotteryAmounts, tracks: null },
         editing ?? undefined,
       );
+      const photoError = await keepPhoto(dayPhotoId(date, terminalId));
       setMessage(editing ? "Día actualizado." : "Día cargado.");
       clearForm();
+      setViewMonth(date.slice(0, 7));
+      if (photoError) {
+        setError(photoError);
+      }
       if (fecha) {
         router.replace("/carga-dia" as Href);
       }
@@ -246,8 +415,129 @@ export default function CombinedLoadScreen() {
         </Card>
       ) : null}
 
+      {photos && !readOnly ? (
+        <Card>
+          <Field label="Imagen">
+            <View className="gap-2">
+              <Text className="text-[15px] text-muted">
+                {pendingPhoto
+                  ? pendingPhoto.name
+                  : editingId && photoIds.has(editingId) && !dropPhoto
+                    ? "Hay una imagen guardada."
+                    : "Opcional."}
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                <SecondaryButton label="Subir imagen" onPress={() => void choosePhoto()} />
+                {pendingPhoto || (editingId && photoIds.has(editingId) && !dropPhoto) ? (
+                  <SecondaryButton
+                    label="Quitar imagen"
+                    onPress={() => {
+                      setPendingPhoto(null);
+                      setDropPhoto(true);
+                    }}
+                  />
+                ) : null}
+              </View>
+            </View>
+          </Field>
+        </Card>
+      ) : null}
+
       <Feedback message={message} error={error} />
       <PrimaryButton label={saving ? "Guardando…" : editing ? "Guardar cambios" : "Cargar día"} onPress={() => void onSave()} />
+
+      <SectionTitle title={monthTitle(viewMonth)} />
+      <DataTable
+        empty="Todavía no hay días cargados."
+        columns={[
+          { key: "date", header: "Fecha", compact: true, render: (row: AgencyDayRow) => formatIsoDate(row.date) },
+          { key: "terminal", header: "Terminal", compact: true, render: (row: AgencyDayRow) => `Terminal ${row.terminalId}` },
+          { key: "sold", header: "Apuestas", align: "right" as const, compact: true, cents: (row: AgencyDayRow) => row.soldCents },
+          { key: "prizes", header: "Premios", align: "right" as const, compact: true, cents: (row: AgencyDayRow) => sumCents(row.prizesByGame) },
+          { key: "cancelled", header: "Anulaciones", align: "right" as const, compact: true, cents: (row: AgencyDayRow) => sumCents(row.cancelledByGame) },
+          { key: "commission", header: "Comisión", align: "right" as const, cents: (row: AgencyDayRow) => row.commissionCents },
+          { key: "deposit", header: "A depositar", align: "right" as const, cents: (row: AgencyDayRow) => row.amountToDepositCents },
+          ...(readOnly
+            ? []
+            : [
+                {
+                  key: "file",
+                  header: "Archivo",
+                  compact: true,
+                  minWidth: 160,
+                  padStart: 32,
+                  node: (row: AgencyDayRow) =>
+                    photoIds.has(dayPhotoId(row.date, row.terminalId)) ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Ver imagen"
+                        onPress={() => void openPhoto(dayPhotoId(row.date, row.terminalId))}
+                        className="cursor-pointer"
+                      >
+                        <Text className="text-[17px] font-semibold text-accent">Ver imagen</Text>
+                      </Pressable>
+                    ) : null,
+                },
+                {
+                  key: "actions",
+                  header: "",
+                  compact: true,
+                  align: "right" as const,
+                  minWidth: 160,
+                  node: (row: AgencyDayRow) => <RowActions onEdit={() => fillDay(row)} onRemove={() => setPending(row)} />,
+                },
+              ]),
+        ]}
+        rows={lottery.agencyDays}
+      />
+      <ConfirmDialog
+        visible={pending !== null}
+        title="¿Quitar el día?"
+        detail="Se quita lo cargado de esa terminal. No se puede deshacer."
+        onCancel={() => setPending(null)}
+        onConfirm={() => void confirmRemove()}
+      />
+      <Dialog
+        wide
+        visible={photoDraft !== null}
+        title="Subir imagen"
+        contentMaxHeight={Math.max(320, window.height - 180)}
+        onClose={closePreview}
+      >
+        {photoDraftUrl ? (
+          <Image
+            source={{ uri: photoDraftUrl }}
+            contentFit="contain"
+            accessibilityLabel="Vista previa"
+            style={{ width: "100%", height: Math.max(280, window.height - 320) }}
+          />
+        ) : null}
+        {editingId ? null : <Text className="text-[15px] text-muted">Se sube al cargar el día.</Text>}
+        <PrimaryButton label="Confirmar" onPress={() => void confirmPreview()} />
+      </Dialog>
+      <Dialog
+        wide
+        visible={viewingId !== null}
+        title="Imagen"
+        contentMaxHeight={Math.max(320, window.height - 180)}
+        onClose={() => {
+          setViewingId(null);
+          setViewingUrl(undefined);
+        }}
+      >
+        {viewingUrl ? (
+          <Image
+            source={{ uri: viewingUrl }}
+            contentFit="contain"
+            accessibilityLabel="Imagen del día"
+            style={{ width: "100%", height: Math.max(280, window.height - 240) }}
+          />
+        ) : (
+          <Text className="text-[15px] text-muted">
+            {viewingUrl === null ? "No se pudo abrir la imagen." : "Abriendo la imagen…"}
+          </Text>
+        )}
+      </Dialog>
     </ScreenFrame>
   );
 }
