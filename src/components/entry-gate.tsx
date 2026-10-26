@@ -20,20 +20,34 @@ export function useRemoteSession(): RemoteSession {
     }
     const client = browserSupabase({ url, anonKey, publicAccess: false });
     let alive = true;
-    let settled = false;
+    let sawSession = false;
     void client.auth.getSession().then(({ data }) => {
-      settled = true;
-      if (alive) {
-        setState(data.session ? "in" : "out");
+      if (!alive) {
+        return;
+      }
+      if (data.session) {
+        sawSession = true;
+        setState("in");
+        return;
+      }
+      if (!sawSession) {
+        setState("out");
       }
     });
     const { data } = client.auth.onAuthStateChange((event, session) => {
       // INITIAL_SESSION can arrive with null before the stored session is read.
-      if (!settled && event === "INITIAL_SESSION") {
+      // That null was sending people who were already signed in back to /entrada.
+      if (!alive || event === "INITIAL_SESSION") {
         return;
       }
-      if (alive) {
-        setState(session ? "in" : "out");
+      if (session) {
+        sawSession = true;
+        setState("in");
+        return;
+      }
+      if (event === "SIGNED_OUT") {
+        sawSession = false;
+        setState("out");
       }
     });
     return () => {
