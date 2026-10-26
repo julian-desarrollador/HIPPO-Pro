@@ -12,7 +12,7 @@ export function LotteryGate({ title, children }: { title: string; children: Reac
   const { agencyMode } = useLedger();
 
   if (lottery.status === "unavailable") {
-    if (agencyMode === "lottery") {
+    if (agencyMode !== "racing") {
       return (
         <ScreenFrame title={title}>
           <Card>
@@ -49,29 +49,29 @@ export function LotteryGate({ title, children }: { title: string; children: Reac
 }
 
 function ActivateCard() {
-  const { canViewBalances } = useLedger();
+  const { canViewBalances, readOnly } = useLedger();
   const lottery = useLottery();
   const [error, setError] = useState("");
   const started = useRef(false);
 
   useEffect(() => {
-    if (!canViewBalances || lottery.status !== "inactive" || started.current) {
+    if (!canViewBalances || readOnly || lottery.status !== "inactive" || started.current) {
       return;
     }
     started.current = true;
     void lottery.activate().catch((caught) => {
       setError(ledgerErrorMessage(caught));
     });
-  }, [canViewBalances, lottery]);
+  }, [canViewBalances, lottery, readOnly]);
 
   return (
     <Card>
       <View className="gap-4">
-        <Text className="font-sans text-[24px] font-semibold text-navy">Agencia de Quiniela</Text>
+        <Text className="font-sans text-[24px] font-semibold text-navy">Bienvenido a HippoPro</Text>
         <Text className="text-[17px] leading-6 text-ink">
           Por terminal y por día se carga lo vendido de cada juego. La comisión y el saldo con la lotería salen solos.
         </Text>
-        {canViewBalances ? (
+        {canViewBalances && !readOnly ? (
           <>
             <Text className="text-[17px] leading-6 text-ink">Abriendo la quiniela…</Text>
             {error ? <Feedback error={error} message="" /> : null}

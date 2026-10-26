@@ -1,8 +1,21 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { seesLottery } from "../../domain/features";
-import type { LotteryGame, LotterySnapshot } from "../../domain/lottery";
+import { LedgerError } from "../../domain/errors";
+import { listedLotteryGames, withTicketGames, type LotteryGame, type LotterySnapshot } from "../../domain/lottery";
 import type { LotteryRepository } from "../../application/ports/lottery-repository";
+import { summarizeAgencyAccount, type AgencyAccount } from "../../application/use-cases/agency-account";
+import {
+  applyLotteryPlan,
+  applyRacingPlan,
+  listAgencyDays,
+  planAgencyDay,
+  previewAgencyDay,
+  type AgencyDayPreview,
+  type AgencyDayRow,
+  type AgencyTrackAmount,
+  type RecordAgencyDayInput,
+} from "../../application/use-cases/agency-day";
 import { activateLottery } from "../../application/use-cases/lottery-activate";
 import { withLotteryAudit } from "../../application/use-cases/lottery-audit";
 import {
@@ -20,6 +33,7 @@ import {
   type UpdateLotteryExpenseInput,
 } from "../../application/use-cases/lottery-expenses";
 import { updateLotteryCommission, type UpdateLotteryCommissionInput } from "../../application/use-cases/lottery-games";
+import { removeDay } from "../../application/use-cases/remove-entry";
 import {
   previewLotteryDay,
   recordLotteryDay,
@@ -40,7 +54,7 @@ import {
   type LotteryMonthSummary,
 } from "../../application/use-cases/lottery-summary";
 import { lotterySync } from "../outbound/lottery-ledger";
-import { useLedger } from "./ledger-provider";
+import { useLedger, useRacingCommit } from "./ledger-provider";
 
 export type LotteryStatus = "unavailable" | "loading" | "error" | "inactive" | "active";
 
@@ -51,14 +65,22 @@ type LotteryContextValue = {
   snapshot: LotterySnapshot | null;
   games: readonly LotteryGame[];
   summary: LotteryMonthSummary | null;
+  account: AgencyAccount | null;
   agencyMonth: AgencyMonth | null;
   days: LotteryDayRow[];
+  agencyDays: AgencyDayRow[];
   retry: () => void;
   previewDay: (amounts: readonly LotteryAmount[], editing?: LotteryDayKey) => LotteryDayPreview | null;
+  previewAgency: (
+    input: { date: string; terminalId: string; amounts: readonly LotteryAmount[]; tracks: readonly AgencyTrackAmount[] },
+    editing?: LotteryDayKey,
+  ) => AgencyDayPreview | null;
   activate: () => Promise<void>;
   recordDay: (input: RecordLotteryDayInput) => Promise<void>;
   updateDay: (input: UpdateLotteryDayInput) => Promise<void>;
   removeDay: (key: LotteryDayKey) => Promise<void>;
+  saveAgencyDay: (input: RecordAgencyDayInput, editing?: LotteryDayKey) => Promise<string[]>;
+  removeAgencyDay: (key: LotteryDayKey) => Promise<void>;
   recordDeposit: (input: RecordLotteryDepositInput) => Promise<void>;
   updateDeposit: (input: UpdateLotteryDepositInput) => Promise<void>;
   removeDeposit: (id: string) => Promise<void>;
@@ -69,20 +91,26 @@ type LotteryContextValue = {
 };
 
 const unavailable = (): Promise<void> => Promise.reject(new Error("La quiniela no está disponible."));
+const unavailableDays = (): Promise<string[]> => Promise.reject(new Error("La quiniela no está disponible."));
 
 const UNAVAILABLE: LotteryContextValue = {
   status: "unavailable",
   snapshot: null,
   games: [],
   summary: null,
+  account: null,
   agencyMonth: null,
   days: [],
+  agencyDays: [],
   retry: () => {},
   previewDay: () => null,
+  previewAgency: () => null,
   activate: unavailable,
   recordDay: unavailable,
   updateDay: unavailable,
   removeDay: unavailable,
+  saveAgencyDay: unavailableDays,
+  removeAgencyDay: unavailable,
   recordDeposit: unavailable,
   updateDeposit: unavailable,
   removeDeposit: unavailable,
@@ -101,13 +129,15 @@ function currentYearMonth(now = new Date()): string {
 type Opened = { key: string } & ({ status: "error" } | { status: "open"; repository: LotteryRepository });
 
 /**
- * Lives inside LedgerProvider and only reads from it. The lottery book is a
- * separate repository: nothing here saves the racing book.
+ * Lives inside LedgerProvider. Deposits, expenses and commissions stay in the
+ * lottery book. The unified day writes that book and, when the agency also
+ * runs hípica, the racing book.
  */
 export function LotteryProvider({ open, children }: { open: OpenLottery | null; children: ReactNode }) {
   const ledger = useLedger();
+  const commitRacing = useRacingCommit();
   const agencyId = ledger.snapshot.agencyId;
-  const available = open !== null && seesLottery(ledger.agencyMode) && !ledger.readOnly;
+  const available = open !== null && seesLottery(ledger.agencyMode);
   const [opened, setOpened] = useState<Opened | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [version, setVersion] = useState(0);
@@ -135,7 +165,24 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
     };
   }, [agencyId, available, open, openKey]);
 
-  const { role, displayName, viewMonth, summary: racingSummary } = ledger;
+  useEffect(() => {
+    if (!current || current.status !== "open" || ledger.readOnly) {
+      return;
+    }
+    const snapshot = current.repository.load();
+    if (!snapshot) {
+      return;
+    }
+    const next = withTicketGames(snapshot);
+    if (next === snapshot) {
+      return;
+    }
+    current.repository.save(next);
+    setVersion((value) => value + 1);
+  }, [current, ledger.readOnly]);
+
+  const { role, displayName, viewMonth, summary: racingSummary, agencyMode, snapshot: racingSnapshot, readOnly } = ledger;
+  const racingBook = agencyMode === "both" ? racingSnapshot : null;
 
   const value = useMemo<LotteryContextValue>(() => {
     if (!available) {
@@ -158,6 +205,9 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
     }
 
     function publish(action: () => void): Promise<void> {
+      if (readOnly) {
+        return Promise.reject(new Error("No se pudo guardar."));
+      }
       return (async () => {
         const before = repository.load();
         action();
@@ -181,13 +231,19 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
     return {
       status: snapshot ? "active" : "inactive",
       snapshot,
-      games: snapshot?.games ?? [],
+      games: snapshot ? listedLotteryGames(snapshot) : [],
       summary,
+      account: summary ? summarizeAgencyAccount(summary) : null,
       agencyMonth: summary ? combineAgencyMonth(racingSummary, summary) : null,
       days: snapshot ? listLotteryDays(snapshot, viewMonth) : [],
+      agencyDays: snapshot ? listAgencyDays(snapshot, null, viewMonth) : [],
       retry,
       previewDay: (amounts, editing) => (snapshot ? previewLotteryDay(snapshot, amounts, editing) : null),
+      previewAgency: (input, editing) => (snapshot ? previewAgencyDay(snapshot, racingBook, input, editing) : null),
       activate: async () => {
+        if (readOnly) {
+          return;
+        }
         activateLottery(repository, {
           agencyId,
           role,
@@ -200,6 +256,67 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
       recordDay: (input) => run(() => recordLotteryDay(repository, input)),
       updateDay: (input) => run(() => updateLotteryDay(repository, input)),
       removeDay: (key) => run(() => removeLotteryDay(repository, key)),
+      saveAgencyDay: async (input, editing) => {
+        const currentSnapshot = repository.load();
+        if (!currentSnapshot) {
+          throw new LedgerError("lottery-inactive");
+        }
+        const plan = planAgencyDay(currentSnapshot, racingBook, input, editing);
+        let lotteryWritten = false;
+        if (plan.lottery.kind !== "skip") {
+          await publish(() => {
+            applyLotteryPlan(repository, plan.lottery);
+            lotteryWritten = true;
+          });
+        }
+        if (plan.racing.length === 0) {
+          return [];
+        }
+        try {
+          let ids: string[] = [];
+          await commitRacing((racingRepository) => {
+            ids = applyRacingPlan(racingRepository, plan.racing);
+          });
+          return ids;
+        } catch (error) {
+          if (lotteryWritten) {
+            throw new LedgerError("agency-day-partial");
+          }
+          throw error;
+        }
+      },
+      removeAgencyDay: async (key) => {
+        const currentSnapshot = repository.load();
+        const hadLottery =
+          currentSnapshot?.sales.some((sale) => sale.date === key.date && sale.terminalId === key.terminalId) ?? false;
+        const racingDays = racingBook
+          ? racingBook.days.filter(
+              (day) =>
+                day.agencyId === racingBook.agencyId && day.date === key.date && (day.terminalId ?? "1") === key.terminalId,
+            )
+          : [];
+        if (!hadLottery && racingDays.length === 0) {
+          throw new LedgerError("unknown-entry");
+        }
+        if (hadLottery) {
+          await publish(() => removeLotteryDay(repository, key));
+        }
+        if (racingDays.length === 0) {
+          return;
+        }
+        try {
+          await commitRacing((racingRepository) => {
+            for (const day of racingDays) {
+              removeDay(racingRepository, day.id);
+            }
+          });
+        } catch (error) {
+          if (hadLottery) {
+            throw new LedgerError("agency-day-partial");
+          }
+          throw error;
+        }
+      },
       recordDeposit: (input) => run(() => recordLotteryDeposit(repository, input)),
       updateDeposit: (input) => run(() => updateLotteryDeposit(repository, input)),
       removeDeposit: (id) => run(() => removeLotteryDeposit(repository, id)),
@@ -208,7 +325,7 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
       removeExpense: (id) => run(() => removeLotteryExpense(repository, id)),
       updateCommission: (input) => run(() => updateLotteryCommission(repository, input)),
     };
-  }, [agencyId, available, current, displayName, racingSummary, role, version, viewMonth]);
+  }, [agencyId, available, commitRacing, current, displayName, racingBook, racingSummary, readOnly, role, version, viewMonth]);
 
   return <LotteryContext.Provider value={value}>{children}</LotteryContext.Provider>;
 }

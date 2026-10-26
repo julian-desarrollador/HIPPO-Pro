@@ -38,6 +38,7 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "service-already-on": "La agencia ya usa ese servicio.",
   "service-required": "Tiene que quedar un servicio.",
   "duplicate-lottery-day": "Esa terminal ya está cargada ese día. Editala desde la tabla.",
+  "agency-day-partial": "La quiniela se guardó, la hípica no.",
 };
 
 export function ledgerErrorMessage(error: unknown): string {

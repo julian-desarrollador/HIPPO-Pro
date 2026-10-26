@@ -27,7 +27,7 @@ function dayTotals(snapshot: LotterySnapshot): Map<string, DayTotal> {
     const id = lotteryDayId(sale.date, sale.terminalId);
     const day = days.get(id) ?? { date: sale.date, terminalId: sale.terminalId, soldCents: 0, signature: "" };
     day.soldCents += sale.soldCents;
-    day.signature += `${sale.gameId}:${sale.soldCents}:${sale.commissionBasisPoints};`;
+    day.signature += `${sale.gameId}:${sale.soldCents}:${sale.prizesCents ?? 0}:${sale.cancelledCents ?? 0}:${sale.commissionBasisPoints};`;
     days.set(id, day);
   }
   return days;

@@ -35,7 +35,8 @@ export type LedgerErrorCode =
   | "terminal-needs-service"
   | "service-already-on"
   | "service-required"
-  | "duplicate-lottery-day";
+  | "duplicate-lottery-day"
+  | "agency-day-partial";
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;

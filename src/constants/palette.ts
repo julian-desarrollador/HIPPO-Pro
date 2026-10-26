@@ -1,4 +1,4 @@
-import { usePathname } from "expo-router";
+import { useAgencyMode } from "@/modules/ledger/adapters/inbound/ledger-provider";
 
 export const palette = {
   canvas: "#D9EAF5",
@@ -57,5 +57,6 @@ export function isLotteryPath(pathname: string): boolean {
 }
 
 export function usePalette(): Palette {
-  return isLotteryPath(usePathname()) ? lotteryPalette : palette;
+  const mode = useAgencyMode();
+  return mode === "lottery" || mode === "both" ? lotteryPalette : palette;
 }

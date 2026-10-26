@@ -24,10 +24,10 @@ describe("modo de la agencia", () => {
     assert.equal(homeHref("lottery"), "/quiniela");
   });
 
-  it("Las dos ve los dos libros", () => {
+  it("Las dos ve los dos libros y abre en el entorno único", () => {
     assert.equal(seesRacing("both"), true);
     assert.equal(seesLottery("both"), true);
-    assert.equal(homeHref("both"), "/");
+    assert.equal(homeHref("both"), "/quiniela");
   });
 
   it("el dueño suma el servicio que falta y no puede sacar uno", () => {

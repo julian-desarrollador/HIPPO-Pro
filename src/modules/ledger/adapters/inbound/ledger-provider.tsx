@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 
 import { canViewAgencyBalances } from "../../domain/access";
 import type { AgencyMode, AgencyService } from "../../domain/features";
@@ -135,6 +135,23 @@ function createAppLedgerRepository(): LedgerRepository {
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
 
+type RacingCommit = (action: (repository: LedgerRepository) => void) => Promise<void>;
+
+const RacingCommitContext = createContext<MutableRefObject<RacingCommit> | null>(null);
+
+/** Runs a write on the racing book, with the same audit and sync as the other actions. */
+export function useRacingCommit(): RacingCommit {
+  const ref = useContext(RacingCommitContext);
+  if (!ref) {
+    throw new Error("useRacingCommit debe usarse dentro de LedgerProvider");
+  }
+  return (action) => ref.current(action);
+}
+
+export function useAgencyMode(): AgencyMode | null {
+  return useContext(LedgerContext)?.agencyMode ?? null;
+}
+
 /** Month shown on entry: the device's local month, not the seed month. */
 function currentYearMonth(now = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -186,6 +203,7 @@ export function LedgerProvider({
   const [previewRole, setPreviewRole] = useState<ViewerRole>("owner");
   const [chosenMonth, setChosenMonth] = useState<string | null>(currentYearMonth);
   const role = lockedRole ?? previewRole;
+  const racingCommitRef = useRef<RacingCommit>(async () => {});
 
   const value = useMemo<LedgerContextValue>(() => {
     const snapshot = repository.load();
@@ -218,6 +236,8 @@ export function LedgerProvider({
         setVersion((current) => current + 1);
       })();
     }
+
+    racingCommitRef.current = (action) => publish(() => action(repository));
 
     return {
       role,
@@ -331,7 +351,11 @@ export function LedgerProvider({
     };
   }, [addService, agencyMode, agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
 
-  return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
+  return (
+    <RacingCommitContext.Provider value={racingCommitRef}>
+      <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>
+    </RacingCommitContext.Provider>
+  );
 }
 
 export function useLedger(): LedgerContextValue {

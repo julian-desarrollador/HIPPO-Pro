@@ -8,6 +8,7 @@ import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { StatCard } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
+  HIPICA_GAME_ID,
   formatPercentInput,
   formatSignedPercent,
   ledgerErrorMessage,
@@ -18,15 +19,15 @@ import {
 
 export default function LotteryHomeScreen() {
   return (
-    <LotteryGate title="Quiniela">
+    <LotteryGate title="Inicio">
       <LotteryHome />
     </LotteryGate>
   );
 }
 
 function LotteryHome() {
-  const { canViewBalances, readOnly } = useLedger();
-  const { summary, games, updateCommission } = useLottery();
+  const { canViewBalances, readOnly, agencyMode } = useLedger();
+  const { account, games, updateCommission } = useLottery();
   const wide = useWindowDimensions().width >= wideLayout;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [percent, setPercent] = useState("");
@@ -35,11 +36,12 @@ function LotteryHome() {
   const [message, setMessage] = useState("");
   const [listOpen, setListOpen] = useState(false);
 
-  if (!summary) {
+  if (!account) {
     return null;
   }
 
-  const rows = summary.games.map((game) => ({ id: game.gameId, ...game }));
+  const rows = account.products.filter((product) => product.id !== HIPICA_GAME_ID || agencyMode === "both");
+  const listed = games.filter((game) => game.id !== HIPICA_GAME_ID || agencyMode === "both");
   const editing = games.find((game) => game.id === editingId);
 
   function startEdit(id: string) {
@@ -85,23 +87,30 @@ function LotteryHome() {
   }
 
   return (
-    <ScreenFrame title="Quiniela">
+    <ScreenFrame title="Inicio">
       <Card>
-        <Text className="font-sans text-[24px] font-semibold text-navy">Agencia de Quiniela</Text>
+        <Text className="font-sans text-[24px] font-semibold text-navy">Bienvenido a HippoPro</Text>
       </Card>
       {canViewBalances ? (
         <>
           <View className={wide ? "flex-row flex-wrap gap-4" : "gap-4"}>
-            <StatCard label="Vendido" cents={summary.soldCents} />
-            <StatCard label="Comisión" cents={summary.commissionCents} />
-            <StatCard label="Total a pagar a la lotería" cents={summary.owedCents} emphasis />
+            <StatCard label="Venta neta" cents={account.netCents} />
+            <StatCard label="Comisión" cents={account.commissionCents} />
+            <StatCard label="Total a pagar a la lotería" cents={account.owedCents} emphasis />
           </View>
-          <SectionTitle title="Por juego" />
+          <SectionTitle title="Por producto" />
           <DataTable
             columns={[
-              { key: "name", header: "Juego", compact: true, render: (row) => row.name },
-              { key: "percent", header: "Comisión %", align: "right", render: (row) => formatSignedPercent(row.commissionBasisPoints) },
-              { key: "sold", header: "Vendido", align: "right", compact: true, cents: (row) => row.soldCents },
+              { key: "name", header: "Producto", compact: true, render: (row) => row.name },
+              {
+                key: "percent",
+                header: "Comisión %",
+                align: "right",
+                render: (row) => (row.commissionBasisPoints === null ? "—" : formatSignedPercent(row.commissionBasisPoints)),
+              },
+              { key: "sold", header: "Apuestas", align: "right", compact: true, cents: (row) => row.soldCents },
+              { key: "prizes", header: "Premios", align: "right", compact: true, cents: (row) => row.prizesCents },
+              { key: "cancelled", header: "Anulaciones", align: "right", compact: true, cents: (row) => row.cancelledCents },
               { key: "commission", header: "Comisión", align: "right", compact: true, cents: (row) => row.commissionCents },
               { key: "deposit", header: "A depositar", align: "right", cents: (row) => row.amountToDepositCents },
             ]}
@@ -109,9 +118,11 @@ function LotteryHome() {
             footer={{
               values: {
                 name: { text: "Total" },
-                sold: { cents: summary.soldCents },
-                commission: { cents: summary.commissionCents },
-                deposit: { cents: summary.amountToDepositCents },
+                sold: { cents: rows.reduce((total, row) => total + row.soldCents, 0) },
+                prizes: { cents: rows.reduce((total, row) => total + row.prizesCents, 0) },
+                cancelled: { cents: rows.reduce((total, row) => total + row.cancelledCents, 0) },
+                commission: { cents: rows.reduce((total, row) => total + row.commissionCents, 0) },
+                deposit: { cents: rows.reduce((total, row) => total + row.amountToDepositCents, 0) },
               },
             }}
           />
@@ -127,7 +138,7 @@ function LotteryHome() {
           )}
           <Feedback message={message} />
           <Dialog visible={listOpen} title="Porcentajes" onClose={() => setListOpen(false)}>
-            {games.map((game) => (
+            {listed.map((game) => (
               <View key={game.id} className="flex-row items-center justify-between gap-3">
                 <Text className="flex-1 text-[17px] font-semibold text-navy">{game.name}</Text>
                 <Text className="text-[17px] text-ink">{formatSignedPercent(game.commissionBasisPoints)}</Text>
@@ -157,7 +168,7 @@ function LotteryHome() {
       ) : (
         <Card>
           <Text className="text-base leading-6 text-ink">
-            Podés cargar lo vendido por terminal, los depósitos y los gastos de la quiniela. El resultado queda para el dueño.
+            Podés cargar apuestas, premios y anulaciones por terminal, los depósitos y los gastos. El resultado queda para el dueño.
           </Text>
         </Card>
       )}

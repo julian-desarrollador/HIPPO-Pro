@@ -54,38 +54,34 @@ const PAGE_TITLES: Record<string, string> = {
   "/calendario": "Calendario",
   "/historial": "Historial",
   "/resultado": "Resultado",
-  "/quiniela": "Quiniela",
-  "/quiniela/index": "Quiniela",
-  "/quiniela/carga": "Carga de quiniela",
-  "/quiniela/depositos": "Depósitos a la lotería",
-  "/quiniela/gastos": "Gastos de quiniela",
-  "/quiniela/historial": "Historial de quiniela",
-  "/quiniela/resultado": "Resultado de la agencia",
+  "/quiniela": "Inicio",
+  "/quiniela/index": "Inicio",
+  "/quiniela/carga": "Carga del día",
+  "/quiniela/depositos": "Depósitos",
+  "/quiniela/gastos": "Gastos",
+  "/quiniela/historial": "Historial",
+  "/quiniela/resultado": "Resultado",
 };
 
-type Product = "racing" | "lottery";
-
-const LOTTERY_TRIGGER_PREFIX = "quiniela";
-
-function productOf(pathname: string, mode: "racing" | "lottery" | "both"): Product {
-  if (mode === "lottery") {
-    return "lottery";
-  }
-  if (mode === "racing") {
-    return "racing";
-  }
-  return isLotteryPath(pathname) ? "lottery" : "racing";
-}
+const UNIFIED_ROUTES: Record<string, Href> = {
+  "/": "/quiniela",
+  "/carga": "/carga-dia",
+  "/depositos": "/quiniela/depositos",
+  "/gastos": "/quiniela/gastos",
+  "/historial": "/quiniela/historial",
+  "/resultado": "/quiniela/resultado",
+  "/quiniela/carga": "/carga-dia",
+};
 
 /** On web the class switches the CSS colors, including dialogs rendered outside the menu. */
-function useProductTheme(product: Product, navy: string) {
+function useProductTheme(unified: boolean, navy: string) {
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") {
       return;
     }
-    document.documentElement.classList.toggle("theme-lottery", product === "lottery");
+    document.documentElement.classList.toggle("theme-lottery", unified);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", navy);
-  }, [navy, product]);
+  }, [navy, unified]);
 }
 
 function bettorPageTitle(
@@ -141,6 +137,9 @@ export default function AppTabs() {
       <TabSlot style={{ height: "100%" }} />
       <TabList asChild>
         <CustomTabList>
+          <TabTrigger name="quiniela-inicio" href={"/quiniela" as Href} asChild>
+            <TabButton icon="home">Inicio</TabButton>
+          </TabTrigger>
           <TabTrigger name="home" href="/" asChild>
             <TabButton icon="home">Inicio</TabButton>
           </TabTrigger>
@@ -175,9 +174,6 @@ export default function AppTabs() {
               <TabButton icon="resultado">Resultado</TabButton>
             </TabTrigger>
           ) : null}
-          <TabTrigger name="quiniela-inicio" href={"/quiniela" as Href} asChild>
-            <TabButton icon="home">Inicio</TabButton>
-          </TabTrigger>
           <TabTrigger name="quiniela-carga" href={"/quiniela/carga" as Href} asChild>
             <TabButton icon="carga">Carga</TabButton>
           </TabTrigger>
@@ -302,51 +298,50 @@ export function CustomTabList(props: TabListProps) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const product = productOf(pathname, agencyMode);
+  const unified = agencyMode === "both" || agencyMode === "lottery";
   const palette = usePalette();
-  useProductTheme(product, palette.navy);
-  const showSwitch = agencyMode === "both";
+  useProductTheme(unified, palette.navy);
   const pageTitle =
     bettorPageTitle(pathname, snapshot.bettors) ??
     PAGE_TITLES[pathname] ??
     "HippoPro";
   const items = Children.toArray(children).filter((child) => {
     const name = isValidElement(child) ? (child.props as { name?: string }).name : undefined;
-    if (name === "carpeta" || name === "carga-dia" && agencyMode !== "both") {
+    if (!name || name === "carpeta") {
       return false;
+    }
+    if (agencyMode === "racing") {
+      return name !== "carga-dia" && !name.startsWith("quiniela");
     }
     if (name === "carga-dia") {
       return true;
     }
-    if (agencyMode === "both" && (name === "carga" || name === "quiniela-carga")) {
+    if (name === "quiniela-carga" || name === "home" || name === "carga" || name === "depositos" || name === "gastos" || name === "historial" || name === "resultado") {
       return false;
     }
-    const lotteryItem = name?.startsWith(LOTTERY_TRIGGER_PREFIX) ?? false;
-    if (agencyMode === "lottery") {
-      return lotteryItem;
+    if (agencyMode === "lottery" && name === "caja") {
+      return false;
     }
-    if (agencyMode === "racing") {
-      return !lotteryItem;
-    }
-    return product === "lottery" ? lotteryItem : !lotteryItem;
+    return true;
   });
-  const productSwitch = showSwitch ? (
-    <ProductSwitch
-      product={product}
-      onChange={(next) => router.navigate((next === "lottery" ? "/quiniela" : "/") as Href)}
-    />
-  ) : null;
-  const overflow = !wide && (items.length > 7 || showSwitch);
+  const overflow = !wide && items.length > 7;
   const barItems = overflow ? items.slice(0, 4) : items;
   const moreItems = overflow ? items.slice(4) : [];
 
   useEffect(() => {
-    if (agencyMode === "lottery" && !isLotteryPath(pathname)) {
+    if (agencyMode === "racing") {
+      if (isLotteryPath(pathname) || pathname === "/carga-dia") {
+        router.replace("/");
+      }
+      return;
+    }
+    if (agencyMode === "lottery" && pathname === "/caja") {
       router.replace("/quiniela");
-    } else if (agencyMode === "racing" && (isLotteryPath(pathname) || pathname === "/carga-dia")) {
-      router.replace("/");
-    } else if (agencyMode === "both" && (pathname === "/carga" || pathname === "/quiniela/carga")) {
-      router.replace("/carga-dia" as Href);
+      return;
+    }
+    const target = UNIFIED_ROUTES[pathname];
+    if (target) {
+      router.replace(target);
     }
   }, [agencyMode, pathname]);
 
@@ -417,7 +412,6 @@ export function CustomTabList(props: TabListProps) {
               </Pressable>
             </View>
             <AgencyBlock name={agencyName} railOnly={railOnly} />
-            {railOnly || !productSwitch ? null : <View style={{ marginHorizontal: 12, marginBottom: 12 }}>{productSwitch}</View>}
             {items}
           </Animated.View>
         ) : null}
@@ -445,7 +439,7 @@ export function CustomTabList(props: TabListProps) {
                 {pageTitle}
               </Text>
             ) : (
-              <Brand compact agencyName={product === "lottery" ? `${agencyName} · Quiniela` : agencyName} />
+              <Brand compact agencyName={agencyName} />
             )}
             {signOut ? (
               <AccountMenu
@@ -505,7 +499,6 @@ export function CustomTabList(props: TabListProps) {
         )}
         {overflow ? (
           <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
-            {productSwitch ? <View style={{ marginHorizontal: 8, marginBottom: 12 }}>{productSwitch}</View> : null}
             {moreItems}
           </MoreSheet>
         ) : null}
@@ -845,29 +838,6 @@ function RoleSwitch({
         onPress={() => onChange("operator")}
       />
     </View>
-  );
-}
-
-function ProductSwitch({ product, onChange }: { product: Product; onChange: (product: Product) => void }) {
-  return (
-    <View accessibilityRole="tablist" accessibilityLabel="Agencia" className="flex-row rounded-lg bg-chrome-active p-0.5">
-      <ProductOption label="Hípica" selected={product === "racing"} onPress={() => onChange("racing")} />
-      <ProductOption label="Quiniela" selected={product === "lottery"} onPress={() => onChange("lottery")} />
-    </View>
-  );
-}
-
-function ProductOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      onPress={selected ? undefined : onPress}
-      className={selected ? "flex-1 items-center rounded-md bg-celeste py-2" : "flex-1 cursor-pointer items-center rounded-md py-2"}
-    >
-      <Text className={selected ? "text-[15px] font-semibold text-navy" : "text-[15px] text-white"}>{label}</Text>
-    </Pressable>
   );
 }
 

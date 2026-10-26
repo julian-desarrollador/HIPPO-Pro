@@ -1,4 +1,4 @@
-import { settleLotterySale, type LotteryGameId, type LotterySale, type LotterySnapshot } from "../../domain/lottery";
+import { listedLotteryGames, settleLotterySale, type LotteryGameId, type LotterySale, type LotterySnapshot } from "../../domain/lottery";
 import type { Cents } from "../../domain/money";
 import type { TerminalId } from "../../domain/types";
 import type { MonthSummary } from "./summarize-month";
@@ -9,6 +9,8 @@ export type LotteryDayRow = {
   date: string;
   terminalId: TerminalId;
   soldByGame: Record<LotteryGameId, Cents>;
+  prizesByGame: Record<LotteryGameId, Cents>;
+  cancelledByGame: Record<LotteryGameId, Cents>;
   soldCents: Cents;
   commissionCents: Cents;
   amountToDepositCents: Cents;
@@ -20,6 +22,8 @@ export type LotteryGameMonth = {
   /** Current percentage of the game. */
   commissionBasisPoints: number;
   soldCents: Cents;
+  prizesCents: Cents;
+  cancelledCents: Cents;
   commissionCents: Cents;
   amountToDepositCents: Cents;
 };
@@ -65,12 +69,16 @@ export function listLotteryDays(snapshot: LotterySnapshot, month: string): Lotte
       date: sale.date,
       terminalId: sale.terminalId,
       soldByGame: {},
+      prizesByGame: {},
+      cancelledByGame: {},
       soldCents: 0,
       commissionCents: 0,
       amountToDepositCents: 0,
     };
     const settled = settleLotterySale(sale);
     row.soldByGame[sale.gameId] = (row.soldByGame[sale.gameId] ?? 0) + sale.soldCents;
+    row.prizesByGame[sale.gameId] = (row.prizesByGame[sale.gameId] ?? 0) + (sale.prizesCents ?? 0);
+    row.cancelledByGame[sale.gameId] = (row.cancelledByGame[sale.gameId] ?? 0) + (sale.cancelledCents ?? 0);
     row.soldCents += sale.soldCents;
     row.commissionCents += settled.commissionCents;
     row.amountToDepositCents += settled.amountToDepositCents;
@@ -94,22 +102,24 @@ export function summarizeLotteryMonth(snapshot: LotterySnapshot, month: string):
     .filter((deposit) => deposit.date.startsWith(month))
     .reduce((total, deposit) => total + deposit.amountCents, 0);
 
-  const games = snapshot.games.map((game) => {
+  const games = listedLotteryGames(snapshot).map((game) => {
     const gameSales = monthSales.filter((sale) => sale.gameId === game.id);
-    const soldCents = gameSales.reduce((total, sale) => total + sale.soldCents, 0);
-    const commissionCents = gameSales.reduce((total, sale) => total + settleLotterySale(sale).commissionCents, 0);
+    const settled = gameSales.map((sale) => settleLotterySale(sale));
     return {
       gameId: game.id,
       name: game.name,
       commissionBasisPoints: game.commissionBasisPoints,
-      soldCents,
-      commissionCents,
-      amountToDepositCents: soldCents - commissionCents,
+      soldCents: gameSales.reduce((total, sale) => total + sale.soldCents, 0),
+      prizesCents: gameSales.reduce((total, sale) => total + (sale.prizesCents ?? 0), 0),
+      cancelledCents: gameSales.reduce((total, sale) => total + (sale.cancelledCents ?? 0), 0),
+      commissionCents: settled.reduce((total, line) => total + line.commissionCents, 0),
+      amountToDepositCents: settled.reduce((total, line) => total + line.amountToDepositCents, 0),
     };
   });
-  const soldCents = games.reduce((total, game) => total + game.soldCents, 0);
-  const commissionCents = games.reduce((total, game) => total + game.commissionCents, 0);
-  const amountToDepositCents = soldCents - commissionCents;
+  const settledMonth = monthSales.map((sale) => settleLotterySale(sale));
+  const soldCents = monthSales.reduce((total, sale) => total + sale.soldCents, 0);
+  const commissionCents = settledMonth.reduce((total, line) => total + line.commissionCents, 0);
+  const amountToDepositCents = settledMonth.reduce((total, line) => total + line.amountToDepositCents, 0);
 
   const monthExpenses = snapshot.expenses.filter(
     (expense) => expense.agencyId === snapshot.agencyId && expense.month === month,

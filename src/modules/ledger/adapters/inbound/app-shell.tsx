@@ -596,7 +596,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       addService={addService}
       removeService={removeService}
     >
-      <LotteryProvider open={visit?.readOnly ? null : openLottery}>
+      <LotteryProvider open={openLottery}>
         {visit?.readOnly ? (
           pages
         ) : (

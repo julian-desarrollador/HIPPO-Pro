@@ -16,8 +16,9 @@ export function seesLottery(mode: AgencyMode): boolean {
   return mode !== "racing";
 }
 
+/** Racing stays on its own home. Lottery and both open the unified one. */
 export function homeHref(mode: AgencyMode): "/" | "/quiniela" {
-  return mode === "lottery" ? "/quiniela" : "/";
+  return mode === "racing" ? "/" : "/quiniela";
 }
 
 /** The service still missing, or null when the agency already uses both. */

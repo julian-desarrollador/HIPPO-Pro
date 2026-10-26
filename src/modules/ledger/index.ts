@@ -33,10 +33,12 @@ export type { BettorAccount, BettorTotals } from "./application/use-cases/summar
 export { findBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./application/use-cases/summarize-bettors";
 export type { SettledDay } from "./application/use-cases/summarize-month";
 export { buildDayReport, emptyDayReportMessage } from "./application/use-cases/build-day-report";
-export { TERMINAL_IDS } from "./domain/lottery";
+export { HIPICA_GAME_ID, TERMINAL_IDS } from "./domain/lottery";
 export type { LotteryDeposit, LotteryExpense, LotteryGame } from "./domain/lottery";
 export type { LotteryAmount, LotteryDayPreview } from "./application/use-cases/lottery-sales";
 export type { AgencyMonth, BusinessMonth, LotteryDayRow, LotteryMonthSummary } from "./application/use-cases/lottery-summary";
+export type { AgencyAccount, AgencyProductLine } from "./application/use-cases/agency-account";
+export type { AgencyDayPreview, AgencyDayRow, AgencyTrackAmount, RecordAgencyDayInput, UpdateAgencyDayInput } from "./application/use-cases/agency-day";
 export type { AgencyMode, AgencyService } from "./domain/features";
 export { agencyModeFrom, canAddService, homeHref, seesLottery, seesRacing, withService, withoutService } from "./domain/features";
 export { removeAgencyService } from "./application/use-cases/remove-agency-service";

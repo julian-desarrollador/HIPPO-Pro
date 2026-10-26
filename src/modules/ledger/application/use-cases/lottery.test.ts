@@ -6,7 +6,7 @@ import { createInMemoryLotteryRepository } from "../../adapters/outbound/in-memo
 import { lotterySync, openLotteryLedger, type LotteryRemote } from "../../adapters/outbound/lottery-ledger";
 import type { LedgerRemoteRow } from "../../adapters/outbound/agency-ledger";
 import { LedgerError } from "../../domain/errors";
-import { LOTTERY_GAMES, settleLotterySale, type LotterySnapshot } from "../../domain/lottery";
+import { LOTTERY_GAMES, settleLotterySale, withTicketGames, type LotterySnapshot } from "../../domain/lottery";
 import { activateLottery } from "./lottery-activate";
 import { describeLotteryChange, withLotteryAudit } from "./lottery-audit";
 import { recordLotteryDeposit, removeLotteryDeposit } from "./lottery-deposits";
@@ -31,20 +31,13 @@ function hasCode(code: LedgerError["code"]) {
 }
 
 describe("quiniela: activar", () => {
-  it("el dueño la activa con los seis juegos y el saldo en cero", () => {
+  it("el dueño la activa con los juegos de la boleta y el saldo en cero", () => {
     const repository = activeRepository();
     const snapshot = repository.load();
     assert.ok(snapshot);
     assert.deepEqual(
       snapshot.games.map((game) => [game.name, game.commissionBasisPoints]),
-      [
-        ["Quiniela", 2000],
-        ["Plus", 2000],
-        ["Telekino", 1500],
-        ["Brinco", 1350],
-        ["Loto", 1460],
-        ["Quini", 1350],
-      ],
+      LOTTERY_GAMES.map((game) => [game.name, game.commissionBasisPoints]),
     );
     assert.equal(snapshot.openingCents, 0);
     assert.equal(snapshot.audit.length, 1);
@@ -71,27 +64,69 @@ describe("quiniela: activar", () => {
 });
 
 describe("quiniela: cuentas", () => {
-  it("cada juego gana su porcentaje y a depositar es vendido menos comisión", () => {
+  it("la comisión sale de las apuestas y a depositar resta premios y anulaciones", () => {
     const repository = activeRepository();
     recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: hundredThousandEach });
     const summary = summarizeLotteryMonth(repository.load()!, "2026-10");
     assert.deepEqual(
-      summary.games.map((game) => game.commissionCents),
-      [2_000_000, 2_000_000, 1_500_000, 1_350_000, 1_460_000, 1_350_000],
+      summary.games.map((game) => game.name),
+      ["Quiniela Ciudad", "Quini 6", "Loto Plus", "Quiniela Poceada", "Hípica", "Loto 5 Plus", "Brinco"],
     );
-    assert.equal(summary.soldCents, 60_000_000);
-    assert.equal(summary.commissionCents, 9_660_000);
-    assert.equal(summary.amountToDepositCents, 50_340_000);
-    assert.equal(summary.owedCents, 50_340_000);
-    assert.deepEqual(settleLotterySale({ soldCents: 12_345, commissionBasisPoints: 1460 }), {
-      commissionCents: 1_802,
-      amountToDepositCents: 10_543,
+    assert.deepEqual(
+      summary.games.map((game) => game.commissionCents),
+      [2_000_000, 1_400_000, 1_400_000, 2_000_000, 0, 1_400_000, 1_400_000],
+    );
+    assert.equal(summary.soldCents, 70_000_000);
+    assert.equal(summary.commissionCents, 9_600_000);
+    assert.equal(summary.amountToDepositCents, 60_400_000);
+    assert.equal(summary.owedCents, 60_400_000);
+    assert.deepEqual(
+      settleLotterySale({ soldCents: 11_200_000, prizesCents: 0, cancelledCents: 400_000, commissionBasisPoints: 1400 }),
+      { commissionCents: 1_568_000, amountToDepositCents: 9_232_000 },
+    );
+  });
+
+  it("un juego viejo con ventas queda en el saldo y no en la tabla", () => {
+    const repository = activeRepository();
+    const snapshot = repository.load()!;
+    repository.save({
+      ...snapshot,
+      games: [
+        { id: "quiniela", name: "Quiniela", commissionBasisPoints: 2000 },
+        { id: "plus", name: "Plus", commissionBasisPoints: 2000 },
+        { id: "telekino", name: "Telekino", commissionBasisPoints: 1500 },
+      ],
+      sales: [
+        {
+          id: "sale-plus",
+          agencyId: snapshot.agencyId,
+          date: "2026-10-21",
+          terminalId: "1",
+          gameId: "plus",
+          soldCents: 1_000_000,
+          prizesCents: 0,
+          cancelledCents: 0,
+          commissionBasisPoints: 2000,
+        },
+      ],
     });
+    const aligned = withTicketGames(repository.load()!);
+    assert.equal(aligned.games.some((game) => game.id === "telekino"), false);
+    assert.equal(aligned.games.at(-1)?.name, "Plus");
+    assert.deepEqual(
+      aligned.games.slice(0, 7).map((game) => game.id),
+      LOTTERY_GAMES.map((game) => game.id),
+    );
+    const summary = summarizeLotteryMonth(aligned, "2026-10");
+    assert.equal(summary.games.some((game) => game.gameId === "plus"), false);
+    assert.equal(summary.soldCents, 1_000_000);
+    assert.equal(summary.commissionCents, 200_000);
+    assert.equal(withTicketGames(aligned), aligned);
   });
 
   it("el saldo con la lotería resta los depósitos y pasa al mes siguiente", () => {
     const repository = activeRepository();
-    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela", soldCents: 10_000_000 }] });
+    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela-ciudad", soldCents: 10_000_000 }] });
     recordLotteryDeposit(repository, { date: "2026-10-22", amountCents: 5_000_000 });
     const october = summarizeLotteryMonth(repository.load()!, "2026-10");
     assert.equal(october.openingCents, 0);
@@ -110,12 +145,12 @@ describe("quiniela: cuentas", () => {
       () => recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: hundredThousandEach }),
       hasCode("duplicate-lottery-day"),
     );
-    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "2", amounts: [{ gameId: "loto", soldCents: 500_000 }] });
+    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "2", amounts: [{ gameId: "loto-plus", soldCents: 500_000 }] });
     const days = listLotteryDays(repository.load()!, "2026-10");
     assert.deepEqual(
       days.map((day) => [day.terminalId, day.soldCents]),
       [
-        ["1", 60_000_000],
+        ["1", 70_000_000],
         ["2", 500_000],
       ],
     );
@@ -123,34 +158,41 @@ describe("quiniela: cuentas", () => {
 
   it("editar reemplaza lo de esa terminal y conserva el porcentaje ya cargado", () => {
     const repository = activeRepository();
-    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "loto", soldCents: 10_000_000 }] });
-    updateLotteryCommission(repository, { gameId: "loto", commissionBasisPoints: 1500 });
+    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "loto-plus", soldCents: 10_000_000 }] });
+    updateLotteryCommission(repository, { gameId: "loto-plus", commissionBasisPoints: 1500 });
     updateLotteryDay(repository, {
       fromDate: "2026-10-21",
       fromTerminalId: "1",
       date: "2026-10-21",
       terminalId: "1",
       amounts: [
-        { gameId: "loto", soldCents: 20_000_000 },
+        { gameId: "loto-plus", soldCents: 20_000_000 },
         { gameId: "brinco", soldCents: 10_000_000 },
       ],
     });
     const sales = repository.load()!.sales;
     assert.equal(sales.length, 2);
-    assert.equal(sales.find((sale) => sale.gameId === "loto")?.commissionBasisPoints, 1460);
-    assert.equal(sales.find((sale) => sale.gameId === "brinco")?.commissionBasisPoints, 1350);
-    const preview = previewLotteryDay(repository.load()!, [{ gameId: "loto", soldCents: 10_000_000 }]);
+    assert.equal(sales.find((sale) => sale.gameId === "loto-plus")?.commissionBasisPoints, 1400);
+    assert.equal(sales.find((sale) => sale.gameId === "brinco")?.commissionBasisPoints, 1400);
+    const preview = previewLotteryDay(repository.load()!, [{ gameId: "loto-plus", soldCents: 10_000_000 }]);
     assert.equal(preview.commissionCents, 1_500_000);
     removeLotteryDay(repository, { date: "2026-10-21", terminalId: "1" });
     assert.equal(repository.load()!.sales.length, 0);
   });
 
-  it("sin ningún importe no guarda", () => {
+  it("sin ningún importe no guarda, y solo premios sí", () => {
     const repository = activeRepository();
     assert.throws(
-      () => recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela", soldCents: 0 }] }),
+      () => recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela-ciudad", soldCents: 0 }] }),
       hasCode("empty-entry"),
     );
+    recordLotteryDay(repository, {
+      date: "2026-10-21",
+      terminalId: "1",
+      amounts: [{ gameId: "quiniela-ciudad", soldCents: 0, prizesCents: 170_000, cancelledCents: 0 }],
+    });
+    assert.equal(repository.load()!.sales[0]?.prizesCents, 170_000);
+    assert.equal(repository.load()!.sales[0]?.soldCents, 0);
     assert.throws(
       () => recordLotteryDay(repository, { date: "2026-10-21", terminalId: "5", amounts: hundredThousandEach }),
       hasCode("unknown-terminal"),
@@ -159,7 +201,7 @@ describe("quiniela: cuentas", () => {
 
   it("gastos y retiros de quiniela bajan su saldo del mes", () => {
     const repository = activeRepository();
-    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela", soldCents: 10_000_000 }] });
+    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela-ciudad", soldCents: 10_000_000 }] });
     recordLotteryExpense(repository, { month: "2026-10", paidOn: "2026-10-21", kind: "agency", detail: "Papel", amountCents: 300_000 });
     recordLotteryExpense(repository, { month: "2026-10", paidOn: "2026-10-21", kind: "partner-withdrawal", detail: "", amountCents: 200_000 });
     const summary = summarizeLotteryMonth(repository.load()!, "2026-10");
@@ -186,7 +228,7 @@ describe("quiniela: la hípica no cambia", () => {
   it("el total de la agencia suma hípica y quiniela sin cambiar la hípica", () => {
     const august = summarizeMonth(createInMemoryLedgerRepository().load(), "2026-08");
     const repository = activeRepository();
-    recordLotteryDay(repository, { date: "2026-08-10", terminalId: "1", amounts: [{ gameId: "quiniela", soldCents: 10_000_000 }] });
+    recordLotteryDay(repository, { date: "2026-08-10", terminalId: "1", amounts: [{ gameId: "quiniela-ciudad", soldCents: 10_000_000 }] });
     const month = combineAgencyMonth(august, summarizeLotteryMonth(repository.load()!, "2026-08"));
     assert.equal(month.racing.earningsCents, august.billingCents);
     assert.equal(month.racing.balanceCents, august.balanceCents);
@@ -200,13 +242,13 @@ describe("quiniela: historial", () => {
   it("anota la carga, el depósito y el cambio de porcentaje", () => {
     const repository = activeRepository();
     const before = repository.load()!;
-    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela", soldCents: 10_000_000 }] });
+    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: [{ gameId: "quiniela-ciudad", soldCents: 10_000_000 }] });
     recordLotteryDeposit(repository, { date: "2026-10-22", amountCents: 5_000_000 });
-    updateLotteryCommission(repository, { gameId: "loto", commissionBasisPoints: 1500 });
+    updateLotteryCommission(repository, { gameId: "loto-plus", commissionBasisPoints: 1500 });
     const summary = describeLotteryChange(before, repository.load()!);
     assert.match(summary ?? "", /Cargó la quiniela del 21\/10\/2026 en Terminal 1/);
     assert.match(summary ?? "", /Cargó un depósito de .* a la lotería\./);
-    assert.match(summary ?? "", /Cambió la comisión de Loto de 14,6 % a 15 %\./);
+    assert.match(summary ?? "", /Cambió la comisión de Loto Plus de 14 % a 15 %\./);
     const audited = withLotteryAudit(before, repository.load()!, "operator", at, "Mati");
     assert.equal(audited.audit.length, 2);
     assert.equal(audited.audit[1]?.actorName, "Mati");

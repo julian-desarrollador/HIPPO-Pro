@@ -16,7 +16,10 @@ export type LotterySale = {
   date: string;
   terminalId: TerminalId;
   gameId: LotteryGameId;
+  /** Apuestas. Commission is calculated on this, not on the net. */
   soldCents: Cents;
+  prizesCents: Cents;
+  cancelledCents: Cents;
   /** Copied from the game when the day is recorded. */
   commissionBasisPoints: number;
 };
@@ -54,14 +57,52 @@ export type LotterySnapshot = {
   audit: AuditEntry[];
 };
 
+/** Ticket order. Rates are a reading of one ticket, until the owner confirms them. */
 export const LOTTERY_GAMES: readonly LotteryGame[] = [
-  { id: "quiniela", name: "Quiniela", commissionBasisPoints: 2000 },
-  { id: "plus", name: "Plus", commissionBasisPoints: 2000 },
-  { id: "telekino", name: "Telekino", commissionBasisPoints: 1500 },
-  { id: "brinco", name: "Brinco", commissionBasisPoints: 1350 },
-  { id: "loto", name: "Loto", commissionBasisPoints: 1460 },
-  { id: "quini", name: "Quini", commissionBasisPoints: 1350 },
+  { id: "quiniela-ciudad", name: "Quiniela Ciudad", commissionBasisPoints: 2000 },
+  { id: "quini-6", name: "Quini 6", commissionBasisPoints: 1400 },
+  { id: "loto-plus", name: "Loto Plus", commissionBasisPoints: 1400 },
+  { id: "quiniela-poceada", name: "Quiniela Poceada", commissionBasisPoints: 2000 },
+  { id: "hipica", name: "Hípica", commissionBasisPoints: 0 },
+  { id: "loto-5-plus", name: "Loto 5 Plus", commissionBasisPoints: 1400 },
+  { id: "brinco", name: "Brinco", commissionBasisPoints: 1400 },
 ];
+
+export const HIPICA_GAME_ID = "hipica";
+
+export function isTicketGame(gameId: string): boolean {
+  return LOTTERY_GAMES.some((game) => game.id === gameId);
+}
+
+/** Games the load screen and the home table show, in ticket order. */
+export function listedLotteryGames(snapshot: LotterySnapshot): LotteryGame[] {
+  return LOTTERY_GAMES.map((game) => snapshot.games.find((item) => item.id === game.id) ?? { ...game });
+}
+
+/** Replaces a pre-ticket list. Retired games with sales stay. Owner rates set after that stay. */
+export function withTicketGames(snapshot: LotterySnapshot): LotterySnapshot {
+  const migrated = snapshot.games.some((game) => game.id === "quiniela-ciudad");
+  const ticket = LOTTERY_GAMES.map((game) => {
+    const existing = snapshot.games.find((item) => item.id === game.id);
+    if (!migrated || !existing) {
+      return { ...game };
+    }
+    return { id: game.id, name: game.name, commissionBasisPoints: existing.commissionBasisPoints };
+  });
+  const used = new Set(snapshot.sales.map((sale) => sale.gameId));
+  const retired = snapshot.games.filter((game) => !isTicketGame(game.id) && used.has(game.id));
+  const games = [...ticket, ...retired];
+  const same =
+    games.length === snapshot.games.length &&
+    games.every((game, index) => {
+      const current = snapshot.games[index];
+      return current?.id === game.id && current.name === game.name && current.commissionBasisPoints === game.commissionBasisPoints;
+    });
+  if (same) {
+    return snapshot;
+  }
+  return { ...snapshot, games };
+}
 
 export const TERMINAL_IDS: readonly TerminalId[] = ["1", "2", "3", "4"];
 
@@ -82,7 +123,14 @@ export type LotterySettlement = {
   amountToDepositCents: Cents;
 };
 
-export function settleLotterySale(input: { soldCents: Cents; commissionBasisPoints: number }): LotterySettlement {
+export function settleLotterySale(input: {
+  soldCents: Cents;
+  commissionBasisPoints: number;
+  prizesCents?: Cents;
+  cancelledCents?: Cents;
+}): LotterySettlement {
   const commissionCents = applyBasisPoints(input.soldCents, input.commissionBasisPoints);
-  return { commissionCents, amountToDepositCents: input.soldCents - commissionCents };
+  const prizesCents = input.prizesCents ?? 0;
+  const cancelledCents = input.cancelledCents ?? 0;
+  return { commissionCents, amountToDepositCents: input.soldCents - cancelledCents - prizesCents - commissionCents };
 }

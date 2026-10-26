@@ -2,6 +2,7 @@ import { LedgerError } from "../../domain/errors";
 import {
   getLotteryGame,
   isTerminalId,
+  listedLotteryGames,
   settleLotterySale,
   type LotteryGameId,
   type LotterySale,
@@ -17,6 +18,8 @@ import { requireLottery } from "./lottery-activate";
 export type LotteryAmount = {
   gameId: LotteryGameId;
   soldCents: Cents;
+  prizesCents?: Cents;
+  cancelledCents?: Cents;
 };
 
 export type RecordLotteryDayInput = {
@@ -40,6 +43,8 @@ export type LotteryPreviewLine = {
   name: string;
   commissionBasisPoints: number;
   soldCents: Cents;
+  prizesCents: Cents;
+  cancelledCents: Cents;
   commissionCents: Cents;
   amountToDepositCents: Cents;
 };
@@ -47,6 +52,8 @@ export type LotteryPreviewLine = {
 export type LotteryDayPreview = {
   lines: LotteryPreviewLine[];
   soldCents: Cents;
+  prizesCents: Cents;
+  cancelledCents: Cents;
   commissionCents: Cents;
   amountToDepositCents: Cents;
 };
@@ -55,12 +62,12 @@ function sameDay(sale: LotterySale, key: LotteryDayKey): boolean {
   return sale.date === key.date && sale.terminalId === key.terminalId;
 }
 
-function soldByGame(amounts: readonly LotteryAmount[]): Map<string, Cents> {
-  const sold = new Map<string, Cents>();
+function amountsByGame(amounts: readonly LotteryAmount[]): Map<string, LotteryAmount> {
+  const byGame = new Map<string, LotteryAmount>();
   for (const amount of amounts) {
-    sold.set(amount.gameId, amount.soldCents);
+    byGame.set(amount.gameId, amount);
   }
-  return sold;
+  return byGame;
 }
 
 /** Day already loaded keeps its percentages. Games without a row take the current one. */
@@ -73,16 +80,29 @@ export function previewLotteryDay(
   amounts: readonly LotteryAmount[],
   editing?: LotteryDayKey,
 ): LotteryDayPreview {
-  const sold = soldByGame(amounts);
+  const byGame = amountsByGame(amounts);
   const previous = editing ? snapshot.sales.filter((sale) => sameDay(sale, editing)) : [];
-  const lines = snapshot.games.map((game) => {
-    const soldCents = sold.get(game.id) ?? 0;
+  const lines = listedLotteryGames(snapshot).map((game) => {
+    const amount = byGame.get(game.id);
+    const soldCents = amount?.soldCents ?? 0;
+    const prizesCents = amount?.prizesCents ?? 0;
+    const cancelledCents = amount?.cancelledCents ?? 0;
     const commissionBasisPoints = percentFor(snapshot, game.id, previous);
-    return { gameId: game.id, name: game.name, commissionBasisPoints, soldCents, ...settleLotterySale({ soldCents, commissionBasisPoints }) };
+    return {
+      gameId: game.id,
+      name: game.name,
+      commissionBasisPoints,
+      soldCents,
+      prizesCents,
+      cancelledCents,
+      ...settleLotterySale({ soldCents, prizesCents, cancelledCents, commissionBasisPoints }),
+    };
   });
   return {
     lines,
     soldCents: lines.reduce((total, line) => total + line.soldCents, 0),
+    prizesCents: lines.reduce((total, line) => total + line.prizesCents, 0),
+    cancelledCents: lines.reduce((total, line) => total + line.cancelledCents, 0),
     commissionCents: lines.reduce((total, line) => total + line.commissionCents, 0),
     amountToDepositCents: lines.reduce((total, line) => total + line.amountToDepositCents, 0),
   };
@@ -99,10 +119,15 @@ function buildSales(
   }
   const terminalId: TerminalId = input.terminalId;
   const sales: LotterySale[] = [];
-  for (const [gameId, soldCents] of soldByGame(input.amounts)) {
-    getLotteryGame(snapshot, gameId);
+  for (const amount of amountsByGame(input.amounts).values()) {
+    getLotteryGame(snapshot, amount.gameId);
+    const soldCents = amount.soldCents;
+    const prizesCents = amount.prizesCents ?? 0;
+    const cancelledCents = amount.cancelledCents ?? 0;
     assertCents(soldCents, { allowZero: true });
-    if (soldCents === 0) {
+    assertCents(prizesCents, { allowZero: true });
+    assertCents(cancelledCents, { allowZero: true });
+    if (soldCents === 0 && prizesCents === 0 && cancelledCents === 0) {
       continue;
     }
     sales.push({
@@ -110,9 +135,11 @@ function buildSales(
       agencyId: snapshot.agencyId,
       date: input.date,
       terminalId,
-      gameId,
+      gameId: amount.gameId,
       soldCents,
-      commissionBasisPoints: percentFor(snapshot, gameId, previous),
+      prizesCents,
+      cancelledCents,
+      commissionBasisPoints: percentFor(snapshot, amount.gameId, previous),
     });
   }
   if (sales.length === 0) {
