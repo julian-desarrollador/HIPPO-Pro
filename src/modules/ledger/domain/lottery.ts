@@ -57,7 +57,7 @@ export type LotterySnapshot = {
   audit: AuditEntry[];
 };
 
-/** Ticket order. Rates are a reading of one ticket, until the owner confirms them. */
+/** Ticket order. The first seven rates come from one ticket. The last four are a provisional 14% until the owner confirms them. */
 export const LOTTERY_GAMES: readonly LotteryGame[] = [
   { id: "quiniela-ciudad", name: "Quiniela Ciudad", commissionBasisPoints: 2000 },
   { id: "quini-6", name: "Quini 6", commissionBasisPoints: 1400 },
@@ -66,6 +66,10 @@ export const LOTTERY_GAMES: readonly LotteryGame[] = [
   { id: "hipica", name: "Hípica", commissionBasisPoints: 0 },
   { id: "loto-5-plus", name: "Loto 5 Plus", commissionBasisPoints: 1400 },
   { id: "brinco", name: "Brinco", commissionBasisPoints: 1400 },
+  { id: "tombolina", name: "Tombolina", commissionBasisPoints: 1400 },
+  { id: "la-grande", name: "La Grande de la Ciudad", commissionBasisPoints: 1400 },
+  { id: "prode", name: "Prode", commissionBasisPoints: 1400 },
+  { id: "quiniela-ya", name: "Quiniela YA", commissionBasisPoints: 1400 },
 ];
 
 export const HIPICA_GAME_ID = "hipica";

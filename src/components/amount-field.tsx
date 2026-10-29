@@ -19,12 +19,16 @@ export function AmountField({
   debt = false,
   gain = false,
   compact = false,
+  readOnly = false,
+  accessibilityLabel,
 }: {
   value: string;
-  onChangeText: (text: string) => void;
+  onChangeText?: (text: string) => void;
   debt?: boolean;
   gain?: boolean;
   compact?: boolean;
+  readOnly?: boolean;
+  accessibilityLabel?: string;
 }) {
   const palette = usePalette();
   const showDebt = debt && value.trim().length > 0;
@@ -42,13 +46,15 @@ export function AmountField({
       <Text className={`${compact ? "" : "mr-1.5"} tabular-nums ${size} ${color}`}>{showDebt ? "-$" : "$"}</Text>
       <TextInput
         value={value}
-        onChangeText={(text) => onChangeText(maskAmountInput(text))}
-        onBlur={() => onChangeText(completeAmountInput(value))}
+        editable={!readOnly}
+        onChangeText={readOnly || !onChangeText ? undefined : (text) => onChangeText(maskAmountInput(text))}
+        onBlur={readOnly || !onChangeText ? undefined : () => onChangeText(completeAmountInput(value))}
         keyboardType="decimal-pad"
         inputMode="decimal"
         placeholder="0,00"
         placeholderTextColor={palette.placeholder}
         underlineColorAndroid="transparent"
+        accessibilityLabel={accessibilityLabel}
         className={`min-w-0 flex-1 border-0 outline-none ${compact ? "text-right" : ""} ${size} ${color}`}
         style={[valueStyle.input, compact ? { textAlign: "right" } : null]}
       />

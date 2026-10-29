@@ -70,16 +70,32 @@ describe("quiniela: cuentas", () => {
     const summary = summarizeLotteryMonth(repository.load()!, "2026-10");
     assert.deepEqual(
       summary.games.map((game) => game.name),
-      ["Quiniela Ciudad", "Quini 6", "Loto Plus", "Quiniela Poceada", "Hípica", "Loto 5 Plus", "Brinco"],
+      [
+        "Quiniela Ciudad",
+        "Quini 6",
+        "Loto Plus",
+        "Quiniela Poceada",
+        "Hípica",
+        "Loto 5 Plus",
+        "Brinco",
+        "Tombolina",
+        "La Grande de la Ciudad",
+        "Prode",
+        "Quiniela YA",
+      ],
     );
     assert.deepEqual(
       summary.games.map((game) => game.commissionCents),
-      [2_000_000, 1_400_000, 1_400_000, 2_000_000, 0, 1_400_000, 1_400_000],
+      [2_000_000, 1_400_000, 1_400_000, 2_000_000, 0, 1_400_000, 1_400_000, 1_400_000, 1_400_000, 1_400_000, 1_400_000],
     );
-    assert.equal(summary.soldCents, 70_000_000);
-    assert.equal(summary.commissionCents, 9_600_000);
-    assert.equal(summary.amountToDepositCents, 60_400_000);
-    assert.equal(summary.owedCents, 60_400_000);
+    assert.equal(
+      summary.games.slice(-4).reduce((total, game) => total + game.commissionCents, 0),
+      4 * 1_400_000,
+    );
+    assert.equal(summary.soldCents, 110_000_000);
+    assert.equal(summary.commissionCents, 15_200_000);
+    assert.equal(summary.amountToDepositCents, 94_800_000);
+    assert.equal(summary.owedCents, 94_800_000);
     assert.deepEqual(
       settleLotterySale({ soldCents: 11_200_000, prizesCents: 0, cancelledCents: 400_000, commissionBasisPoints: 1400 }),
       { commissionCents: 1_568_000, amountToDepositCents: 9_232_000 },
@@ -114,7 +130,7 @@ describe("quiniela: cuentas", () => {
     assert.equal(aligned.games.some((game) => game.id === "telekino"), false);
     assert.equal(aligned.games.at(-1)?.name, "Plus");
     assert.deepEqual(
-      aligned.games.slice(0, 7).map((game) => game.id),
+      aligned.games.slice(0, LOTTERY_GAMES.length).map((game) => game.id),
       LOTTERY_GAMES.map((game) => game.id),
     );
     const summary = summarizeLotteryMonth(aligned, "2026-10");
@@ -122,6 +138,66 @@ describe("quiniela: cuentas", () => {
     assert.equal(summary.soldCents, 1_000_000);
     assert.equal(summary.commissionCents, 200_000);
     assert.equal(withTicketGames(aligned), aligned);
+  });
+
+  it("un libro con los siete juegos recibe los cuatro nuevos y conserva el porcentaje del dueño", () => {
+    const repository = activeRepository();
+    const snapshot = repository.load()!;
+    repository.save({
+      ...snapshot,
+      games: [
+        { id: "quiniela-ciudad", name: "Quiniela Ciudad", commissionBasisPoints: 2000 },
+        { id: "quini-6", name: "Quini 6", commissionBasisPoints: 1400 },
+        { id: "loto-plus", name: "Loto Plus", commissionBasisPoints: 1500 },
+        { id: "quiniela-poceada", name: "Quiniela Poceada", commissionBasisPoints: 2000 },
+        { id: "hipica", name: "Hípica", commissionBasisPoints: 0 },
+        { id: "loto-5-plus", name: "Loto 5 Plus", commissionBasisPoints: 1400 },
+        { id: "brinco", name: "Brinco", commissionBasisPoints: 1400 },
+      ],
+      sales: [
+        {
+          id: "sale-loto",
+          agencyId: snapshot.agencyId,
+          date: "2026-10-21",
+          terminalId: "1",
+          gameId: "loto-plus",
+          soldCents: 10_000_000,
+          prizesCents: 0,
+          cancelledCents: 0,
+          commissionBasisPoints: 1400,
+        },
+      ],
+    });
+    const aligned = withTicketGames(repository.load()!);
+    assert.deepEqual(
+      aligned.games.map((game) => game.id),
+      [
+        "quiniela-ciudad",
+        "quini-6",
+        "loto-plus",
+        "quiniela-poceada",
+        "hipica",
+        "loto-5-plus",
+        "brinco",
+        "tombolina",
+        "la-grande",
+        "prode",
+        "quiniela-ya",
+      ],
+    );
+    assert.equal(aligned.games.find((game) => game.id === "loto-plus")?.commissionBasisPoints, 1500);
+    assert.deepEqual(
+      aligned.games.slice(-4).map((game) => [game.name, game.commissionBasisPoints]),
+      [
+        ["Tombolina", 1400],
+        ["La Grande de la Ciudad", 1400],
+        ["Prode", 1400],
+        ["Quiniela YA", 1400],
+      ],
+    );
+    assert.equal(aligned.sales.length, 1);
+    assert.equal(aligned.sales[0]?.soldCents, 10_000_000);
+    assert.equal(aligned.sales[0]?.commissionBasisPoints, 1400);
   });
 
   it("el saldo con la lotería resta los depósitos y pasa al mes siguiente", () => {
@@ -150,7 +226,7 @@ describe("quiniela: cuentas", () => {
     assert.deepEqual(
       days.map((day) => [day.terminalId, day.soldCents]),
       [
-        ["1", 70_000_000],
+        ["1", 110_000_000],
         ["2", 500_000],
       ],
     );

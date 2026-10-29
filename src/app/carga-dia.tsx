@@ -49,6 +49,23 @@ function sumCents(values: Record<string, number> | undefined): number {
   return Object.values(values ?? {}).reduce((total, value) => total + value, 0);
 }
 
+function commissionInput(preview: { lines: readonly { gameId: string; commissionCents: number }[] } | null, gameId: string): string {
+  const line = preview?.lines.find((item) => item.gameId === gameId);
+  if (!line) {
+    return "";
+  }
+  return formatAmountInput(line.commissionCents);
+}
+
+/** Keeps the commission visible while a comma is still being typed. */
+function typedCents(raw: string): number {
+  const cents = readAmount(raw, true);
+  if (cents !== null) {
+    return cents;
+  }
+  return readAmount(raw.trim().replace(/,+$/, ""), true) ?? 0;
+}
+
 function dayPhotoId(date: string, terminalId: string): string {
   return `${date}-${terminalId}`;
 }
@@ -185,9 +202,27 @@ export default function CombinedLoadScreen() {
     prizesCents: amount.prizesCents ?? 0,
     cancelledCents: amount.cancelledCents ?? 0,
   }));
-  const preview = valid && lottery.status === "active"
-    ? lottery.previewAgency({ date, terminalId, amounts: lotteryAmounts, tracks: [] }, editing ?? undefined)
-    : null;
+  const livePreview =
+    lottery.status === "active"
+      ? lottery.previewAgency(
+          {
+            date,
+            terminalId,
+            amounts: games.map((game) => {
+              const row = amounts[game.id] ?? blank();
+              return {
+                gameId: game.id,
+                soldCents: typedCents(row.sold),
+                prizesCents: typedCents(row.prizes),
+                cancelledCents: typedCents(row.cancelled),
+              };
+            }),
+            tracks: [],
+          },
+          editing ?? undefined,
+        )
+      : null;
+  const preview = valid ? livePreview : null;
 
   function fillDay(row: AgencyDayRow) {
     loadedKey.current = `${row.date}|${row.terminalId}`;
@@ -385,20 +420,25 @@ export default function CombinedLoadScreen() {
       {games.map((game) => (
         <Card key={game.id}>
           <Text className="font-semibold text-ink">{game.name}</Text>
-          <View className={wide ? "mt-3 flex-row gap-4" : "mt-3 gap-3"}>
-            <View className="flex-1">
+          <View className={wide ? "mt-3 flex-row flex-wrap gap-4" : "mt-3 gap-3"}>
+            <View className="flex-1" style={wide ? { minWidth: 140 } : undefined}>
               <Field label="Apuestas">
                 <AmountField value={amounts[game.id]?.sold ?? ""} onChangeText={(value) => setField(game.id, "sold", value)} />
               </Field>
             </View>
-            <View className="flex-1">
+            <View className="flex-1" style={wide ? { minWidth: 140 } : undefined}>
               <Field label="Pago premios">
                 <AmountField value={amounts[game.id]?.prizes ?? ""} onChangeText={(value) => setField(game.id, "prizes", value)} />
               </Field>
             </View>
-            <View className="flex-1">
+            <View className="flex-1" style={wide ? { minWidth: 140 } : undefined}>
               <Field label="Anulaciones">
                 <AmountField value={amounts[game.id]?.cancelled ?? ""} onChangeText={(value) => setField(game.id, "cancelled", value)} />
+              </Field>
+            </View>
+            <View className="flex-1" style={wide ? { minWidth: 140 } : undefined}>
+              <Field label="Comisión">
+                <AmountField readOnly accessibilityLabel="Comisión" value={commissionInput(livePreview, game.id)} />
               </Field>
             </View>
           </View>
