@@ -49,6 +49,19 @@ function sumCents(values: Record<string, number> | undefined): number {
   return Object.values(values ?? {}).reduce((total, value) => total + value, 0);
 }
 
+function monthTotals(rows: readonly AgencyDayRow[]) {
+  return rows.reduce(
+    (total, row) => ({
+      soldCents: total.soldCents + row.soldCents,
+      prizesCents: total.prizesCents + sumCents(row.prizesByGame),
+      cancelledCents: total.cancelledCents + sumCents(row.cancelledByGame),
+      commissionCents: total.commissionCents + row.commissionCents,
+      amountToDepositCents: total.amountToDepositCents + row.amountToDepositCents,
+    }),
+    { soldCents: 0, prizesCents: 0, cancelledCents: 0, commissionCents: 0, amountToDepositCents: 0 },
+  );
+}
+
 function commissionInput(preview: { lines: readonly { gameId: string; commissionCents: number }[] } | null, gameId: string): string {
   const line = preview?.lines.find((item) => item.gameId === gameId);
   if (!line) {
@@ -384,6 +397,8 @@ export default function CombinedLoadScreen() {
     }
   }
 
+  const totals = monthTotals(lottery.agencyDays);
+
   if (lottery.status === "inactive" && !canViewBalances) {
     return (
       <ScreenFrame title="Carga del día">
@@ -529,6 +544,16 @@ export default function CombinedLoadScreen() {
               ]),
         ]}
         rows={lottery.agencyDays}
+        footer={{
+          values: {
+            date: { text: "Total" },
+            sold: { cents: totals.soldCents },
+            prizes: { cents: totals.prizesCents },
+            cancelled: { cents: totals.cancelledCents },
+            commission: { cents: totals.commissionCents },
+            deposit: { cents: totals.amountToDepositCents },
+          },
+        }}
       />
       <ConfirmDialog
         visible={pending !== null}
