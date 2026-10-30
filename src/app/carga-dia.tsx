@@ -10,6 +10,7 @@ import { DateField } from "@/components/date-field";
 import { formatIsoDate } from "@/components/format-date";
 import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, RowActions, SecondaryButton, uploadPreviewHeight } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
+import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
@@ -247,6 +248,7 @@ export default function CombinedLoadScreen() {
     setDropPhoto(false);
     setError("");
     setMessage("");
+    scrollToEditForm("carga-form");
   }
 
   function clearForm() {
@@ -411,6 +413,7 @@ export default function CombinedLoadScreen() {
 
   return (
     <ScreenFrame title="Carga del día">
+      <View nativeID="carga-form" collapsable={false}>
       <Card>
         <View className={wide ? "flex-row gap-4" : "gap-4"}>
           <View className="flex-1">
@@ -431,6 +434,7 @@ export default function CombinedLoadScreen() {
           </View>
         ) : null}
       </Card>
+      </View>
 
       {games.map((game) => (
         <Card key={game.id}>

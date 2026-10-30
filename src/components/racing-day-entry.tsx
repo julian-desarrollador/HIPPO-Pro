@@ -20,6 +20,7 @@ import {
   uploadPreviewHeight,
 } from "@/components/form-controls";
 import { Card, NoRacetracksCard, ScreenFrame, SectionTitle } from "@/components/screen-frame";
+import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
@@ -217,6 +218,7 @@ function DayEntryScreen({
     setDropPhoto(false);
     setError("");
     setMessage("");
+    scrollToEditForm("carga-form");
   }
 
   function cancelEdit() {
@@ -374,7 +376,7 @@ function DayEntryScreen({
         </View>
       ) : (
       <View className={wide ? "flex-row items-start gap-4" : "gap-4"}>
-        <View className="flex-1">
+        <View className="flex-1" nativeID="carga-form" collapsable={false}>
           <Card>
             <View className="gap-4">
               {lockedDate ? null : (

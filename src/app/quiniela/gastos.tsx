@@ -20,6 +20,7 @@ import {
   uploadPreviewHeight,
 } from "@/components/form-controls";
 import { LotteryGate } from "@/components/lottery-gate";
+import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import {
@@ -122,6 +123,7 @@ function LotteryExpenses() {
     clearPhotoChoice();
     setError("");
     setMessage("");
+    scrollToEditForm("gasto-form");
   }
 
   function cancelEdit() {
@@ -275,6 +277,7 @@ function LotteryExpenses() {
 
   return (
     <ScreenFrame title="Gastos de quiniela">
+      <View nativeID="gasto-form" collapsable={false}>
       <Card>
         <View className="gap-4">
           <Field label="Fecha de pago">
@@ -319,6 +322,7 @@ function LotteryExpenses() {
           {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
         </View>
       </Card>
+      </View>
 
       <ExpenseTable
         title="Gastos de la agencia"

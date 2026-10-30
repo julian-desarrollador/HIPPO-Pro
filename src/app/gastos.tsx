@@ -19,6 +19,7 @@ import {
   TextField,
   uploadPreviewHeight,
 } from "@/components/form-controls";
+import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import {
@@ -143,6 +144,7 @@ export default function GastosScreen() {
     clearPhotoChoice();
     setError("");
     setMessage("");
+    scrollToEditForm("gasto-form");
   }
 
   function cancelEdit() {
@@ -369,7 +371,8 @@ export default function GastosScreen() {
 
   return (
     <ScreenFrame title="Gastos">
-      {readOnly ? null : <Card>
+      {readOnly ? null : <View nativeID="gasto-form" collapsable={false}>
+      <Card>
         <View className="gap-4">
           <Field label="Fecha de pago">
             <DateField value={paidOn} onChange={setPaidOn} />
@@ -426,7 +429,8 @@ export default function GastosScreen() {
           <PrimaryButton label={editingId ? "Guardar cambios" : "Registrar gasto"} onPress={onSave} />
           {editingId ? <SecondaryButton label="Cancelar" onPress={cancelEdit} /> : null}
         </View>
-      </Card>}
+      </Card>
+      </View>}
 
       <ExpenseTable
         title="Gastos de la agencia"
