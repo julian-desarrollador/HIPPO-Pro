@@ -33,6 +33,7 @@ import {
   ledgerErrorMessage,
   readAmount,
   settleDay,
+  totalSettledDays,
   useDayPhotos,
   useLedger,
   type DayPhotoFile,
@@ -92,6 +93,7 @@ function DayEntryScreen({
 }) {
   const params = useLocalSearchParams<{ fecha?: string }>();
   const { agencyName, days, recordDay, updateDay, removeDay, snapshot, racetracks, viewMonth, setViewMonth, readOnly } = useLedger();
+  const daysTotal = totalSettledDays(days);
   const fecha = requestedDate(params.fecha, viewMonth);
   const photos = useDayPhotos();
   const window = useWindowDimensions();
@@ -524,6 +526,17 @@ function DayEntryScreen({
         ]}
         rows={days}
         empty="Todavía no hay días cargados."
+        footer={{
+          values: {
+            date: { text: "Total" },
+            sold: { cents: daysTotal.soldCents },
+            cancelled: { cents: daysTotal.cancelledCents },
+            net: { cents: daysTotal.netCents },
+            paid: { cents: daysTotal.paidCents },
+            commission: { cents: daysTotal.commissionCents },
+            deposit: { cents: daysTotal.amountToDepositCents },
+          },
+        }}
       />
       <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
       </>

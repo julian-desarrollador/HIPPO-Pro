@@ -25,6 +25,7 @@ import {
   formatAmountInput,
   ledgerErrorMessage,
   readAmount,
+  totalAmounts,
   useDepositPhotos,
   useLedger,
   type DayPhotoFile,
@@ -374,6 +375,7 @@ export default function DepositosScreen() {
             ]),
         ]}
         rows={deposits}
+        footer={{ values: { date: { text: "Total" }, amount: { cents: totalAmounts(deposits) } } }}
       />
       <ConfirmDialog visible={pendingRemoveId !== null} onCancel={() => setPendingRemoveId(null)} onConfirm={confirmRemove} />
       <Dialog

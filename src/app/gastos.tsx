@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Image } from "expo-image";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Text, useWindowDimensions, View } from "react-native";
 
 import { openingDate } from "@/components/calendar-grid";
-import { DataTable } from "@/components/data-table";
-import { formatIsoDate } from "@/components/format-date";
 import { AmountField } from "@/components/amount-field";
 import { DateField } from "@/components/date-field";
 import {
@@ -19,9 +18,9 @@ import {
   TextField,
   uploadPreviewHeight,
 } from "@/components/form-controls";
+import { ExpenseTable, type ExpenseRow } from "@/components/expense-table";
 import { scrollToEditForm } from "@/components/scroll-to-edit-form";
-import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
-import { MoneyText } from "@/components/stat-card";
+import { Card, ScreenFrame } from "@/components/screen-frame";
 import {
   categoryHasExpenses,
   chooseImageFile,
@@ -34,15 +33,6 @@ import {
 } from "@/modules/ledger";
 
 const DEFAULT_CATEGORY_ID = "sueldo";
-
-type ExpenseRow = {
-  id: string;
-  paidOn: string;
-  categoryId: string;
-  categoryLabel: string;
-  detail: string;
-  amountCents: number;
-};
 
 export default function GastosScreen() {
   const {
@@ -105,7 +95,6 @@ export default function GastosScreen() {
       categoryLabel: expenseCategories.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
     }));
   const agency = expenses.filter((expense) => expense.kind === "agency");
-  const partners = expenses.filter((expense) => expense.kind === "partner-withdrawal");
 
   useEffect(() => {
     if (!photos) {
@@ -146,6 +135,18 @@ export default function GastosScreen() {
     setMessage("");
     scrollToEditForm("gasto-form");
   }
+
+  const editRequest = useLocalSearchParams<{ edit?: string }>().edit;
+  useEffect(() => {
+    const row = editRequest ? expenses.find((expense) => expense.id === editRequest) : undefined;
+    if (!row || readOnly) {
+      return;
+    }
+    startEdit(row);
+    router.setParams({ edit: undefined });
+    // startEdit only sets form state and depends on nothing but the row.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequest, readOnly, snapshot.expenses]);
 
   function cancelEdit() {
     setEditingId(null);
@@ -442,16 +443,6 @@ export default function GastosScreen() {
         photoIds={photos ? photoIds : undefined}
         onOpenPhoto={photos ? (id) => void openPhoto(id) : undefined}
       />
-      <ExpenseTable
-        title="Adelantos y retiros"
-        total={summary.partnerWithdrawalCents}
-        rows={partners}
-        onEdit={startEdit}
-        onRemove={setPendingRemoveExpenseId}
-        editable={!readOnly}
-        photoIds={photos ? photoIds : undefined}
-        onOpenPhoto={photos ? (id) => void openPhoto(id) : undefined}
-      />
       <Dialog visible={formOpen} title={editingCategoryId ? "Editar categoría" : "Nueva categoría"} onClose={closeCategoryForm}>
         <Field label="Nombre">
           <TextField value={categoryLabel} onChangeText={setCategoryLabel} placeholder="Nombre" accessibilityLabel="Nombre de la categoría" />
@@ -539,73 +530,5 @@ export default function GastosScreen() {
         onConfirm={() => void confirmRemoveCategory()}
       />
     </ScreenFrame>
-  );
-}
-
-function ExpenseTable({
-  title,
-  total,
-  rows,
-  onEdit,
-  onRemove,
-  editable = true,
-  photoIds,
-  onOpenPhoto,
-}: {
-  title: string;
-  total: number;
-  rows: ExpenseRow[];
-  onEdit: (row: ExpenseRow) => void;
-  onRemove: (id: string) => void;
-  editable?: boolean;
-  photoIds?: ReadonlySet<string>;
-  onOpenPhoto?: (id: string) => void;
-}) {
-  return (
-    <>
-      <SectionTitle title={title} trailing={<MoneyText cents={total} size="lg" tone="navy" />} />
-      <DataTable
-        columns={[
-          { key: "date", header: "Fecha", compact: true, render: (row) => formatIsoDate(row.paidOn) },
-          { key: "category", header: "Categoría", compact: true, render: (row) => row.categoryLabel },
-          { key: "detail", header: "Detalle", render: (row) => row.detail || "—" },
-          { key: "amount", header: "Monto", align: "right", compact: true, cents: (row) => row.amountCents },
-          ...(editable
-            ? [
-          ...(photoIds && onOpenPhoto
-            ? [
-          {
-            key: "file",
-            header: "Archivo",
-            compact: true,
-            minWidth: 160,
-            padStart: 32,
-            node: (row: ExpenseRow) =>
-              photoIds.has(row.id) ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver imagen"
-                  onPress={() => onOpenPhoto(row.id)}
-                  className="cursor-pointer"
-                >
-                  <Text className="text-[17px] font-semibold text-accent">Ver imagen</Text>
-                </Pressable>
-              ) : null,
-          },
-            ]
-            : []),
-          {
-            key: "actions",
-            header: "",
-            compact: true,
-            align: "right" as const,
-            node: (row: ExpenseRow) => <RowActions onEdit={() => onEdit(row)} onRemove={() => onRemove(row.id)} />,
-          },
-            ]
-            : []),
-        ]}
-        rows={rows}
-      />
-    </>
   );
 }
