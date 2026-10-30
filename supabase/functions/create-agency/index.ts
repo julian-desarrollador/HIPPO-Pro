@@ -317,7 +317,8 @@ Deno.serve(async (req: Request) => {
       return json(400, { message: "No se pudo quitar la agencia." });
     }
     const photosRemoved = await removePhotoFolder(admin, "day-photos", agencyId)
-      && await removePhotoFolder(admin, "deposit-photos", agencyId);
+      && await removePhotoFolder(admin, "deposit-photos", agencyId)
+      && await removePhotoFolder(admin, "expense-photos", agencyId);
     if (!photosRemoved) {
       return json(400, { message: "No se pudo quitar la agencia." });
     }

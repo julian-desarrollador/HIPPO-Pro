@@ -26,6 +26,7 @@ import { AgencyVisitProvider } from "./agency-visit";
 import { CashPhotoProvider } from "./cash-photo-context";
 import { DayPhotoProvider } from "./day-photo-context";
 import { DepositPhotoProvider } from "./deposit-photo-context";
+import { ExpensePhotoProvider } from "./expense-photo-context";
 import { LedgerProvider } from "./ledger-provider";
 import { LotteryProvider } from "./lottery-provider";
 
@@ -602,7 +603,9 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         ) : (
           <DayPhotoProvider client={client}>
             <DepositPhotoProvider client={client}>
-              <CashPhotoProvider client={client}>{pages}</CashPhotoProvider>
+              <CashPhotoProvider client={client}>
+                <ExpensePhotoProvider client={client}>{pages}</ExpensePhotoProvider>
+              </CashPhotoProvider>
             </DepositPhotoProvider>
           </DayPhotoProvider>
         )}

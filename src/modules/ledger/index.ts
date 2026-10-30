@@ -18,6 +18,7 @@ export { chooseImageFile } from "./adapters/inbound/choose-image-file";
 export { useDayPhotos } from "./adapters/inbound/day-photo-context";
 export { useDepositPhotos } from "./adapters/inbound/deposit-photo-context";
 export { useCashPhotos } from "./adapters/inbound/cash-photo-context";
+export { useExpensePhotos } from "./adapters/inbound/expense-photo-context";
 export { dayPhotoProblem, type DayPhotoFile } from "./adapters/outbound/day-photos";
 export {
   completeAmountInput,

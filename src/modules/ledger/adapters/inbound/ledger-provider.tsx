@@ -5,7 +5,7 @@ import type { AgencyMode, AgencyService } from "../../domain/features";
 import type { TerminalServiceSet } from "../../domain/terminal-services";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { listRacetracks, type RacetrackRule } from "../../domain/racetracks";
-import type { CashDay, DailySale, HippodromeDeposit, ScheduleDay, StaffMember, ViewerRole } from "../../domain/types";
+import type { CashDay, DailySale, Expense, HippodromeDeposit, ScheduleDay, StaffMember, ViewerRole } from "../../domain/types";
 import { buildMonthReport } from "../../application/use-cases/build-month-report";
 import {
   addBettor as saveBettor,
@@ -87,7 +87,7 @@ type LedgerContextValue = {
   reportText: string;
   recordDay: (input: RecordDayInput) => Promise<DailySale>;
   recordDeposit: (input: RecordDepositInput) => Promise<HippodromeDeposit>;
-  recordExpense: (input: RecordExpenseInput) => Promise<void>;
+  recordExpense: (input: RecordExpenseInput) => Promise<Expense>;
   updateDay: (input: UpdateDayInput) => Promise<void>;
   updateDeposit: (input: UpdateDepositInput) => Promise<void>;
   updateExpense: (input: UpdateExpenseInput) => Promise<void>;
@@ -289,7 +289,16 @@ export function LedgerProvider({
         }
         return created;
       },
-      recordExpense: (input) => publish(() => saveExpense(repository, input)),
+      recordExpense: async (input) => {
+        let created: Expense | null = null;
+        await publish(() => {
+          created = saveExpense(repository, input);
+        });
+        if (!created) {
+          throw new Error("El gasto no quedó guardado.");
+        }
+        return created;
+      },
       updateDay: (input) => publish(() => saveUpdatedDay(repository, input)),
       updateDeposit: (input) => publish(() => saveUpdatedDeposit(repository, input)),
       updateExpense: (input) => publish(() => saveUpdatedExpense(repository, input)),

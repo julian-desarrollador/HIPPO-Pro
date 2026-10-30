@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { seesLottery } from "../../domain/features";
 import { LedgerError } from "../../domain/errors";
-import { listedLotteryGames, withTicketGames, type LotteryGame, type LotterySnapshot } from "../../domain/lottery";
+import { listedLotteryGames, withTicketGames, type LotteryExpense, type LotteryGame, type LotterySnapshot } from "../../domain/lottery";
 import type { LotteryRepository } from "../../application/ports/lottery-repository";
 import { summarizeAgencyAccount, type AgencyAccount } from "../../application/use-cases/agency-account";
 import {
@@ -84,7 +84,7 @@ type LotteryContextValue = {
   recordDeposit: (input: RecordLotteryDepositInput) => Promise<void>;
   updateDeposit: (input: UpdateLotteryDepositInput) => Promise<void>;
   removeDeposit: (id: string) => Promise<void>;
-  recordExpense: (input: RecordLotteryExpenseInput) => Promise<void>;
+  recordExpense: (input: RecordLotteryExpenseInput) => Promise<LotteryExpense>;
   updateExpense: (input: UpdateLotteryExpenseInput) => Promise<void>;
   removeExpense: (id: string) => Promise<void>;
   updateCommission: (input: UpdateLotteryCommissionInput) => Promise<void>;
@@ -92,6 +92,7 @@ type LotteryContextValue = {
 
 const unavailable = (): Promise<void> => Promise.reject(new Error("La quiniela no está disponible."));
 const unavailableDays = (): Promise<string[]> => Promise.reject(new Error("La quiniela no está disponible."));
+const unavailableExpense = (): Promise<LotteryExpense> => Promise.reject(new Error("La quiniela no está disponible."));
 
 const UNAVAILABLE: LotteryContextValue = {
   status: "unavailable",
@@ -114,7 +115,7 @@ const UNAVAILABLE: LotteryContextValue = {
   recordDeposit: unavailable,
   updateDeposit: unavailable,
   removeDeposit: unavailable,
-  recordExpense: unavailable,
+  recordExpense: unavailableExpense,
   updateExpense: unavailable,
   removeExpense: unavailable,
   updateCommission: unavailable,
@@ -320,7 +321,16 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
       recordDeposit: (input) => run(() => recordLotteryDeposit(repository, input)),
       updateDeposit: (input) => run(() => updateLotteryDeposit(repository, input)),
       removeDeposit: (id) => run(() => removeLotteryDeposit(repository, id)),
-      recordExpense: (input) => run(() => recordLotteryExpense(repository, input)),
+      recordExpense: async (input) => {
+        let created: LotteryExpense | null = null;
+        await publish(() => {
+          created = recordLotteryExpense(repository, input);
+        });
+        if (!created) {
+          throw new Error("El gasto no quedó guardado.");
+        }
+        return created;
+      },
       updateExpense: (input) => run(() => updateLotteryExpense(repository, input)),
       removeExpense: (id) => run(() => removeLotteryExpense(repository, id)),
       updateCommission: (input) => run(() => updateLotteryCommission(repository, input)),

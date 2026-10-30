@@ -16,6 +16,7 @@ import {
   PrimaryButton,
   RowActions,
   SecondaryButton,
+  uploadPreviewHeight,
 } from "@/components/form-controls";
 import { Card, NoRacetracksCard, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
@@ -381,19 +382,21 @@ export default function DepositosScreen() {
         title="Subir imagen"
         contentMaxHeight={Math.max(320, window.height - 180)}
         onClose={closePreview}
+        footer={
+          <>
+            {editingId ? null : <Text className="text-[15px] text-muted">Se sube al registrar el depósito.</Text>}
+            <PrimaryButton label="Confirmar" onPress={() => void confirmPreview()} />
+          </>
+        }
       >
         {photoDraftUrl ? (
           <Image
             source={{ uri: photoDraftUrl }}
             contentFit="contain"
             accessibilityLabel="Vista previa"
-            style={{ width: "100%", height: Math.max(280, window.height - 320) }}
+            style={{ width: "100%", height: uploadPreviewHeight(window.height) }}
           />
         ) : null}
-        {editingId ? null : (
-          <Text className="text-[15px] text-muted">Se sube al registrar el depósito.</Text>
-        )}
-        <PrimaryButton label="Confirmar" onPress={() => void confirmPreview()} />
       </Dialog>
       <Dialog
         wide

@@ -27,6 +27,15 @@ const confirmStyles = StyleSheet.create({
   },
 });
 
+const uploadFooterSpace = 140;
+
+/** Room for the preview inside Subir imagen, with the hint and Confirmar left in view. */
+export function uploadPreviewHeight(windowHeight: number): number {
+  const requested = Math.max(320, windowHeight - 180);
+  const fitted = Math.max(160, Math.floor(windowHeight * 0.85) - 96 - uploadFooterSpace);
+  return Math.max(160, Math.min(requested, fitted) - 16);
+}
+
 const dialogStyles = StyleSheet.create({
   card: {
     width: 420,
@@ -240,6 +249,7 @@ export function Dialog({
   onClose,
   onBack,
   children,
+  footer,
   wide = false,
   contentMaxHeight,
 }: {
@@ -248,6 +258,7 @@ export function Dialog({
   onClose: () => void;
   onBack?: () => void;
   children: ReactNode;
+  footer?: ReactNode;
   wide?: boolean;
   contentMaxHeight?: number;
 }) {
@@ -256,7 +267,8 @@ export function Dialog({
   if (!visible) {
     return null;
   }
-  const fittedBodyMax = Math.max(240, Math.floor(windowHeight * 0.85) - 96);
+  const footerSpace = footer ? uploadFooterSpace : 0;
+  const fittedBodyMax = Math.max(160, Math.floor(windowHeight * 0.85) - 96 - footerSpace);
   const bodyMaxHeight = contentMaxHeight ? Math.min(contentMaxHeight, fittedBodyMax) : fittedBodyMax;
 
   return (
@@ -296,6 +308,7 @@ export function Dialog({
           <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: bodyMaxHeight }}>
             <View className="mt-4 gap-4">{children}</View>
           </ScrollView>
+          {footer ? <View className="mt-4 gap-4">{footer}</View> : null}
         </View>
       </View>
     </Modal>

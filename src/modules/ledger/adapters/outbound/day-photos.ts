@@ -89,6 +89,7 @@ function agencyPhotos(bucket: string): AgencyPhotos {
 const dayPhotos = agencyPhotos("day-photos");
 const depositPhotos = agencyPhotos("deposit-photos");
 const cashPhotos = agencyPhotos("cash-photos");
+const expensePhotos = agencyPhotos("expense-photos");
 
 export const listDayPhotoIds = dayPhotos.list;
 export const uploadDayPhoto = dayPhotos.upload;
@@ -104,3 +105,8 @@ export const listCashPhotoIds = cashPhotos.list;
 export const uploadCashPhoto = cashPhotos.upload;
 export const deleteCashPhoto = cashPhotos.remove;
 export const cashPhotoUrl = cashPhotos.url;
+
+export const listExpensePhotoIds = expensePhotos.list;
+export const uploadExpensePhoto = expensePhotos.upload;
+export const deleteExpensePhoto = expensePhotos.remove;
+export const expensePhotoUrl = expensePhotos.url;

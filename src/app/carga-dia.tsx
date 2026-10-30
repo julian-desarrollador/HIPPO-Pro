@@ -8,7 +8,7 @@ import { monthTitle, openingDate } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
 import { formatIsoDate } from "@/components/format-date";
-import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, RowActions, SecondaryButton } from "@/components/form-controls";
+import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, RowActions, SecondaryButton, uploadPreviewHeight } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
@@ -568,17 +568,21 @@ export default function CombinedLoadScreen() {
         title="Subir imagen"
         contentMaxHeight={Math.max(320, window.height - 180)}
         onClose={closePreview}
+        footer={
+          <>
+            {editingId ? null : <Text className="text-[15px] text-muted">Se sube al cargar el día.</Text>}
+            <PrimaryButton label="Confirmar" onPress={() => void confirmPreview()} />
+          </>
+        }
       >
         {photoDraftUrl ? (
           <Image
             source={{ uri: photoDraftUrl }}
             contentFit="contain"
             accessibilityLabel="Vista previa"
-            style={{ width: "100%", height: Math.max(280, window.height - 320) }}
+            style={{ width: "100%", height: uploadPreviewHeight(window.height) }}
           />
         ) : null}
-        {editingId ? null : <Text className="text-[15px] text-muted">Se sube al cargar el día.</Text>}
-        <PrimaryButton label="Confirmar" onPress={() => void confirmPreview()} />
       </Dialog>
       <Dialog
         wide

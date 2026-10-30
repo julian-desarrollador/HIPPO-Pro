@@ -1,7 +1,7 @@
 -- Checks that agencies cannot read or change each other's book, people,
 -- names, day photos or deposit photos, and that nothing opens without a session.
 -- Run it in the SQL editor after agencies.sql, close-ledger.sql,
--- day-photos.sql, deposit-photos.sql, cash-photos.sql and personal-agencies.sql,
+-- day-photos.sql, deposit-photos.sql, cash-photos.sql, expense-photos.sql and personal-agencies.sql,
 -- and again after any change to a policy.
 -- Everything runs inside one transaction that is rolled back: the test
 -- users, agencies, books and photos never stay. A leak stops the run with
@@ -41,7 +41,10 @@ insert into storage.objects (bucket_id, name) values
   ('deposit-photos', 'aislamiento-propia/deposito'),
   ('cash-photos', 'aislamiento-a/gasto'),
   ('cash-photos', 'aislamiento-b/gasto'),
-  ('cash-photos', 'aislamiento-propia/gasto');
+  ('cash-photos', 'aislamiento-propia/gasto'),
+  ('expense-photos', 'aislamiento-a/gasto'),
+  ('expense-photos', 'aislamiento-b/gasto'),
+  ('expense-photos', 'aislamiento-propia/gasto');
 
 -- A profile or a book cannot point to an agency that does not exist.
 do $$
@@ -106,6 +109,13 @@ begin
     select count(*) into n from storage.objects where bucket_id = 'cash-photos';
     if n <> 0 then
       raise exception 'FUGA: sin sesión se ven % imágenes de caja', n;
+    end if;
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    select count(*) into n from storage.objects where bucket_id = 'expense-photos';
+    if n <> 0 then
+      raise exception 'FUGA: sin sesión se ven % imágenes de gastos', n;
     end if;
   exception when insufficient_privilege then null;
   end;
@@ -313,6 +323,35 @@ begin
     if n <> 0 then
       raise exception 'FUGA: % se lleva la imagen de caja de %', pair.mine, pair.other;
     end if;
+
+    -- Expense photos.
+    select count(*) into n from storage.objects
+    where bucket_id = 'expense-photos' and name = pair.mine || '/gasto';
+    if n <> 1 then
+      raise exception 'La prueba no anda: % no ve su propia imagen de gasto', pair.mine;
+    end if;
+    select count(*) into n from storage.objects as photo
+    where photo.bucket_id = 'expense-photos'
+      and (storage.foldername(photo.name))[1] is distinct from pair.mine
+      and not exists (
+        select 1 from public.agencies as agency
+        where agency.agency_id = (storage.foldername(photo.name))[1]
+          and agency.personal_user_id = pair.me
+      );
+    if n <> 0 then
+      raise exception 'FUGA: % ve % imágenes de gastos de otras agencias', pair.mine, n;
+    end if;
+    begin
+      insert into storage.objects (bucket_id, name) values ('expense-photos', pair.other || '/intruso');
+      raise exception 'FUGA: % sube una imagen de gasto en la carpeta de %', pair.mine, pair.other;
+    exception when insufficient_privilege then null;
+    end;
+    update storage.objects set name = pair.mine || '/robada-gasto'
+    where bucket_id = 'expense-photos' and name = pair.other || '/gasto';
+    get diagnostics n = row_count;
+    if n <> 0 then
+      raise exception 'FUGA: % se lleva la imagen de gasto de %', pair.mine, pair.other;
+    end if;
   end loop;
 end;
 $$;
@@ -356,6 +395,11 @@ begin
   if n <> 1 then
     raise exception 'La prueba no anda: el dueño no ve la imagen de caja de su agencia de prueba';
   end if;
+  select count(*) into n from storage.objects
+  where bucket_id = 'expense-photos' and name = 'aislamiento-propia/gasto';
+  if n <> 1 then
+    raise exception 'La prueba no anda: el dueño no ve la imagen de gasto de su agencia de prueba';
+  end if;
   select count(*) into n from public.ledgers where agency_id = 'aislamiento-b';
   if n <> 0 then
     raise exception 'FUGA: el dueño de una prueba lee el libro de otra agencia';
@@ -391,6 +435,11 @@ begin
   if n <> 0 then
     raise exception 'FUGA: otra persona ve la imagen de caja de la agencia de prueba';
   end if;
+  select count(*) into n from storage.objects
+  where bucket_id = 'expense-photos' and name = 'aislamiento-propia/gasto';
+  if n <> 0 then
+    raise exception 'FUGA: otra persona ve la imagen de gasto de la agencia de prueba';
+  end if;
   begin
     insert into storage.objects (bucket_id, name) values ('day-photos', 'aislamiento-propia/intruso');
     raise exception 'FUGA: otra persona sube una imagen en la agencia de prueba';
@@ -404,6 +453,11 @@ begin
   begin
     insert into storage.objects (bucket_id, name) values ('cash-photos', 'aislamiento-propia/intruso');
     raise exception 'FUGA: otra persona sube una imagen de caja en la agencia de prueba';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name) values ('expense-photos', 'aislamiento-propia/intruso');
+    raise exception 'FUGA: otra persona sube una imagen de gasto en la agencia de prueba';
   exception when insufficient_privilege then null;
   end;
 end;
