@@ -1,6 +1,7 @@
 import { LedgerError } from "../../domain/errors";
 import { isBuiltinRacetrack, listRacetracks, RACETRACKS, racetrackHasMovements, racetrackIdFromName } from "../../domain/racetracks";
-import type { AgencyRacetrack, RacetrackCommission } from "../../domain/types";
+import type { Cents } from "../../domain/money";
+import type { AgencyRacetrack, LedgerSnapshot, OpeningBalance, RacetrackCommission } from "../../domain/types";
 import { assertAdjustmentBasisPoints, assertCommissionBasisPoints } from "../../domain/validation";
 import type { LedgerRepository } from "../ports/ledger-repository";
 
@@ -8,7 +9,35 @@ export type AddRacetrackInput = {
   name: string;
   commissionBasisPoints: number;
   depositAdjustmentBasisPoints: number;
+  /**
+   * What was owed to the racetrack when the agency started the book, at the start of
+   * snapshot.month. Positive: the agency owes. Negative: the racetrack owes. It carries
+   * no commission. Missing keeps the stored value.
+   */
+  openingCents?: Cents;
 };
+
+/** The starting balance with a racetrack, at the start of the book's first month. */
+export function racetrackOpeningCents(snapshot: Pick<LedgerSnapshot, "openingBalances">, racetrackId: string): Cents {
+  return snapshot.openingBalances
+    .filter((opening) => opening.racetrackId === racetrackId)
+    .reduce((total, opening) => total + opening.amountCents, 0);
+}
+
+function withOpening(
+  openingBalances: readonly OpeningBalance[],
+  racetrackId: string,
+  openingCents: Cents | undefined,
+): OpeningBalance[] {
+  if (openingCents === undefined) {
+    return openingBalances.slice();
+  }
+  if (!Number.isSafeInteger(openingCents)) {
+    throw new LedgerError("invalid-amount");
+  }
+  const others = openingBalances.filter((opening) => opening.racetrackId !== racetrackId);
+  return openingCents === 0 ? others : [...others, { racetrackId, amountCents: openingCents }];
+}
 
 function comparableName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
@@ -50,6 +79,7 @@ export function addRacetrack(repository: LedgerRepository, input: AddRacetrackIn
       racetracks: [...(snapshot.racetracks ?? []).filter((racetrack) => racetrack.id !== hiddenBuiltin.id), restored],
       commissions: withCommission(snapshot.commissions, hiddenBuiltin.id, input.commissionBasisPoints),
       hiddenRacetrackIds: (snapshot.hiddenRacetrackIds ?? []).filter((hiddenId) => hiddenId !== hiddenBuiltin.id),
+      openingBalances: withOpening(snapshot.openingBalances, hiddenBuiltin.id, input.openingCents),
     });
     return restored;
   }
@@ -64,7 +94,11 @@ export function addRacetrack(repository: LedgerRepository, input: AddRacetrackIn
     commissionBasisPoints: input.commissionBasisPoints,
     depositAdjustmentBasisPoints: input.depositAdjustmentBasisPoints,
   };
-  repository.save({ ...snapshot, racetracks: [...(snapshot.racetracks ?? []), racetrack] });
+  repository.save({
+    ...snapshot,
+    racetracks: [...(snapshot.racetracks ?? []), racetrack],
+    openingBalances: withOpening(snapshot.openingBalances, id, input.openingCents),
+  });
   return racetrack;
 }
 
@@ -122,6 +156,7 @@ export function updateRacetrack(repository: LedgerRepository, input: UpdateRacet
     ...snapshot,
     racetracks,
     commissions: withCommission(snapshot.commissions, input.id, input.commissionBasisPoints),
+    openingBalances: withOpening(snapshot.openingBalances, input.id, input.openingCents),
   });
   return racetrack;
 }
@@ -143,6 +178,7 @@ export function removeRacetrack(repository: LedgerRepository, id: string): void 
     ...snapshot,
     racetracks: (snapshot.racetracks ?? []).filter((racetrack) => racetrack.id !== id),
     commissions: snapshot.commissions?.filter((item) => item.racetrackId !== id),
+    openingBalances: snapshot.openingBalances.filter((opening) => opening.racetrackId !== id),
     hiddenRacetrackIds,
   });
 }

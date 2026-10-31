@@ -12,6 +12,7 @@ import { describeLotteryChange, withLotteryAudit } from "./lottery-audit";
 import { recordLotteryDeposit, removeLotteryDeposit } from "./lottery-deposits";
 import { recordLotteryExpense } from "./lottery-expenses";
 import { updateLotteryCommission } from "./lottery-games";
+import { lotteryStartingStep, postponeLotteryOpening, setLotteryOpening } from "./lottery-opening";
 import { previewLotteryDay, recordLotteryDay, removeLotteryDay, updateLotteryDay } from "./lottery-sales";
 import { combineAgencyMonth, listLotteryDays, summarizeLotteryMonth } from "./lottery-summary";
 import { summarizeMonth } from "./summarize-month";
@@ -391,5 +392,75 @@ describe("quiniela: libro en la base", () => {
     activateLottery(other, { agencyId: "agencia-dolores", role: "owner", actorName: "Fede", at, month: "2026-10" });
     await lotterySync(other);
     await assert.rejects(openLotteryLedger(remote, "otra-agencia"), hasCode("save-failed"));
+  });
+});
+
+describe("quiniela: estado de cuenta inicial", () => {
+  it("una quiniela recién activada pide el saldo inicial", () => {
+    const snapshot = activeRepository().load();
+    assert.ok(snapshot);
+    assert.equal(lotteryStartingStep(snapshot), "welcome");
+  });
+
+  it("el saldo inicial entra en lo que se debe a la lotería, sin comisión", () => {
+    const repository = activeRepository();
+    const before = repository.load();
+    setLotteryOpening(repository, { role: "owner", openingCents: 150_000_000, at });
+    const after = repository.load();
+    assert.ok(before && after);
+    assert.equal(lotteryStartingStep(after), null);
+    const summary = summarizeLotteryMonth(after, "2026-10");
+    assert.equal(summary.openingCents, 150_000_000);
+    assert.equal(summary.owedCents, 150_000_000);
+    assert.equal(summary.commissionCents, 0);
+    assert.match(describeLotteryChange(before, after) ?? "", /saldo inicial con la lotería/);
+  });
+
+  it("si la lotería le debe a la agencia, el saldo es negativo", () => {
+    const repository = activeRepository();
+    setLotteryOpening(repository, { role: "owner", openingCents: -20_000_000, at });
+    const snapshot = repository.load();
+    assert.ok(snapshot);
+    assert.equal(summarizeLotteryMonth(snapshot, "2026-10").owedCents, -20_000_000);
+  });
+
+  it("hacerlo luego deja el recordatorio y el operador no puede cargarlo", () => {
+    const repository = activeRepository();
+    assert.throws(() => setLotteryOpening(repository, { role: "operator", openingCents: 1, at }), hasCode("lottery-owner-only"));
+    postponeLotteryOpening(repository, { role: "owner", at });
+    const snapshot = repository.load();
+    assert.ok(snapshot);
+    assert.equal(lotteryStartingStep(snapshot), "reminder");
+  });
+
+  it("con ventas cargadas ya no aparece la bienvenida", () => {
+    const repository = activeRepository();
+    recordLotteryDay(repository, { date: "2026-10-21", terminalId: "1", amounts: hundredThousandEach });
+    const snapshot = repository.load();
+    assert.ok(snapshot);
+    assert.equal(lotteryStartingStep(snapshot), null);
+  });
+});
+
+describe("quiniela: mes desde el que carga", () => {
+  it("si empieza en septiembre, lo de septiembre pasa a octubre y lo de antes no", () => {
+    const repository = activeRepository();
+    setLotteryOpening(repository, { role: "owner", openingCents: 50_000_000, startMonth: "2026-09", at });
+    recordLotteryDay(repository, { date: "2026-09-10", terminalId: "1", amounts: hundredThousandEach });
+    recordLotteryDay(repository, { date: "2026-08-10", terminalId: "1", amounts: hundredThousandEach });
+    const snapshot = repository.load();
+    assert.ok(snapshot);
+    const september = summarizeLotteryMonth(snapshot, "2026-09");
+    assert.equal(september.openingCents, 50_000_000);
+    assert.equal(summarizeLotteryMonth(snapshot, "2026-10").openingCents, september.owedCents);
+    assert.equal(summarizeLotteryMonth(snapshot, "2026-08").openingCents, 0);
+  });
+
+  it("no puede empezar después del mes de activación", () => {
+    const repository = activeRepository();
+    assert.throws(
+      () => setLotteryOpening(repository, { role: "owner", openingCents: 0, startMonth: "2026-11", at }),
+      hasCode("invalid-start-month"),
+    );
   });
 });

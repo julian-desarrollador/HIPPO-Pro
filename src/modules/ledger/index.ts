@@ -1,8 +1,8 @@
-export { canViewAgencyBalances } from "./domain/access";
+export { canViewAgencyBalances, canViewPartnerWithdrawals } from "./domain/access";
 export { bettorHasMovements } from "./domain/bettor-account";
 export { settleDay } from "./domain/calculations";
 export type { DaySettlement } from "./domain/calculations";
-export { EXPENSE_CATEGORIES, categoryHasExpenses, listExpenseCategories } from "./domain/expense-categories";
+export { EXPENSE_CATEGORIES, categoryHasExpenses, expenseCategoriesFor, listExpenseCategories } from "./domain/expense-categories";
 export { formatCents, formatSignedPercent } from "./domain/money";
 export { RACETRACKS, currentCommissionBasisPoints, listRacetracks, racetrackHasMovements } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
@@ -33,6 +33,9 @@ export {
 export type { BettorAccount, BettorTotals } from "./application/use-cases/summarize-bettors";
 export { findBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./application/use-cases/summarize-bettors";
 export type { SettledDay } from "./application/use-cases/summarize-month";
+export { racetrackOpeningCents } from "./application/use-cases/manage-racetracks";
+export { sumStartingBalances } from "./application/use-cases/start-book";
+export type { StartingBalancesStep, StartingRacetrackInput } from "./application/use-cases/start-book";
 export { totalAmounts, totalSettledDays } from "./application/use-cases/table-totals";
 export { buildDayReport,emptyDayReportMessage } from "./application/use-cases/build-day-report";
 export { HIPICA_GAME_ID, TERMINAL_IDS } from "./domain/lottery";

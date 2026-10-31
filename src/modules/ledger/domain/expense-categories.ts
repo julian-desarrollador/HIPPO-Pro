@@ -1,4 +1,5 @@
-import type { AgencyExpenseCategory, CategoryLabel, ExpenseKind, LedgerSnapshot } from "./types";
+import type { AgencyExpenseCategory, CategoryLabel, ExpenseKind, LedgerSnapshot, ViewerRole } from "./types";
+import { canViewPartnerWithdrawals } from "./access";
 import { LedgerError } from "./errors";
 
 export type ExpenseCategory = {
@@ -88,4 +89,9 @@ export function getExpenseCategory(id: string, source?: CategoryCatalog | readon
     throw new LedgerError("unknown-category");
   }
   return found;
+}
+
+/** The operator only sees agency categories. Owner advances and withdrawals stay hidden. */
+export function expenseCategoriesFor(role: ViewerRole, categories: readonly ExpenseCategory[]): readonly ExpenseCategory[] {
+  return canViewPartnerWithdrawals(role) ? categories : categories.filter((category) => category.kind === "agency");
 }

@@ -140,8 +140,19 @@ function diffExpenses(before: LotterySnapshot, after: LotterySnapshot): string[]
   return lines;
 }
 
+function diffOpening(before: LotterySnapshot, after: LotterySnapshot): string[] {
+  const lines: string[] = [];
+  if (before.startingBalances?.status !== "done" && after.startingBalances?.status === "done") {
+    lines.push(`Cargó el saldo inicial con la lotería: ${formatCents(after.openingCents)}.`);
+  } else if (before.openingCents !== after.openingCents) {
+    lines.push(`El saldo inicial con la lotería pasó de ${formatCents(before.openingCents)} a ${formatCents(after.openingCents)}.`);
+  }
+  return lines;
+}
+
 export function describeLotteryChange(before: LotterySnapshot, after: LotterySnapshot): string | null {
   const lines = [
+    ...diffOpening(before, after),
     ...diffGames(before, after),
     ...diffDays(before, after),
     ...diffDeposits(before, after),

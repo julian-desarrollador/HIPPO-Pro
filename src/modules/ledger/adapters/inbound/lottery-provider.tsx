@@ -17,6 +17,8 @@ import {
   type RecordAgencyDayInput,
 } from "../../application/use-cases/agency-day";
 import { activateLottery } from "../../application/use-cases/lottery-activate";
+import { lotteryStartingStep, postponeLotteryOpening, setLotteryOpening } from "../../application/use-cases/lottery-opening";
+import type { StartingBalancesStep } from "../../application/use-cases/start-book";
 import { withLotteryAudit } from "../../application/use-cases/lottery-audit";
 import {
   recordLotteryDeposit,
@@ -88,6 +90,10 @@ type LotteryContextValue = {
   updateExpense: (input: UpdateLotteryExpenseInput) => Promise<void>;
   removeExpense: (id: string) => Promise<void>;
   updateCommission: (input: UpdateLotteryCommissionInput) => Promise<void>;
+  /** Only the owner answers the welcome. Operators and read-only visits get null. */
+  startingStep: StartingBalancesStep;
+  setOpening: (openingCents: number, startMonth?: string) => Promise<void>;
+  postponeOpening: () => Promise<void>;
 };
 
 const unavailable = (): Promise<void> => Promise.reject(new Error("La quiniela no está disponible."));
@@ -119,6 +125,9 @@ const UNAVAILABLE: LotteryContextValue = {
   updateExpense: unavailable,
   removeExpense: unavailable,
   updateCommission: unavailable,
+  startingStep: null,
+  setOpening: unavailable,
+  postponeOpening: unavailable,
 };
 
 const LotteryContext = createContext<LotteryContextValue>(UNAVAILABLE);
@@ -334,6 +343,10 @@ export function LotteryProvider({ open, children }: { open: OpenLottery | null; 
       updateExpense: (input) => run(() => updateLotteryExpense(repository, input)),
       removeExpense: (id) => run(() => removeLotteryExpense(repository, id)),
       updateCommission: (input) => run(() => updateLotteryCommission(repository, input)),
+      startingStep: snapshot && role === "owner" && !readOnly ? lotteryStartingStep(snapshot) : null,
+      setOpening: (openingCents, startMonth) =>
+        run(() => setLotteryOpening(repository, { role, openingCents, startMonth, at: new Date().toISOString() })),
+      postponeOpening: () => run(() => postponeLotteryOpening(repository, { role, at: new Date().toISOString() })),
     };
   }, [agencyId, available, commitRacing, current, displayName, racingBook, racingSummary, readOnly, role, version, viewMonth]);
 

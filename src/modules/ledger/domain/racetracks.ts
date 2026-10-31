@@ -78,9 +78,15 @@ export function isBuiltinRacetrack(id: string): boolean {
   return RACETRACKS.some((racetrack) => racetrack.id === id);
 }
 
-export function racetrackHasMovements(snapshot: Pick<LedgerSnapshot, "days" | "deposits">, id: string): boolean {
+/** Days, deposits or a starting balance. Removing the racetrack would lose them. */
+export function racetrackHasMovements(
+  snapshot: Pick<LedgerSnapshot, "days" | "deposits" | "openingBalances">,
+  id: string,
+): boolean {
   return (
-    snapshot.days.some((day) => day.racetrackId === id) || snapshot.deposits.some((deposit) => deposit.racetrackId === id)
+    snapshot.days.some((day) => day.racetrackId === id) ||
+    snapshot.deposits.some((deposit) => deposit.racetrackId === id) ||
+    snapshot.openingBalances.some((opening) => opening.racetrackId === id && opening.amountCents !== 0)
   );
 }
 

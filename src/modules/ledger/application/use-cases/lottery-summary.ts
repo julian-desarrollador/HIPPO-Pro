@@ -93,11 +93,14 @@ export function summarizeLotteryMonth(snapshot: LotterySnapshot, month: string):
   const sales = ownSales(snapshot);
   const monthSales = sales.filter((sale) => sale.date.startsWith(month));
   const deposits = snapshot.deposits.filter((deposit) => deposit.agencyId === snapshot.agencyId);
-  const earlierSales = sales.filter((sale) => sale.date.slice(0, 7) < month);
+  // The account starts at snapshot.month with openingCents. Earlier months are history only, as in racing.
+  const carried = (date: string) => date.slice(0, 7) >= snapshot.month && date.slice(0, 7) < month;
+  const earlierSales = sales.filter((sale) => carried(sale.date));
   const earlierDeposits = deposits
-    .filter((deposit) => deposit.date.slice(0, 7) < month)
+    .filter((deposit) => carried(deposit.date))
     .reduce((total, deposit) => total + deposit.amountCents, 0);
-  const openingCents = snapshot.openingCents + toDeposit(earlierSales) - earlierDeposits;
+  const openingCents =
+    month < snapshot.month ? 0 : snapshot.openingCents + toDeposit(earlierSales) - earlierDeposits;
   const depositsCents = deposits
     .filter((deposit) => deposit.date.startsWith(month))
     .reduce((total, deposit) => total + deposit.amountCents, 0);

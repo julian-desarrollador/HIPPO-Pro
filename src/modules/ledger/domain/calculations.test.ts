@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { canViewAgencyBalances } from "./access";
 import { settleDay } from "./calculations";
+import { EXPENSE_CATEGORIES, expenseCategoriesFor } from "./expense-categories";
 import { formatCents, formatSignedPercent } from "./money";
 
 describe("settleDay", () => {
@@ -86,6 +87,19 @@ describe("canViewAgencyBalances", () => {
   it("el operador no ve los saldos de la agencia", () => {
     assert.equal(canViewAgencyBalances("operator"), false);
     assert.equal(canViewAgencyBalances("owner"), true);
+  });
+});
+
+describe("expenseCategoriesFor", () => {
+  it("el operador no ve las categorías de adelantos y retiros de los dueños", () => {
+    const operator = expenseCategoriesFor("operator", EXPENSE_CATEGORIES);
+    assert.ok(operator.length > 0);
+    assert.ok(operator.every((category) => category.kind === "agency"));
+    assert.ok(!operator.some((category) => category.id === "retiro-sag-fede" || category.id === "adelanto-mati"));
+  });
+
+  it("el dueño ve todas las categorías", () => {
+    assert.equal(expenseCategoriesFor("owner", EXPENSE_CATEGORIES).length, EXPENSE_CATEGORIES.length);
   });
 });
 

@@ -1,6 +1,6 @@
 import { LedgerError } from "./errors";
 import { applyBasisPoints, type Cents } from "./money";
-import type { AuditEntry, ExpenseKind, TerminalId } from "./types";
+import type { AuditEntry, ExpenseKind, StartingBalancesState, TerminalId } from "./types";
 
 export type LotteryGameId = string;
 
@@ -52,9 +52,11 @@ export type LotterySnapshot = {
   sales: LotterySale[];
   deposits: LotteryDeposit[];
   expenses: LotteryExpense[];
-  /** Owed to the lottery before the first sale. */
+  /** Owed to the lottery before the first sale. Positive: the agency owes. Negative: the lottery owes. */
   openingCents: Cents;
   audit: AuditEntry[];
+  /** The welcome with the starting balance. Missing: not answered yet. */
+  startingBalances?: StartingBalancesState;
 };
 
 /** Ticket order. The first seven rates come from one ticket. The last four are a provisional 14% until the owner confirms them. */

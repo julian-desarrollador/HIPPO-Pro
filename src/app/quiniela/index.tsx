@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
+import { monthTitle } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { Dialog, Feedback, Field, PrimaryButton, SecondaryButton, TextField } from "@/components/form-controls";
 import { LotteryGate } from "@/components/lottery-gate";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
+import { LotteryOpeningForm, LotteryWelcome } from "@/components/starting-balances";
+import { WelcomeCelebration, WelcomeReminder } from "@/components/welcome-hero";
 import { StatCard } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
@@ -26,8 +29,8 @@ export default function LotteryHomeScreen() {
 }
 
 function LotteryHome() {
-  const { canViewBalances, readOnly, agencyMode } = useLedger();
-  const { account, games, updateCommission } = useLottery();
+  const { canViewBalances, readOnly, agencyMode, agencyName } = useLedger();
+  const { account, games, updateCommission, snapshot, startingStep, setOpening, postponeOpening } = useLottery();
   const wide = useWindowDimensions().width >= wideLayout;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [percent, setPercent] = useState("");
@@ -35,8 +38,12 @@ function LotteryHome() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [listOpen, setListOpen] = useState(false);
+  const [openingOpen, setOpeningOpen] = useState(false);
+  const [resumeStart, setResumeStart] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const showWelcome = startingStep === "welcome" || (startingStep === "reminder" && resumeStart);
 
-  if (!account) {
+  if (!account || !snapshot) {
     return null;
   }
 
@@ -88,10 +95,30 @@ function LotteryHome() {
 
   return (
     <ScreenFrame title="Inicio">
-      <Card>
-        <Text className="font-sans text-[24px] font-semibold text-navy">Bienvenido a HippoPro</Text>
-      </Card>
-      {canViewBalances ? (
+      {celebrating ? (
+        <WelcomeCelebration kind="lottery" agencyName={agencyName} onClose={() => setCelebrating(false)} />
+      ) : showWelcome ? (
+        <LotteryWelcome
+          agencyName={agencyName}
+          openedMonth={snapshot.month}
+          onStart={async (openingCents, startMonth) => {
+            await setOpening(openingCents, startMonth);
+            setResumeStart(false);
+            setCelebrating(true);
+          }}
+          onPostpone={async () => {
+            await postponeOpening();
+            setResumeStart(false);
+          }}
+        />
+      ) : startingStep === "reminder" ? (
+        <WelcomeReminder kind="lottery" onStart={() => setResumeStart(true)} />
+      ) : (
+        <Card>
+          <Text className="font-sans text-[24px] font-semibold text-navy">Bienvenido a HippoPro</Text>
+        </Card>
+      )}
+      {celebrating || showWelcome ? null : canViewBalances ? (
         <>
           <View className={wide ? "flex-row flex-wrap gap-4" : "gap-4"}>
             <StatCard label="Venta neta" cents={account.netCents} />
@@ -127,16 +154,46 @@ function LotteryHome() {
             }}
           />
           {readOnly ? null : (
-            <SecondaryButton
-              className="self-start"
-              label="Editar porcentajes"
-              onPress={() => {
-                setMessage("");
-                setListOpen(true);
-              }}
-            />
+            <View className="flex-row flex-wrap items-center gap-4">
+              <SecondaryButton
+                className="self-start"
+                label="Editar porcentajes"
+                onPress={() => {
+                  setMessage("");
+                  setListOpen(true);
+                }}
+              />
+              <SecondaryButton
+                className="self-start"
+                label="Editar saldo inicial"
+                onPress={() => {
+                  setMessage("");
+                  setOpeningOpen(true);
+                }}
+              />
+            </View>
           )}
           <Feedback message={message} />
+          <Dialog visible={openingOpen} title="Saldo inicial" onClose={() => setOpeningOpen(false)}>
+            {openingOpen ? (
+              <>
+                <Text className="text-[15px] leading-5 text-muted">
+                  Lo que había con la lotería al empezar {monthTitle(snapshot.month).toLocaleLowerCase("es")}. No lleva comisión.
+                </Text>
+                <LotteryOpeningForm
+                  initialCents={snapshot.openingCents}
+                  primaryLabel="Guardar"
+                  onSubmit={async (openingCents) => {
+                    await setOpening(openingCents);
+                    setOpeningOpen(false);
+                    setMessage("Saldo inicial guardado.");
+                  }}
+                  secondaryLabel="Cancelar"
+                  onSecondary={() => setOpeningOpen(false)}
+                />
+              </>
+            ) : null}
+          </Dialog>
           <Dialog visible={listOpen} title="Porcentajes" onClose={() => setListOpen(false)}>
             {listed.map((game) => (
               <View key={game.id} className="flex-row items-center justify-between gap-3">

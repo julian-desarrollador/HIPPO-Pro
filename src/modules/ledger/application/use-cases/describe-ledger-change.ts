@@ -5,6 +5,7 @@ import { formatCents, formatSignedPercent } from "../../domain/money";
 import { currentCommissionBasisPoints, listRacetracks } from "../../domain/racetracks";
 import type { AuditEntry, BettorPlay, CashIncome, LedgerSnapshot, ViewerRole } from "../../domain/types";
 import { createId } from "../create-id";
+import { racetrackOpeningCents } from "./manage-racetracks";
 
 function formatDay(iso: string): string {
   const [year, month, day] = iso.split("-");
@@ -47,11 +48,20 @@ function diffRacetracks(before: LedgerSnapshot, after: LedgerSnapshot): { lines:
 
   for (const [id, track] of next) {
     const old = previous.get(id);
+    const oldOpening = racetrackOpeningCents(before, id);
+    const newOpening = racetrackOpeningCents(after, id);
     if (!old) {
-      lines.push(`Agregó el hipódromo ${track.name}.`);
+      lines.push(
+        newOpening === 0 || oldOpening === newOpening
+          ? `Agregó el hipódromo ${track.name}.`
+          : `Agregó el hipódromo ${track.name} con saldo inicial de ${formatCents(newOpening)}.`,
+      );
       continue;
     }
     const clauses: string[] = [];
+    if (oldOpening !== newOpening) {
+      clauses.push(`El saldo inicial pasó de ${formatCents(oldOpening)} a ${formatCents(newOpening)}.`);
+    }
     if (old.name !== track.name) {
       clauses.push(`El nombre pasó a ${track.name}.`);
     }
@@ -67,7 +77,7 @@ function diffRacetracks(before: LedgerSnapshot, after: LedgerSnapshot): { lines:
         `El ajuste pasó de ${formatSignedPercent(old.depositAdjustmentBasisPoints)} a ${formatSignedPercent(track.depositAdjustmentBasisPoints)}.`,
       );
     }
-    if (clauses.length === 1 && oldCommission !== newCommission && old.name === track.name && !adjustmentChanged) {
+    if (clauses.length === 1 && oldCommission !== newCommission && old.name === track.name && !adjustmentChanged && oldOpening === newOpening) {
       lines.push(
         `Cambió la comisión de ${old.name} de ${formatSignedPercent(oldCommission)} a ${formatSignedPercent(newCommission)}.`,
       );
@@ -427,8 +437,13 @@ function diffPayments(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
 }
 
 export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapshot): string | null {
+  const startedBook =
+    before.startingBalances?.status !== "done" && after.startingBalances?.status === "done"
+      ? ["Cargó el estado de cuenta inicial."]
+      : [];
   const racetracks = diffRacetracks(before, after);
   const lines = [
+    ...startedBook,
     ...racetracks.lines,
     ...diffCommissions(before, after, racetracks.editedIds),
     ...diffDays(before, after),

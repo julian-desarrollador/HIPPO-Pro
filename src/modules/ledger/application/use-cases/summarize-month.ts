@@ -2,6 +2,7 @@ import { settleDay } from "../../domain/calculations";
 import { getRacetrack, isBuiltinRacetrack, listRacetracks } from "../../domain/racetracks";
 import type { Cents } from "../../domain/money";
 import type { DailySale, LedgerSnapshot, RacetrackId } from "../../domain/types";
+import { racetrackOpeningCents } from "./manage-racetracks";
 
 function settleSnapshotDay(
   snapshot: LedgerSnapshot,
@@ -77,12 +78,6 @@ function nextMonth(month: string): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function storedOpening(snapshot: LedgerSnapshot, racetrackId: RacetrackId): Cents {
-  return snapshot.openingBalances
-    .filter((opening) => opening.racetrackId === racetrackId)
-    .reduce((total, opening) => total + opening.amountCents, 0);
-}
-
 function movementCents(snapshot: LedgerSnapshot, month: string, racetrackId: RacetrackId): Cents {
   const generated = snapshot.days
     .filter((day) => day.agencyId === snapshot.agencyId && day.racetrackId === racetrackId && day.date.startsWith(month))
@@ -106,7 +101,7 @@ function openingCents(snapshot: LedgerSnapshot, month: string, racetrackId: Race
     return 0;
   }
   let cursor = snapshot.month;
-  let carried = storedOpening(snapshot, racetrackId);
+  let carried = racetrackOpeningCents(snapshot, racetrackId);
   let guard = 0;
   while (cursor < month && guard < 240) {
     carried += movementCents(snapshot, cursor, racetrackId);

@@ -18,6 +18,9 @@ import { updateDay } from "./update-day";
 import { updateDeposit } from "./update-deposit";
 import { updateExpense } from "./update-expense";
 import { createInMemoryLedgerRepository } from "../../adapters/outbound/in-memory-ledger-repository";
+import { createEmptyAgencySnapshot } from "../../adapters/outbound/starting-snapshot";
+import { describeLedgerChange } from "./describe-ledger-change";
+import { postponeStartingBalances, racingStartingStep, startRacingBook, sumStartingBalances } from "./start-book";
 
 describe("terminales del mismo día", () => {
   it("guarda dos terminales, suma el neto y cuenta una reunión", () => {
@@ -457,13 +460,21 @@ describe("hipódromos agregados", () => {
     assert.equal(stillAugust.owedCents, before.owedCents);
   });
 
-  it("quita un hipódromo fijo solo si no tiene días ni depósitos y no vuelve a la lista", () => {
+  it("quita un hipódromo fijo solo si no tiene días, depósitos ni saldo inicial y no vuelve a la lista", () => {
     const repository = createInMemoryLedgerRepository();
     const snapshot = repository.load();
     repository.save({
       ...snapshot,
       days: snapshot.days.filter((day) => day.racetrackId !== "san-isidro"),
       deposits: snapshot.deposits.filter((deposit) => deposit.racetrackId !== "san-isidro"),
+    });
+    assert.throws(
+      () => removeRacetrack(repository, "san-isidro"),
+      (error: unknown) => error instanceof LedgerError && error.code === "racetrack-in-use",
+    );
+    repository.save({
+      ...repository.load(),
+      openingBalances: repository.load().openingBalances.filter((opening) => opening.racetrackId !== "san-isidro"),
     });
     removeRacetrack(repository, "san-isidro");
     assert.equal(
@@ -776,5 +787,221 @@ describe("cuentas de apostadores", () => {
       (repository.load().bettors ?? []).some((item) => item.id === bettor.id),
       false,
     );
+  });
+});
+
+describe("saldo inicial con cada hipódromo", () => {
+  function newAgency() {
+    return createInMemoryLedgerRepository(createEmptyAgencySnapshot("agencia-prueba", new Date(2026, 9, 15)));
+  }
+
+  it("una agencia nueva arranca con lo que debe a cada hipódromo, sin comisión", () => {
+    const repository = newAgency();
+    addRacetrack(repository, { name: "San Isidro", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: 100_000_000 });
+    addRacetrack(repository, { name: "Palermo", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: 200_000_000 });
+    addRacetrack(repository, { name: "La Plata", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: 50_000_000 });
+
+    const summary = summarizeMonth(repository.load(), "2026-10");
+    assert.equal(summary.owedCents, 350_000_000);
+    assert.equal(summary.billingCents, 0);
+    assert.equal(summary.balanceCents, 0);
+    const palermo = summary.racetracks.find((track) => track.racetrackId === "palermo");
+    assert.equal(palermo?.openingCents, 200_000_000);
+    assert.equal(palermo?.commissionCents, 0);
+  });
+
+  it("lo cargado después suma al saldo inicial y el mes siguiente lo arrastra", () => {
+    const repository = newAgency();
+    addRacetrack(repository, { name: "La Plata", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: 50_000_000 });
+    recordDay(repository, { date: "2026-10-20", racetrackId: "la-plata", soldCents: 10_000_000, cancelledCents: 0, paidCents: 0 });
+    recordDeposit(repository, { date: "2026-10-21", racetrackId: "la-plata", amountCents: 20_000_000 });
+
+    const october = summarizeMonth(repository.load(), "2026-10").racetracks.find((track) => track.racetrackId === "la-plata");
+    assert.ok(october);
+    assert.equal(october.owedCents, 50_000_000 + october.amountToDepositCents - 20_000_000);
+    const november = summarizeMonth(repository.load(), "2026-11").racetracks.find((track) => track.racetrackId === "la-plata");
+    assert.equal(november?.openingCents, october.owedCents);
+  });
+
+  it("un saldo negativo es lo que el hipódromo le debe a la agencia", () => {
+    const repository = newAgency();
+    addRacetrack(repository, { name: "Palermo", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: -30_000_000 });
+    assert.equal(summarizeMonth(repository.load(), "2026-10").owedCents, -30_000_000);
+  });
+
+  it("editar sin saldo lo conserva y en cero lo borra; con saldo no se puede quitar", () => {
+    const repository = newAgency();
+    const track = addRacetrack(repository, { name: "Palermo", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: 10_000_000 });
+    updateRacetrack(repository, { id: track.id, name: "Palermo", commissionBasisPoints: 1400, depositAdjustmentBasisPoints: 0 });
+    assert.equal(summarizeMonth(repository.load(), "2026-10").owedCents, 10_000_000);
+
+    const before = repository.load();
+    updateRacetrack(repository, { id: track.id, name: "Palermo", commissionBasisPoints: 1400, depositAdjustmentBasisPoints: 0, openingCents: 0 });
+    assert.deepEqual(repository.load().openingBalances, []);
+    assert.match(describeLedgerChange(before, repository.load()) ?? "", /saldo inicial pasó/);
+
+    updateRacetrack(repository, { id: track.id, name: "Palermo", commissionBasisPoints: 1400, depositAdjustmentBasisPoints: 0, openingCents: 5_000_000 });
+    assert.throws(
+      () => removeRacetrack(repository, track.id),
+      (error: unknown) => error instanceof LedgerError && error.code === "racetrack-in-use",
+    );
+    updateRacetrack(repository, { id: track.id, name: "Palermo", commissionBasisPoints: 1400, depositAdjustmentBasisPoints: 0, openingCents: 0 });
+    removeRacetrack(repository, track.id);
+    assert.equal(repository.load().racetracks?.some((item) => item.id === track.id), false);
+  });
+
+  it("en Dolores, editar un hipódromo sin tocar el saldo no cambia agosto", () => {
+    const repository = createInMemoryLedgerRepository();
+    const before = summarizeMonth(repository.load());
+    updateRacetrack(repository, { id: "palermo", name: "Palermo", commissionBasisPoints: 900, depositAdjustmentBasisPoints: 100, openingCents: -373_784_900 });
+    assert.deepEqual(summarizeMonth(repository.load()), before);
+  });
+});
+
+describe("bienvenida de una agencia nueva", () => {
+  const at = "2026-10-15T12:00:00.000Z";
+  function newAgency() {
+    return createInMemoryLedgerRepository(createEmptyAgencySnapshot("agencia-prueba", new Date(2026, 9, 15)));
+  }
+  const fixed = (name: string, commissionBasisPoints: number, depositAdjustmentBasisPoints: number, openingCents: number) => ({
+    name,
+    commissionBasisPoints,
+    depositAdjustmentBasisPoints,
+    openingCents,
+  });
+
+  it("pide el estado de cuenta y lo carga de una vez, sin comisión", () => {
+    const repository = newAgency();
+    assert.equal(racingStartingStep(repository.load()), "welcome");
+    const before = repository.load();
+    startRacingBook(repository, {
+      at,
+      startMonth: "2026-10",
+      racetracks: [
+        fixed("San Isidro", 1500, -500, 100_000_000),
+        fixed("Palermo", 900, 100, 200_000_000),
+        fixed("La Plata", 1500, -500, 50_000_000),
+      ],
+    });
+    const after = repository.load();
+    assert.equal(racingStartingStep(after), null);
+    const summary = summarizeMonth(after, "2026-10");
+    assert.equal(summary.owedCents, 350_000_000);
+    assert.equal(summary.billingCents, 0);
+    assert.deepEqual(
+      summary.racetracks.map((track) => track.racetrackId),
+      ["san-isidro", "palermo", "la-plata"],
+    );
+    assert.match(describeLedgerChange(before, after) ?? "", /^Cargó el estado de cuenta inicial\./);
+  });
+
+  it("si un hipódromo está mal no guarda ninguno", () => {
+    const repository = newAgency();
+    assert.throws(
+      () =>
+        startRacingBook(repository, {
+          at,
+          startMonth: "2026-10",
+          racetracks: [fixed("San Isidro", 1500, -500, 100_000_000), fixed("   ", 1000, 0, 0)],
+        }),
+      (error: unknown) => error instanceof LedgerError && error.code === "invalid-name",
+    );
+    assert.equal(summarizeMonth(repository.load(), "2026-10").racetracks.length, 0);
+    assert.equal(racingStartingStep(repository.load()), "welcome");
+    assert.throws(
+      () => startRacingBook(repository, { at, startMonth: "2026-10", racetracks: [] }),
+      (error: unknown) => error instanceof LedgerError && error.code === "no-starting-racetrack",
+    );
+  });
+
+  it("hacerlo luego deja un recordatorio hasta que se carga", () => {
+    const repository = newAgency();
+    postponeStartingBalances(repository, at);
+    assert.equal(racingStartingStep(repository.load()), "reminder");
+    startRacingBook(repository, { at, startMonth: "2026-10", racetracks: [fixed("Palermo", 900, 100, 0)] });
+    assert.equal(racingStartingStep(repository.load()), null);
+  });
+
+  it("Dolores no ve la bienvenida y agosto no cambia", () => {
+    const repository = createInMemoryLedgerRepository();
+    const before = summarizeMonth(repository.load());
+    assert.equal(racingStartingStep(repository.load()), null);
+    assert.deepEqual(summarizeMonth(repository.load()), before);
+  });
+});
+
+describe("ajuste al depositar de una agencia nueva", () => {
+  const at = "2026-10-15T12:00:00.000Z";
+  function newAgency() {
+    return createInMemoryLedgerRepository(createEmptyAgencySnapshot("agencia-prueba", new Date(2026, 9, 15)));
+  }
+
+  it("con ajuste de -5 % resta el 5 % del neto al depositar y la comisión no cambia", () => {
+    const repository = newAgency();
+    startRacingBook(repository, {
+      at,
+      startMonth: "2026-10",
+      racetracks: [{ name: "Azul", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: -500, openingCents: 100_000_000 }],
+    });
+    recordDay(repository, { date: "2026-10-20", racetrackId: "azul", soldCents: 10_000_000, cancelledCents: 0, paidCents: 2_000_000 });
+    const [day] = listSettledDays(repository.load(), "2026-10");
+    assert.equal(day.netCents, 10_000_000);
+    assert.equal(day.commissionCents, 1_500_000);
+    assert.equal(day.amountToDepositCents, 10_000_000 - 2_000_000 - 500_000);
+    const track = summarizeMonth(repository.load(), "2026-10").racetracks[0];
+    assert.equal(track.owedCents, 100_000_000 + 7_500_000);
+  });
+
+  it("cambiar el ajuste vale para los días nuevos y no mueve uno ya cargado", () => {
+    const repository = newAgency();
+    const track = addRacetrack(repository, { name: "Azul", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0 });
+    const first = recordDay(repository, { date: "2026-10-20", racetrackId: track.id, soldCents: 10_000_000, cancelledCents: 0, paidCents: 0 });
+    updateRacetrack(repository, { id: track.id, name: "Azul", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 100 });
+    const second = recordDay(repository, { date: "2026-10-21", racetrackId: track.id, soldCents: 10_000_000, cancelledCents: 0, paidCents: 0 });
+    const days = listSettledDays(repository.load(), "2026-10");
+    assert.equal(days.find((day) => day.id === first.id)?.amountToDepositCents, 10_000_000);
+    assert.equal(days.find((day) => day.id === second.id)?.amountToDepositCents, 10_100_000);
+  });
+
+  it("en Dolores, cambiar el ajuste de Palermo no mueve agosto", () => {
+    const repository = createInMemoryLedgerRepository();
+    const before = summarizeMonth(repository.load());
+    updateRacetrack(repository, { id: "palermo", name: "Palermo", commissionBasisPoints: 900, depositAdjustmentBasisPoints: 0 });
+    assert.deepEqual(summarizeMonth(repository.load()), before);
+  });
+});
+
+describe("mes desde el que carga una agencia nueva", () => {
+  const at = "2026-10-15T12:00:00.000Z";
+  const azul = { name: "Azul", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0, openingCents: 100_000_000 };
+  function newAgency() {
+    return createInMemoryLedgerRepository(createEmptyAgencySnapshot("agencia-prueba", new Date(2026, 9, 15)));
+  }
+
+  it("si empieza en septiembre, el saldo inicial es el del 1 de septiembre y lo de septiembre pasa a octubre", () => {
+    const repository = newAgency();
+    startRacingBook(repository, { at, startMonth: "2026-09", racetracks: [azul] });
+    recordDay(repository, { date: "2026-09-10", racetrackId: "azul", soldCents: 10_000_000, cancelledCents: 0, paidCents: 0 });
+    recordDeposit(repository, { date: "2026-09-12", racetrackId: "azul", amountCents: 4_000_000 });
+    const september = summarizeMonth(repository.load(), "2026-09").racetracks[0];
+    assert.equal(september.openingCents, 100_000_000);
+    assert.equal(september.owedCents, 106_000_000);
+    const october = summarizeMonth(repository.load(), "2026-10").racetracks[0];
+    assert.equal(october.openingCents, 106_000_000);
+  });
+
+  it("no puede empezar en un mes posterior al de la apertura", () => {
+    const repository = newAgency();
+    assert.throws(
+      () => startRacingBook(repository, { at, startMonth: "2026-11", racetracks: [azul] }),
+      (error: unknown) => error instanceof LedgerError && error.code === "invalid-start-month",
+    );
+  });
+});
+
+describe("total del estado de cuenta inicial", () => {
+  it("suma lo que se debe y resta lo que le deben a la agencia", () => {
+    assert.equal(sumStartingBalances([{ openingCents: 100_000_000 }, { openingCents: 200_000_000 }, { openingCents: -50_000_000 }]), 250_000_000);
+    assert.equal(sumStartingBalances([]), 0);
   });
 });

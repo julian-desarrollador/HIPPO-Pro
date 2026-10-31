@@ -23,6 +23,7 @@ import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { Card, ScreenFrame } from "@/components/screen-frame";
 import {
   categoryHasExpenses,
+  expenseCategoriesFor,
   chooseImageFile,
   formatAmountInput,
   ledgerErrorMessage,
@@ -38,7 +39,8 @@ export default function GastosScreen() {
   const {
     snapshot,
     summary,
-    expenseCategories,
+    expenseCategories: allCategories,
+    role,
     recordExpense,
     updateExpense,
     removeExpense,
@@ -48,6 +50,7 @@ export default function GastosScreen() {
     viewMonth,
     readOnly,
   } = useLedger();
+  const expenseCategories = expenseCategoriesFor(role, allCategories);
   const photos = useExpensePhotos();
   const window = useWindowDimensions();
   const [photoIds, setPhotoIds] = useState<ReadonlySet<string>>(new Set());
@@ -92,7 +95,7 @@ export default function GastosScreen() {
     .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
     .map((expense) => ({
       ...expense,
-      categoryLabel: expenseCategories.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
+      categoryLabel: allCategories.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
     }));
   const agency = expenses.filter((expense) => expense.kind === "agency");
 

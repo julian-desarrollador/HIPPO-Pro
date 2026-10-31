@@ -61,6 +61,12 @@ export type Expense = {
   kind: ExpenseKind;
 };
 
+/** "later": the owner chose to look around first. "done": the starting balances are in. */
+export type StartingBalancesState = {
+  status: "done" | "later";
+  at: string;
+};
+
 export type OpeningBalance = {
   racetrackId: RacetrackId;
   amountCents: Cents;
@@ -204,4 +210,6 @@ export type LedgerSnapshot = {
    * Missing means every terminal loads racing and lottery. August rows have no terminal.
    */
   terminalServices?: { terminalId: TerminalId; racing: boolean; lottery: boolean }[];
+  /** The welcome with the starting balances. Missing: not answered yet. */
+  startingBalances?: StartingBalancesState;
 };
