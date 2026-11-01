@@ -251,6 +251,7 @@ export function Dialog({
   children,
   footer,
   wide = false,
+  maxWidth,
   contentMaxHeight,
 }: {
   visible: boolean;
@@ -260,6 +261,8 @@ export function Dialog({
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /** Caps a wide dialog below its 1400 px. */
+  maxWidth?: number;
   contentMaxHeight?: number;
 }) {
   const windowHeight = useWindowDimensions().height;
@@ -280,7 +283,7 @@ export function Dialog({
           onPress={onClose}
           style={[confirmStyles.dim, { backgroundColor: palette.navy }]}
         />
-        <View className="rounded-[14px] border border-line bg-card p-5" style={wide ? dialogStyles.wideCard : dialogStyles.card}>
+        <View className="rounded-[14px] border border-line bg-card p-5" style={wide ? [dialogStyles.wideCard, maxWidth ? { maxWidth } : null] : dialogStyles.card}>
           <View className="flex-row items-center gap-3">
             {onBack ? (
               <Pressable

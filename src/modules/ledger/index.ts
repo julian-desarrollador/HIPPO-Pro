@@ -35,6 +35,7 @@ export { findBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } fro
 export type { SettledDay } from "./application/use-cases/summarize-month";
 export { racetrackOpeningCents } from "./application/use-cases/manage-racetracks";
 export { sumStartingBalances } from "./application/use-cases/start-book";
+export type { MonthStart, MonthStartLine } from "./application/use-cases/month-opening";
 export type { StartingBalancesStep, StartingRacetrackInput } from "./application/use-cases/start-book";
 export { totalAmounts, totalSettledDays } from "./application/use-cases/table-totals";
 export { buildDayReport,emptyDayReportMessage } from "./application/use-cases/build-day-report";

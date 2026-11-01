@@ -24,7 +24,7 @@ export function racetrackOpeningCents(snapshot: Pick<LedgerSnapshot, "openingBal
     .reduce((total, opening) => total + opening.amountCents, 0);
 }
 
-function withOpening(
+export function withOpening(
   openingBalances: readonly OpeningBalance[],
   racetrackId: string,
   openingCents: Cents | undefined,
@@ -179,6 +179,7 @@ export function removeRacetrack(repository: LedgerRepository, id: string): void 
     racetracks: (snapshot.racetracks ?? []).filter((racetrack) => racetrack.id !== id),
     commissions: snapshot.commissions?.filter((item) => item.racetrackId !== id),
     openingBalances: snapshot.openingBalances.filter((opening) => opening.racetrackId !== id),
+    monthOpenings: snapshot.monthOpenings?.filter((opening) => opening.racetrackId !== id),
     hiddenRacetrackIds,
   });
 }

@@ -18,6 +18,8 @@ export type LedgerErrorCode =
   | "racetrack-in-use"
   | "no-starting-racetrack"
   | "invalid-start-month"
+  | "invalid-opening-month"
+  | "owner-only"
   | "invalid-adjustment"
   | "duplicate-category"
   | "builtin-category"

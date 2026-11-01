@@ -73,15 +73,25 @@ export function WelcomeHero({
   );
 }
 
-export function WelcomeReminder({ kind, onStart }: { kind: WelcomeKind; onStart: () => void }) {
+export function WelcomeReminder({
+  kind,
+  onStart,
+  title = "Tu cuenta todavía no arrancó",
+  detail = "Cargá tu estado de cuenta inicial y empezá con todo en orden.",
+}: {
+  kind: WelcomeKind;
+  onStart: () => void;
+  title?: string;
+  detail?: string;
+}) {
   const colors = usePalette();
   return (
     <Pressable accessibilityRole="button" onPress={onStart} className="cursor-pointer">
       <BrandPanel kind={kind} padding={18}>
         <View className="flex-row items-center gap-3">
           <View className="flex-1 gap-1 pr-10">
-            <Text className="text-[17px] font-semibold text-white">Tu cuenta todavía no arrancó</Text>
-            <Text className="text-[15px] leading-5 text-tint">Cargá tu estado de cuenta inicial y empezá con todo en orden.</Text>
+            <Text className="text-[17px] font-semibold text-white">{title}</Text>
+            <Text className="text-[15px] leading-5 text-tint">{detail}</Text>
           </View>
           <Ionicons name="arrow-forward-circle" size={34} color={colors.celeste} />
         </View>

@@ -13,6 +13,7 @@ export function isLedgerSnapshot(value: unknown): value is LedgerSnapshot {
     Array.isArray(snapshot.deposits) &&
     Array.isArray(snapshot.expenses) &&
     Array.isArray(snapshot.openingBalances) &&
+    (snapshot.monthOpenings === undefined || Array.isArray(snapshot.monthOpenings)) &&
     (snapshot.racetracks === undefined || Array.isArray(snapshot.racetracks)) &&
     (snapshot.hiddenRacetrackIds === undefined || Array.isArray(snapshot.hiddenRacetrackIds)) &&
     (snapshot.expenseCategories === undefined || Array.isArray(snapshot.expenseCategories)) &&

@@ -28,6 +28,7 @@ import {
   type StartingBalancesStep,
   type StartingRacetrackInput,
 } from "../../application/use-cases/start-book";
+import { monthStartBalances, setMonthOpening as writeMonthOpening, type MonthStart } from "../../application/use-cases/month-opening";
 import { addRacetrack as saveRacetrack, removeRacetrack as deleteRacetrack, updateRacetrack as saveUpdatedRacetrack, type AddRacetrackInput, type UpdateRacetrackInput } from "../../application/use-cases/manage-racetracks";
 import {
   recordBettorPayment as saveBettorPayment,
@@ -108,6 +109,12 @@ type LedgerContextValue = {
   startingStep: StartingBalancesStep;
   startBook: (racetracks: readonly StartingRacetrackInput[], startMonth: string) => Promise<void>;
   postponeStartingBalances: () => Promise<void>;
+  /** Balance with each racetrack on the 1st of the month being viewed. */
+  monthStart: MonthStart;
+  /** Today's year and month. */
+  currentMonth: string;
+  /** null goes back to the carried balance. */
+  setMonthOpening: (month: string, balances: readonly { racetrackId: string; amountCents: number | null }[]) => Promise<void>;
   addExpenseCategory: (input: AddExpenseCategoryInput) => Promise<void>;
   updateExpenseCategory: (input: UpdateExpenseCategoryInput) => Promise<void>;
   removeExpenseCategory: (id: string) => Promise<void>;
@@ -323,6 +330,10 @@ export function LedgerProvider({
       startBook: (racetracks, startMonth) =>
         publish(() => startRacingBook(repository, { racetracks, startMonth, at: new Date().toISOString() })),
       postponeStartingBalances: () => publish(() => postponeStartingBalances(repository, new Date().toISOString())),
+      monthStart: monthStartBalances(snapshot, viewMonth),
+      currentMonth: currentYearMonth(),
+      setMonthOpening: (month, balances) =>
+        publish(() => writeMonthOpening(repository, { role, month, currentMonth: currentYearMonth(), balances })),
       addExpenseCategory: (input) => publish(() => saveExpenseCategory(repository, input)),
       updateExpenseCategory: (input) => publish(() => saveUpdatedExpenseCategory(repository, input)),
       removeExpenseCategory: (id) => publish(() => deleteExpenseCategory(repository, id)),

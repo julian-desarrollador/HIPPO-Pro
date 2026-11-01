@@ -96,12 +96,33 @@ function movementCents(snapshot: LedgerSnapshot, month: string, racetrackId: Rac
   return generated - deposited;
 }
 
-function openingCents(snapshot: LedgerSnapshot, month: string, racetrackId: RacetrackId): Cents {
+/** Balance written for the 1st of `month`. Only months after the first one of the book count. */
+export function monthOpeningAt(
+  snapshot: Pick<LedgerSnapshot, "month" | "monthOpenings">,
+  month: string,
+  racetrackId: RacetrackId,
+): Cents | null {
+  if (month <= snapshot.month) {
+    return null;
+  }
+  const found = (snapshot.monthOpenings ?? []).find(
+    (opening) => opening.month === month && opening.racetrackId === racetrackId,
+  );
+  return found ? found.amountCents : null;
+}
+
+/** What the month would start with if nothing were written for it: the last written balance plus later movements. */
+export function carriedOpeningCents(snapshot: LedgerSnapshot, month: string, racetrackId: RacetrackId): Cents {
   if (month < snapshot.month) {
     return 0;
   }
-  let cursor = snapshot.month;
-  let carried = racetrackOpeningCents(snapshot, racetrackId);
+  const lastWritten = (snapshot.monthOpenings ?? [])
+    .filter(
+      (opening) => opening.racetrackId === racetrackId && opening.month > snapshot.month && opening.month < month,
+    )
+    .sort((left, right) => right.month.localeCompare(left.month))[0];
+  let cursor = lastWritten ? lastWritten.month : snapshot.month;
+  let carried = lastWritten ? lastWritten.amountCents : racetrackOpeningCents(snapshot, racetrackId);
   let guard = 0;
   while (cursor < month && guard < 240) {
     carried += movementCents(snapshot, cursor, racetrackId);
@@ -109,6 +130,11 @@ function openingCents(snapshot: LedgerSnapshot, month: string, racetrackId: Race
     guard += 1;
   }
   return carried;
+}
+
+/** Balance on the 1st of `month`: the one written for it, or the carried one. */
+export function openingCents(snapshot: LedgerSnapshot, month: string, racetrackId: RacetrackId): Cents {
+  return monthOpeningAt(snapshot, month, racetrackId) ?? carriedOpeningCents(snapshot, month, racetrackId);
 }
 
 export function summarizeMonth(snapshot: LedgerSnapshot, month = snapshot.month): MonthSummary {

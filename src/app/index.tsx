@@ -17,6 +17,7 @@ import {
   TextField,
 } from "@/components/form-controls";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
+import { MonthStartForm, monthStartTitle } from "@/components/month-start";
 import { RacingWelcome } from "@/components/starting-balances";
 import { WelcomeCelebration, WelcomeReminder } from "@/components/welcome-hero";
 import { StatCard } from "@/components/stat-card";
@@ -65,6 +66,11 @@ function RacingHome() {
     startingStep,
     startBook,
     postponeStartingBalances,
+    viewMonth,
+    days,
+    monthStart,
+    currentMonth,
+    setMonthOpening,
   } = useLedger();
   const [resumeStart, setResumeStart] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
@@ -83,6 +89,19 @@ function RacingHome() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [blockedRemove, setBlockedRemove] = useState(false);
+  const [monthStartOpen, setMonthStartOpen] = useState(false);
+  const [startedMonths, setStartedMonths] = useState<readonly string[]>([]);
+  // A month with nothing loaded yet: help the owner start it with the right balance.
+  const showMonthBand =
+    canViewBalances &&
+    !readOnly &&
+    startingStep === null &&
+    days.length === 0 &&
+    viewMonth >= snapshot.month &&
+    viewMonth <= currentMonth &&
+    monthStart.lines.length > 0 &&
+    !monthStart.lines.some((line) => line.written) &&
+    !startedMonths.includes(viewMonth);
 
   const rows = summary.racetracks.map((track) => ({
     id: track.racetrackId,
@@ -222,6 +241,13 @@ function RacingHome() {
         />
       ) : startingStep === "reminder" ? (
         <WelcomeReminder kind="racing" onStart={() => setResumeStart(true)} />
+      ) : showMonthBand ? (
+        <WelcomeReminder
+          kind="racing"
+          title={`Empezó ${monthTitle(viewMonth).toLocaleLowerCase("es")}`}
+          detail="Revisá con qué saldo arrancás con cada hipódromo y anotá el real si no coincide."
+          onStart={() => setMonthStartOpen(true)}
+        />
       ) : (
         <Card>
           <Text className="font-sans text-[24px] font-semibold text-navy">Bienvenido a HippoPro</Text>
@@ -255,6 +281,9 @@ function RacingHome() {
             }}
           />
           {readOnly ? null : <View className="flex-row flex-wrap items-center gap-4">
+            {racetracks.length > 0 && viewMonth >= snapshot.month && viewMonth <= currentMonth ? (
+              <SecondaryButton className="self-start" label="Saldo al empezar el mes" onPress={() => setMonthStartOpen(true)} />
+            ) : null}
             <SecondaryButton className="self-start" label="Agregar hipódromo" onPress={openAdd} />
             {racetracks.length > 0 ? (
               <SecondaryButton
@@ -312,6 +341,26 @@ function RacingHome() {
               onPress={() => void onSave()}
             />
             <SecondaryButton label="Cancelar" onPress={closeForm} />
+          </Dialog>
+          <Dialog
+            visible={monthStartOpen}
+            title={monthStartTitle(viewMonth)}
+            onClose={() => setMonthStartOpen(false)}
+            wide={wide}
+            maxWidth={1080}
+          >
+            {monthStartOpen ? (
+              <MonthStartForm
+                key={viewMonth}
+                start={monthStart}
+                wide={wide}
+                onSubmit={async (balances) => {
+                  await setMonthOpening(viewMonth, balances);
+                  setStartedMonths((current) => [...current, viewMonth]);
+                }}
+                onClose={() => setMonthStartOpen(false)}
+              />
+            ) : null}
           </Dialog>
           <Dialog visible={manageOpen} title="Hipódromos" onClose={() => setManageOpen(false)}>
             {racetracks.map((track) => {

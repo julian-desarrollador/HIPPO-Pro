@@ -38,7 +38,7 @@ const sideOptions: readonly { id: Side; label: string }[] = [
   { id: "owed", label: "Me debe" },
 ];
 
-type BalanceDraft = { side: Side; amount: string };
+export type BalanceDraft = { side: Side; amount: string };
 
 /** A racetrack card puts Nombre, Comisión and Ajuste in one row only from this width. */
 const FIELDS_IN_ROW_WIDTH = 560;
@@ -67,7 +67,7 @@ function percentText(basisPoints: number): string {
 }
 
 /** Reads "Le debo / Me debe" and the amount. Empty is zero. Null when the amount is wrong. */
-function readSignedAmount(draft: BalanceDraft): number | null {
+export function readSignedAmount(draft: BalanceDraft): number | null {
   const amount = readAmount(draft.amount, true);
   if (amount === null) {
     return null;
@@ -75,11 +75,11 @@ function readSignedAmount(draft: BalanceDraft): number | null {
   return draft.side === "owed" ? -amount : amount;
 }
 
-function draftFromCents(cents: number): BalanceDraft {
+export function draftFromCents(cents: number): BalanceDraft {
   return { side: cents < 0 ? "owed" : "owe", amount: cents === 0 ? "" : formatAmountInput(Math.abs(cents)) };
 }
 
-function BalanceFields({
+export function BalanceFields({
   value,
   onChange,
   label,
@@ -290,7 +290,7 @@ function StartMonthStep({
 type SummaryLine = { key: string | number; name: string; detail?: string; cents: number };
 
 /** One line per account and the total, as Inicio will show it. */
-function OpeningSummary({
+export function OpeningSummary({
   title,
   lines,
   totalLabel,

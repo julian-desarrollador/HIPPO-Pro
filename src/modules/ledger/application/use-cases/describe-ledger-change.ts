@@ -6,6 +6,28 @@ import { currentCommissionBasisPoints, listRacetracks } from "../../domain/racet
 import type { AuditEntry, BettorPlay, CashIncome, LedgerSnapshot, ViewerRole } from "../../domain/types";
 import { createId } from "../create-id";
 import { racetrackOpeningCents } from "./manage-racetracks";
+import { carriedOpeningCents } from "./summarize-month";
+
+const MONTH_NAMES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+] as const;
+
+function monthName(yearMonth: string): string {
+  const [year, month] = yearMonth.split("-").map(Number);
+  const name = MONTH_NAMES[month - 1];
+  return name ? `${name} ${year}` : yearMonth;
+}
 
 function formatDay(iso: string): string {
   const [year, month, day] = iso.split("-");
@@ -94,6 +116,34 @@ function diffRacetracks(before: LedgerSnapshot, after: LedgerSnapshot): { lines:
   }
 
   return { lines, editedIds };
+}
+
+function diffMonthOpenings(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
+  const lines: string[] = [];
+  const key = (opening: { month: string; racetrackId: string }) => `${opening.month}|${opening.racetrackId}`;
+  const previous = new Map((before.monthOpenings ?? []).map((opening) => [key(opening), opening]));
+  const next = new Map((after.monthOpenings ?? []).map((opening) => [key(opening), opening]));
+  const present = new Set(listRacetracks(after).map((track) => track.id));
+  for (const [id, opening] of next) {
+    const old = previous.get(id);
+    if (old && old.amountCents === opening.amountCents) {
+      continue;
+    }
+    const carried = carriedOpeningCents(after, opening.month, opening.racetrackId);
+    lines.push(
+      `Anotó el saldo al empezar ${monthName(opening.month)} con ${trackName(after, opening.racetrackId)}: ${formatCents(opening.amountCents)} (venía ${formatCents(old ? old.amountCents : carried)}).`,
+    );
+  }
+  for (const [id, opening] of previous) {
+    if (next.has(id) || !present.has(opening.racetrackId)) {
+      continue;
+    }
+    const carried = carriedOpeningCents(after, opening.month, opening.racetrackId);
+    lines.push(
+      `Volvió al saldo que venía al empezar ${monthName(opening.month)} con ${trackName(after, opening.racetrackId)}: ${formatCents(carried)}.`,
+    );
+  }
+  return lines;
 }
 
 function diffCommissions(before: LedgerSnapshot, after: LedgerSnapshot, skip: ReadonlySet<string>): string[] {
@@ -446,6 +496,7 @@ export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapsh
     ...startedBook,
     ...racetracks.lines,
     ...diffCommissions(before, after, racetracks.editedIds),
+    ...diffMonthOpenings(before, after),
     ...diffDays(before, after),
     ...diffDeposits(before, after),
     ...diffExpenses(before, after),

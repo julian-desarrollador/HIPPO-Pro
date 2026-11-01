@@ -20,6 +20,8 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "racetrack-in-use": "Este hipódromo tiene días, depósitos o saldo inicial. Quitá los movimientos y dejá el saldo inicial en cero antes.",
   "no-starting-racetrack": "Elegí al menos un hipódromo.",
   "invalid-start-month": "Elegí este mes o uno anterior.",
+  "invalid-opening-month": "El saldo se anota desde el primer mes del libro hasta el mes actual.",
+  "owner-only": "Esto lo hace el dueño.",
   "invalid-adjustment": "El ajuste tiene que estar entre -100 y 100.",
   "duplicate-category": "Ya hay una categoría con ese nombre.",
   "builtin-category": "Las categorías de agosto no se pueden cambiar.",

@@ -72,6 +72,13 @@ export type OpeningBalance = {
   amountCents: Cents;
 };
 
+/** Balance with a racetrack on the 1st of a later month. It replaces what was carried until then. */
+export type MonthOpening = {
+  month: string;
+  racetrackId: RacetrackId;
+  amountCents: Cents;
+};
+
 /** Legacy days stored before the dividend. New days omit it. */
 export type PlayOutcome = "won" | "lost";
 
@@ -181,6 +188,8 @@ export type LedgerSnapshot = {
   deposits: HippodromeDeposit[];
   expenses: Expense[];
   openingBalances: OpeningBalance[];
+  /** Balances written at the start of a month after `month`. Missing on older books. */
+  monthOpenings?: MonthOpening[];
   /** Current commission per racetrack. Missing means the fixed table in racetracks.ts. */
   commissions?: RacetrackCommission[];
   /** Added racetracks, plus edits of the three fixed ones. The id of those three does not change. */
