@@ -281,9 +281,6 @@ function RacingHome() {
             }}
           />
           {readOnly ? null : <View className="flex-row flex-wrap items-center gap-4">
-            {racetracks.length > 0 && viewMonth >= snapshot.month && viewMonth <= currentMonth ? (
-              <SecondaryButton className="self-start" label="Saldo al empezar el mes" onPress={() => setMonthStartOpen(true)} />
-            ) : null}
             <SecondaryButton className="self-start" label="Agregar hipódromo" onPress={openAdd} />
             {racetracks.length > 0 ? (
               <SecondaryButton
