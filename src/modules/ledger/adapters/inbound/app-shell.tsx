@@ -49,6 +49,7 @@ type Phase =
   | { status: "signed-out" }
   | { status: "recovery" }
   | { status: "unassigned" }
+  | { status: "removed" }
   | { status: "error" }
   | {
       status: "ready";
@@ -130,7 +131,7 @@ async function loadProfile(client: SupabaseClient, userId: string): Promise<Prof
 async function loadAgency(
   client: SupabaseClient,
   agencyId: string,
-): Promise<{ name: string; mode: AgencyMode }> {
+): Promise<{ name: string; mode: AgencyMode; found: boolean }> {
   const fallbackName = agencyId === PREVIEW_AGENCY_ID ? PREVIEW_AGENCY_NAME : "Agencia";
   const { data, error } = await client
     .from("agencies")
@@ -143,10 +144,11 @@ async function loadAgency(
       !nameOnly.error && nameOnly.data && typeof nameOnly.data.name === "string" && nameOnly.data.name.trim()
         ? nameOnly.data.name.trim()
         : fallbackName;
-    return { name, mode: "racing" };
+    return { name, mode: "racing", found: true };
   }
   const name = data && typeof data.name === "string" && data.name.trim() ? data.name.trim() : fallbackName;
-  return { name, mode: agencyModeFrom(data?.product_mode) };
+  // A profile always points to an existing agency, so a missing row means it was removed.
+  return { name, mode: agencyModeFrom(data?.product_mode), found: data !== null };
 }
 
 function localPreviewMode(): AgencyMode {
@@ -393,10 +395,15 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       return;
     }
     try {
-      const [repository, agency] = await Promise.all([
-        openAgencyLedger(createSupabaseLedgerRemote(client), profile.agencyId),
-        loadAgency(client, profile.agencyId),
-      ]);
+      const agency = await loadAgency(client, profile.agencyId);
+      if (id !== request.current) {
+        return;
+      }
+      if (!agency.found) {
+        setPhase({ status: "removed" });
+        return;
+      }
+      const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), profile.agencyId);
       if (id !== request.current) {
         return;
       }
@@ -532,6 +539,16 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       <SessionNotice
         title="Esta cuenta no está habilitada"
         detail="El correo entra, pero todavía no pertenece a la agencia."
+        actionLabel="Salir"
+        onAction={signOut}
+      />
+    );
+  }
+  if (phase.status === "removed") {
+    return (
+      <SessionNotice
+        title="Esta agencia ya no está en HippoPro"
+        detail="Si es un error, hablá con quien te dio de alta."
         actionLabel="Salir"
         onAction={signOut}
       />

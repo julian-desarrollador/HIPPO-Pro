@@ -100,6 +100,14 @@ Deno.serve(async (req: Request) => {
   if (callerError || !caller || caller.role !== "owner" || typeof caller.agency_id !== "string") {
     return json(403, { message: "Solo un dueño puede hacer esto." });
   }
+  const { data: home, error: homeError } = await admin
+    .from("agencies")
+    .select("archived_at")
+    .eq("agency_id", caller.agency_id)
+    .maybeSingle();
+  if (homeError || !home || home.archived_at != null) {
+    return json(403, { message: "Esta agencia ya no está en HippoPro." });
+  }
   const callerCanInviteOwners = caller.can_invite_owners === true;
 
   let body: unknown;

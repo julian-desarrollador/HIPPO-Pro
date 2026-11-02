@@ -1,7 +1,9 @@
 // Creates an agency with an empty book and invites its first owner.
 // create-personal makes an empty book for the caller only, with no invite
 // and no change to the caller's profile. list hides other people's personal
-// agencies. Only a profile with can_create_agencies may call it.
+// agencies. archive removes a real agency from the list and from sign-in, and
+// keeps its books, people and photos. Only a profile with can_create_agencies
+// may call it.
 // Runs with the service role inside Supabase.
 // The app calls it with the caller's session and the anon key only.
 // Keep the Spanish messages aligned with src/modules/identity/agency-invite.ts.
@@ -133,6 +135,12 @@ function startingModeOf(value: unknown): "racing" | "lottery" {
   return value === "lottery" ? "lottery" : "racing";
 }
 
+/** Keep aligned with removalNameMatches in src/modules/identity/agency-invite.ts. */
+function removalNameMatches(typed: string, name: string): boolean {
+  const clean = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("es-AR");
+  return clean(typed).length > 0 && clean(typed) === clean(name);
+}
+
 function readText(body: object, key: string): string {
   const value = (body as Record<string, unknown>)[key];
   return typeof value === "string" ? value : "";
@@ -217,10 +225,10 @@ Deno.serve(async (req: Request) => {
     }
     const { data: agency, error: agencyError } = await admin
       .from("agencies")
-      .select("name, personal_user_id, product_mode")
+      .select("name, personal_user_id, product_mode, archived_at")
       .eq("agency_id", agencyId)
       .maybeSingle();
-    if (agencyError || !agency || typeof agency.name !== "string" || !agency.name.trim()) {
+    if (agencyError || !agency || agency.archived_at != null || typeof agency.name !== "string" || !agency.name.trim()) {
       return json(400, { message: "No se pudo abrir la agencia." });
     }
     if (typeof agency.personal_user_id === "string" && agency.personal_user_id !== callerId) {
@@ -242,6 +250,7 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await admin
       .from("agencies")
       .select("agency_id, name, personal_user_id, product_mode")
+      .is("archived_at", null)
       .order("created_at");
     if (error || !data) {
       return json(400, { message: "No se pudo cargar la lista." });
@@ -326,6 +335,37 @@ Deno.serve(async (req: Request) => {
     return json(200, { ok: true });
   }
 
+  if (action === "archive") {
+    const agencyId = readText(body, "agencyId");
+    const confirmName = readText(body, "confirmName");
+    if (!agencyId) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    const { data: agency, error: agencyError } = await admin
+      .from("agencies")
+      .select("name, personal_user_id, archived_at")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    if (agencyError || !agency || agency.archived_at != null || agency.personal_user_id != null) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    if (agencyId === caller.agency_id || agencyId === "agencia-dolores") {
+      return json(400, { message: "Esta agencia no se puede quitar." });
+    }
+    if (typeof agency.name !== "string" || !removalNameMatches(confirmName, agency.name)) {
+      return json(400, { message: "El nombre no coincide." });
+    }
+    const { error: archiveError } = await admin
+      .from("agencies")
+      .update({ archived_at: new Date().toISOString(), archived_by: callerId })
+      .eq("agency_id", agencyId)
+      .is("archived_at", null);
+    if (archiveError) {
+      return json(400, { message: "No se pudo quitar la agencia." });
+    }
+    return json(200, { ok: true });
+  }
+
   if (action === "create") {
     const agencyName = readText(body, "agencyName");
     const ownerName = readText(body, "ownerName");
@@ -343,9 +383,19 @@ Deno.serve(async (req: Request) => {
 
     const { error: agencyError } = await admin.from("agencies").insert({ agency_id: agencyId, name, product_mode: productMode });
     if (agencyError) {
-      return agencyError.code === "23505"
-        ? json(409, { message: "Ya hay una agencia con ese nombre." })
-        : json(400, { message: "No se pudo crear la agencia." });
+      if (agencyError.code !== "23505") {
+        return json(400, { message: "No se pudo crear la agencia." });
+      }
+      const { data: existing } = await admin
+        .from("agencies")
+        .select("archived_at")
+        .eq("agency_id", agencyId)
+        .maybeSingle();
+      return json(409, {
+        message: existing?.archived_at != null
+          ? "Ese nombre es de una agencia quitada. Elegí otro."
+          : "Ya hay una agencia con ese nombre.",
+      });
     }
 
     const { error: ledgerError } = await admin

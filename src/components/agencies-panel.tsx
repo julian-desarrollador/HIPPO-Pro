@@ -19,6 +19,7 @@ import {
   useAgencyAdmin,
   type AgencyEntry,
 } from "@/modules/identity/agency-admin";
+import { removalNameMatches } from "@/modules/identity/agency-invite";
 import { canAddService, useAgencyVisit, useLedger, type AgencyMode, type AgencyService } from "@/modules/ledger";
 
 export function AgencyMenuList({
@@ -230,6 +231,10 @@ export function AgenciesPanel({
   const [busy, setBusy] = useState(false);
   const [personalBusy, setPersonalBusy] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<AgencyEntry | null>(null);
+  const [pendingArchive, setPendingArchive] = useState<AgencyEntry | null>(null);
+  const [archiveName, setArchiveName] = useState("");
+  const [archiveError, setArchiveError] = useState("");
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
 
   useEffect(() => {
@@ -396,6 +401,44 @@ export function AgenciesPanel({
     setPendingRemoval(null);
   }
 
+  function askArchive(agency: AgencyEntry) {
+    setArchiveName("");
+    setArchiveError("");
+    setPendingArchive(agency);
+  }
+
+  function cancelArchive() {
+    if (archiveBusy) {
+      return;
+    }
+    setPendingArchive(null);
+    setArchiveName("");
+    setArchiveError("");
+  }
+
+  async function confirmArchive() {
+    if (!pendingArchive || archiveBusy || !removalNameMatches(archiveName, pendingArchive.name)) {
+      return;
+    }
+    const agency = pendingArchive;
+    setArchiveBusy(true);
+    setArchiveError("");
+    const problem = await directory.archive(agency, archiveName);
+    if (problem) {
+      setArchiveError(problem);
+      setArchiveBusy(false);
+      return;
+    }
+    if (agency.agencyId === viewedAgencyId) {
+      visit?.leave();
+    }
+    setAgencies((rows) => rows.filter((row) => row.agencyId !== agency.agencyId));
+    setMessage(`${agency.name} se quitó. Sus datos quedan guardados.`);
+    setArchiveBusy(false);
+    setPendingArchive(null);
+    setArchiveName("");
+  }
+
   const panel = (openAdd?: () => void, openRemove?: (service: AgencyService) => void) => (
     <>
     <Dialog visible={visible} title="Agencias" onClose={close} onBack={onBack ? back : undefined} wide={wide}>
@@ -506,6 +549,16 @@ export function AgenciesPanel({
                     <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
                   </Pressable>
                 ) : null}
+                {agency.kind === "other" && !isSession ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${agency.name}`}
+                    onPress={() => askArchive(agency)}
+                    className="cursor-pointer"
+                  >
+                    <Text className="text-[17px] font-semibold text-negative">Quitar</Text>
+                  </Pressable>
+                ) : null}
               </View>
               {current && (serviceToAdd || canRemoveService) ? (
                 <AgencyServiceCards
@@ -528,6 +581,31 @@ export function AgenciesPanel({
       onCancel={() => setPendingRemoval(null)}
       onConfirm={() => void confirmRemoval()}
     />
+    <ConfirmDialog
+      visible={pendingArchive !== null}
+      title={pendingArchive ? `¿Quitar ${pendingArchive.name}?` : "¿Quitar esta agencia?"}
+      detail="Sale de la lista y su gente ya no entra. El libro, las personas y las fotos quedan guardados."
+      confirmLabel="Quitar"
+      confirmEnabled={!archiveBusy && pendingArchive !== null && removalNameMatches(archiveName, pendingArchive.name)}
+      onCancel={cancelArchive}
+      onConfirm={() => void confirmArchive()}
+    >
+      <Field label={pendingArchive ? `Escribí ${pendingArchive.name} para confirmar` : "Escribí el nombre para confirmar"}>
+        <TextField
+          value={archiveName}
+          onChangeText={(text) => {
+            setArchiveName(text);
+            setArchiveError("");
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder={pendingArchive?.name ?? ""}
+          accessibilityLabel="Nombre de la agencia para confirmar"
+        />
+      </Field>
+      {archiveBusy ? <Text className="mt-2 text-[15px] text-muted">Quitando…</Text> : null}
+      {archiveError ? <Text className="mt-2 text-[15px] text-negative">{archiveError}</Text> : null}
+    </ConfirmDialog>
     </>
   );
 

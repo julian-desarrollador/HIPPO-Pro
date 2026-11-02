@@ -197,6 +197,8 @@ export function ConfirmDialog({
   confirmLabel = "Quitar",
   onCancel,
   onConfirm,
+  confirmEnabled = true,
+  children,
 }: {
   visible: boolean;
   title?: string;
@@ -204,6 +206,10 @@ export function ConfirmDialog({
   confirmLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
+  /** False keeps Quitar dimmed and inert, for example until a name is typed. */
+  confirmEnabled?: boolean;
+  /** Extra content between the detail and the buttons. */
+  children?: ReactNode;
 }) {
   const palette = usePalette();
   if (!visible) {
@@ -223,14 +229,21 @@ export function ConfirmDialog({
         <View className="rounded-[14px] border border-line bg-card p-5" style={confirmStyles.card}>
           <Text className="text-[18px] font-semibold text-navy">{title}</Text>
           {detail ? <Text className="mt-2 text-[17px] leading-6 text-ink">{detail}</Text> : null}
+          {children ? <View className="mt-4">{children}</View> : null}
           <View className="mt-4 gap-2">
             <SecondaryButton label="Cancelar" onPress={onCancel} />
             {removing ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar quitar"
+                accessibilityState={{ disabled: !confirmEnabled }}
+                disabled={!confirmEnabled}
                 onPress={onConfirm}
-                className="cursor-pointer items-center rounded-[10px] bg-negative px-5 py-2.5">
+                className={
+                  confirmEnabled
+                    ? "cursor-pointer items-center rounded-[10px] bg-negative px-5 py-2.5"
+                    : "items-center rounded-[10px] bg-negative px-5 py-2.5 opacity-40"
+                }>
                 <Text className="text-[16px] font-semibold text-white">Quitar</Text>
               </Pressable>
             ) : (

@@ -29,6 +29,13 @@ alter table public.agencies
 alter table public.agencies
   add column if not exists product_mode text not null default 'racing';
 
+-- A removed agency keeps its books, people and photos. It leaves the list and
+-- nobody signs in to it. Only create-agency sets these, with the service role.
+alter table public.agencies
+  add column if not exists archived_at timestamptz;
+alter table public.agencies
+  add column if not exists archived_by uuid;
+
 do $$
 begin
   if not exists (
@@ -49,13 +56,13 @@ stable
 security definer
 set search_path = public
 as $$
-  select target = public.caller_agency_id()
-    or exists (
-      select 1
-      from public.agencies
-      where agency_id = target
-        and personal_user_id = auth.uid()
-    );
+  select exists (
+    select 1
+    from public.agencies
+    where agency_id = target
+      and archived_at is null
+      and (agency_id = public.caller_agency_id() or personal_user_id = auth.uid())
+  );
 $$;
 
 revoke all on function public.caller_can_use_agency(text) from public, anon, authenticated;

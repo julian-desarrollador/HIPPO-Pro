@@ -29,6 +29,15 @@ export function personalAgencyNameProblem(agencyName: string): string | null {
   return null;
 }
 
+/**
+ * Removing a real agency asks for its name typed again. Case and extra spaces
+ * do not matter. Keep aligned with supabase/functions/create-agency/index.ts.
+ */
+export function removalNameMatches(typed: string, name: string): boolean {
+  const clean = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("es-AR");
+  return clean(typed).length > 0 && clean(typed) === clean(name);
+}
+
 export function newAgencyProblem(agencyName: string, ownerName: string, ownerEmail: string): string | null {
   const nameProblem = personalAgencyNameProblem(agencyName);
   if (nameProblem) {

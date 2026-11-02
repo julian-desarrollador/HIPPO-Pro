@@ -5,7 +5,7 @@ import { agencyModeFrom, type AgencyMode } from "@/modules/ledger";
 import { isLedgerSnapshot } from "@/modules/ledger/adapters/outbound/ledger-snapshot";
 import type { LedgerSnapshot } from "@/modules/ledger/domain/types";
 
-import { newAgencyProblem, personalAgencyNameProblem } from "./agency-invite";
+import { newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
 import { readFunctionMessage } from "./operator-admin";
 
 export type OpenedAgency = {
@@ -34,6 +34,8 @@ type AgencyAdmin = {
   create: (agencyName: string, ownerName: string, ownerEmail: string, productMode: AgencyMode) => Promise<string | null>;
   createPersonal: (agencyName: string, productMode: AgencyMode) => Promise<CreatedPersonalAgency | string>;
   removePersonal: (agencyId: string) => Promise<string | null>;
+  /** Hides a real agency and closes its sign-in. Its data stays in the base. */
+  archive: (agency: AgencyEntry, confirmName: string) => Promise<string | null>;
   read: (agencyId: string) => Promise<OpenedAgency | string>;
 };
 
@@ -111,6 +113,15 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
     async removePersonal(agencyId) {
       const { data, error } = await client.functions.invoke("create-agency", {
         body: { action: "delete-personal", agencyId },
+      });
+      return error ? readFunctionMessage(error, data) : null;
+    },
+    async archive(agency, confirmName) {
+      if (!removalNameMatches(confirmName, agency.name)) {
+        return "El nombre no coincide.";
+      }
+      const { data, error } = await client.functions.invoke("create-agency", {
+        body: { action: "archive", agencyId: agency.agencyId, confirmName: confirmName.trim() },
       });
       return error ? readFunctionMessage(error, data) : null;
     },

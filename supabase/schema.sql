@@ -9,7 +9,10 @@ create table public.agencies (
   name text not null check (length(btrim(name)) between 1 and 80),
   personal_user_id uuid references auth.users (id),
   product_mode text not null default 'racing' check (product_mode in ('racing', 'lottery', 'both')),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- A removed agency keeps its data. It leaves the list and nobody signs in.
+  archived_at timestamptz,
+  archived_by uuid
 );
 
 create table public.profiles (
@@ -96,7 +99,8 @@ revoke all on function public.caller_agency_id() from public, anon, authenticate
 grant execute on function public.caller_is_owner() to authenticated;
 grant execute on function public.caller_agency_id() to authenticated;
 
--- True for the profile agency and for a personal agency owned by this user.
+-- True for the profile agency and for a personal agency owned by this user,
+-- while the agency is not removed.
 create or replace function public.caller_can_use_agency(target text)
 returns boolean
 language sql
@@ -104,13 +108,13 @@ stable
 security definer
 set search_path = public
 as $$
-  select target = public.caller_agency_id()
-    or exists (
-      select 1
-      from public.agencies
-      where agency_id = target
-        and personal_user_id = auth.uid()
-    );
+  select exists (
+    select 1
+    from public.agencies
+    where agency_id = target
+      and archived_at is null
+      and (agency_id = public.caller_agency_id() or personal_user_id = auth.uid())
+  );
 $$;
 
 revoke all on function public.caller_can_use_agency(text) from public, anon, authenticated;

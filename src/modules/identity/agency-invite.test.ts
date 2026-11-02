@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { agencyIdFromName, newAgencyProblem, personalAgencyNameProblem } from "./agency-invite";
+import { agencyIdFromName, newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
 
 describe("nueva agencia", () => {
   it("pide el nombre de la agencia, el del dueño y un correo válido", () => {
@@ -28,5 +28,16 @@ describe("nueva agencia", () => {
     assert.equal(agencyIdFromName("¡¡!!"), "");
     assert.ok(agencyIdFromName("Agencia ".repeat(20)).length <= 50);
     assert.equal(agencyIdFromName("Agencia ".repeat(20)).endsWith("-"), false);
+  });
+});
+
+describe("quitar una agencia", () => {
+  it("pide el nombre escrito igual, sin importar mayúsculas ni espacios de más", () => {
+    assert.equal(removalNameMatches("Agencia Norte", "Agencia Norte"), true);
+    assert.equal(removalNameMatches("  agencia   NORTE ", "Agencia Norte"), true);
+    assert.equal(removalNameMatches("Agencia", "Agencia Norte"), false);
+    assert.equal(removalNameMatches("AgenciaNorte", "Agencia Norte"), false);
+    assert.equal(removalNameMatches("", ""), false);
+    assert.equal(removalNameMatches("   ", "Agencia Norte"), false);
   });
 });

@@ -1,5 +1,6 @@
 -- Checks that agencies cannot read or change each other's book, people,
--- names, day photos or deposit photos, and that nothing opens without a session.
+-- names, day photos or deposit photos, that nothing opens without a session,
+-- and that a removed agency no longer opens for its own people.
 -- Run it in the SQL editor after agencies.sql, close-ledger.sql,
 -- day-photos.sql, deposit-photos.sql, cash-photos.sql, expense-photos.sql and personal-agencies.sql,
 -- and again after any change to a policy.
@@ -460,6 +461,59 @@ begin
     raise exception 'FUGA: otra persona sube una imagen de gasto en la agencia de prueba';
   exception when insufficient_privilege then null;
   end;
+end;
+$$;
+
+-- A removed agency keeps its rows, but its own people no longer open them.
+reset role;
+update public.agencies set archived_at = now() where agency_id = 'aislamiento-a';
+set local role authenticated;
+
+do $$
+declare
+  n integer;
+begin
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a001', 'role', 'authenticated')::text,
+    true
+  );
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-a';
+  if n <> 0 then
+    raise exception 'FUGA: una agencia quitada todavía lee su libro';
+  end if;
+  update public.ledgers set version = version + 1 where agency_id = 'aislamiento-a';
+  get diagnostics n = row_count;
+  if n <> 0 then
+    raise exception 'FUGA: una agencia quitada todavía guarda su libro';
+  end if;
+  select count(*) into n from public.agencies where agency_id = 'aislamiento-a';
+  if n <> 0 then
+    raise exception 'FUGA: una agencia quitada todavía lee su nombre';
+  end if;
+  select count(*) into n from storage.objects where name like 'aislamiento-a/%';
+  if n <> 0 then
+    raise exception 'FUGA: una agencia quitada todavía ve % imágenes', n;
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a002', 'role', 'authenticated')::text,
+    true
+  );
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-b';
+  if n <> 1 then
+    raise exception 'La prueba no anda: quitar una agencia le cerró el libro a otra';
+  end if;
+end;
+$$;
+
+reset role;
+do $$
+begin
+  if not exists (select 1 from public.ledgers where agency_id = 'aislamiento-a') then
+    raise exception 'La prueba no anda: quitar la agencia borró su libro';
+  end if;
 end;
 $$;
 
