@@ -2,7 +2,8 @@
 // create-personal makes an empty book for the caller only, with no invite
 // and no change to the caller's profile. list hides other people's personal
 // agencies. archive removes a real agency from the list and from sign-in, and
-// keeps its books, people and photos. Only a profile with can_create_agencies
+// keeps its books, people and photos. Its name can be used again by a new
+// agency with the next free id. Only a profile with can_create_agencies
 // may call it.
 // Runs with the service role inside Supabase.
 // The app calls it with the caller's session and the anon key only.
@@ -165,6 +166,72 @@ async function removePhotoFolder(admin: SupabaseClient, bucket: string, agencyId
 async function removeAgency(admin: SupabaseClient, agencyId: string): Promise<void> {
   await admin.from("ledgers").delete().eq("agency_id", agencyId);
   await admin.from("agencies").delete().eq("agency_id", agencyId);
+}
+
+type AgencyInsert = { agencyId: string } | { status: number; message: string };
+
+/**
+ * A live agency keeps its name to itself. A removed one keeps its id and its
+ * data, so a new agency with the same name gets the next free id (-2, -3...).
+ * An id held by an agency with another name is skipped the same way.
+ */
+async function insertAgency(
+  admin: SupabaseClient,
+  baseId: string,
+  name: string,
+  productMode: string,
+): Promise<AgencyInsert> {
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    const agencyId = attempt === 1 ? baseId : `${baseId}-${attempt}`;
+    const { error } = await admin.from("agencies").insert({ agency_id: agencyId, name, product_mode: productMode });
+    if (!error) {
+      return { agencyId };
+    }
+    if (error.code !== "23505") {
+      return { status: 400, message: "No se pudo crear la agencia." };
+    }
+    const { data: existing } = await admin
+      .from("agencies")
+      .select("name, archived_at")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    // "Lavalle 1442 2" also owns lavalle-1442-2, but it is another name: skip it.
+    const sameName = typeof existing?.name === "string" && agencyIdFromName(existing.name) === baseId;
+    if (existing?.archived_at == null && sameName) {
+      return { status: 409, message: "Ya hay una agencia con ese nombre." };
+    }
+  }
+  return { status: 400, message: "No se pudo crear la agencia." };
+}
+
+/**
+ * An owner of a removed agency who never signed in (the invite expired) is
+ * deleted, so the same email can be invited again. Anyone else is kept.
+ * Returns false only when that deletion fails.
+ */
+async function releaseUnusedOwner(admin: SupabaseClient, email: string): Promise<boolean> {
+  const { data: profiles, error } = await admin
+    .from("profiles")
+    .select("user_id, agency_id")
+    .eq("email", email);
+  if (error || !profiles || profiles.length !== 1) {
+    return true;
+  }
+  const profile = profiles[0];
+  const { data: agency } = await admin
+    .from("agencies")
+    .select("archived_at")
+    .eq("agency_id", profile.agency_id)
+    .maybeSingle();
+  if (agency?.archived_at == null) {
+    return true;
+  }
+  const { data: userData, error: userError } = await admin.auth.admin.getUserById(profile.user_id);
+  if (userError || !userData.user || userData.user.last_sign_in_at) {
+    return true;
+  }
+  const { error: deleteError } = await admin.auth.admin.deleteUser(profile.user_id);
+  return !deleteError;
 }
 
 Deno.serve(async (req: Request) => {
@@ -377,26 +444,15 @@ Deno.serve(async (req: Request) => {
 
     const name = agencyName.trim().replace(/\s+/g, " ");
     const productMode = startingModeOf(readText(body, "productMode"));
-    const agencyId = agencyIdFromName(name);
+    const baseId = agencyIdFromName(name);
     const cleanOwner = ownerName.trim();
     const cleanEmail = ownerEmail.trim().toLowerCase();
 
-    const { error: agencyError } = await admin.from("agencies").insert({ agency_id: agencyId, name, product_mode: productMode });
-    if (agencyError) {
-      if (agencyError.code !== "23505") {
-        return json(400, { message: "No se pudo crear la agencia." });
-      }
-      const { data: existing } = await admin
-        .from("agencies")
-        .select("archived_at")
-        .eq("agency_id", agencyId)
-        .maybeSingle();
-      return json(409, {
-        message: existing?.archived_at != null
-          ? "Ese nombre es de una agencia quitada. Elegí otro."
-          : "Ya hay una agencia con ese nombre.",
-      });
+    const created = await insertAgency(admin, baseId, name, productMode);
+    if ("message" in created) {
+      return json(created.status, { message: created.message });
     }
+    const agencyId = created.agencyId;
 
     const { error: ledgerError } = await admin
       .from("ledgers")
@@ -404,6 +460,11 @@ Deno.serve(async (req: Request) => {
     if (ledgerError) {
       await removeAgency(admin, agencyId);
       return json(400, { message: "No se pudo crear la agencia." });
+    }
+
+    if (!await releaseUnusedOwner(admin, cleanEmail)) {
+      await removeAgency(admin, agencyId);
+      return json(400, { message: "No se pudo enviar la invitación." });
     }
 
     const redirectTo = allowedRedirect(readText(body, "redirectTo") || null);
