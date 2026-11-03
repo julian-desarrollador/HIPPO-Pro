@@ -87,7 +87,7 @@ export default function EntryScreen() {
             />
             {panel ? (
               <View nativeID="entrada-form" collapsable={false} style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
-                <EntryAccount panel={panel} onClose={() => setPanel(null)} />
+                <EntryAccount panel={panel} onClose={() => setPanel(null)} onSignIn={() => openPanel("sign-in")} />
               </View>
             ) : null}
             <Text

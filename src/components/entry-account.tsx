@@ -24,7 +24,16 @@ const signupIntro: Record<SignupMode, string> = {
   lottery: "Elegí el nombre de la agencia, el tuyo y una contraseña. Entrás a la quiniela con el libro vacío.",
 };
 
-export function EntryAccount({ panel, onClose }: { panel: EntryPanel; onClose: () => void }) {
+export function EntryAccount({
+  panel,
+  onClose,
+  onSignIn,
+}: {
+  panel: EntryPanel;
+  onClose: () => void;
+  /** Opens Entrar from the bottom of a signup form. */
+  onSignIn?: () => void;
+}) {
   return (
     <Card>
       <View className="gap-4">
@@ -32,7 +41,7 @@ export function EntryAccount({ panel, onClose }: { panel: EntryPanel; onClose: (
           <Text className="font-sans text-[24px] font-semibold text-navy">{panelTitles[panel]}</Text>
           <SecondaryButton label="Cerrar" onPress={onClose} />
         </View>
-        {panel === "sign-in" ? <LandingSignIn /> : <AgencySignup key={panel} mode={panel} />}
+        {panel === "sign-in" ? <LandingSignIn /> : <AgencySignup key={panel} mode={panel} onSignIn={onSignIn} />}
       </View>
     </Card>
   );
@@ -73,7 +82,7 @@ function LandingSignIn() {
   );
 }
 
-function AgencySignup({ mode }: { mode: SignupMode }) {
+function AgencySignup({ mode, onSignIn }: { mode: SignupMode; onSignIn?: () => void }) {
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
@@ -170,6 +179,14 @@ function AgencySignup({ mode }: { mode: SignupMode }) {
       </Field>
       <Feedback error={error} message={message} />
       <PrimaryButton label={busy ? "Creando…" : "Empezar"} onPress={() => void submit()} />
+      {onSignIn ? (
+        <View className="flex-row flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-1">
+          <Text className="text-[17px] text-ink">¿Ya tenés cuenta?</Text>
+          <Pressable accessibilityRole="button" onPress={onSignIn} className="cursor-pointer py-1">
+            <Text className="text-[17px] font-semibold text-accent underline">Entrar</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
