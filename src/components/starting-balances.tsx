@@ -5,6 +5,7 @@ import { Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } 
 
 import { AmountField } from "@/components/amount-field";
 import { monthTitle, shiftMonth } from "@/components/calendar-grid";
+import { CommissionModeField } from "@/components/commission-mode-field";
 import {
   ChoiceChips,
   Feedback,
@@ -21,13 +22,16 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { mobileTabBarHeight, wideLayout } from "@/constants/layout";
 import { usePalette } from "@/constants/palette";
 import {
+  commissionModeOf,
   formatAmountInput,
   formatPercentInput,
   ledgerErrorMessage,
   parsePercentToBasisPoints,
   parseSignedPercentToBasisPoints,
+  racetrackRates,
   readAmount,
   sumStartingBalances,
+  type CommissionMode,
   type StartingRacetrackInput,
 } from "@/modules/ledger";
 
@@ -40,8 +44,6 @@ const sideOptions: readonly { id: Side; label: string }[] = [
 
 export type BalanceDraft = { side: Side; amount: string };
 
-/** A racetrack card puts Nombre, Comisión and Ajuste in one row only from this width. */
-const FIELDS_IN_ROW_WIDTH = 560;
 
 /** The "Así arrancás" panel goes beside the cards only from this width; below, the total bar. */
 const SUMMARY_BESIDE_WIDTH = 920;
@@ -325,10 +327,10 @@ export function OpeningSummary({
   );
 }
 
-type RacetrackDraft = BalanceDraft & { key: number; name: string; commission: string; adjustment: string };
+type RacetrackDraft = BalanceDraft & { key: number; name: string; mode: CommissionMode; commission: string; adjustment: string };
 
 function emptyRacetrack(key: number): RacetrackDraft {
-  return { key, name: "", commission: "", adjustment: "", ...draftFromCents(0) };
+  return { key, name: "", mode: "fixed", commission: "", adjustment: "", ...draftFromCents(0) };
 }
 
 function readRacetracks(rows: readonly RacetrackDraft[]): StartingRacetrackInput[] | string {
@@ -342,10 +344,11 @@ function readRacetracks(rows: readonly RacetrackDraft[]): StartingRacetrackInput
     if (commissionBasisPoints === null) {
       return `La comisión de ${name} tiene que estar entre 0 y 100.`;
     }
-    const depositAdjustmentBasisPoints = row.adjustment.trim() ? parseSignedPercentToBasisPoints(row.adjustment) : 0;
-    if (depositAdjustmentBasisPoints === null) {
+    const typedAdjustment = row.mode === "fixed" && row.adjustment.trim() ? parseSignedPercentToBasisPoints(row.adjustment) : 0;
+    if (typedAdjustment === null) {
       return `El ajuste de ${name} tiene que estar entre -100 y 100.`;
     }
+    const { depositAdjustmentBasisPoints } = racetrackRates(row.mode, commissionBasisPoints, typedAdjustment);
     const openingCents = readSignedAmount(row);
     if (openingCents === null) {
       return `Revisá el saldo de ${name}. Usá 1.000.000,00.`;
@@ -371,13 +374,9 @@ function RacetrackCard({
   onChange: (change: Partial<RacetrackDraft>) => void;
   onRemove: () => void;
 }) {
-  // The card shares the row with the menu and the summary panel, so the window width is not enough.
-  const [width, setWidth] = useState(0);
-  const wide = width >= FIELDS_IN_ROW_WIDTH;
   return (
     <View
       className="gap-4 rounded-[14px] border border-line bg-canvas p-4"
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       <View className="flex-row items-center gap-3">
         <IconBadge name="horse-variant" />
@@ -390,40 +389,22 @@ function RacetrackCard({
           </Pressable>
         ) : null}
       </View>
-      <View className={wide ? "flex-row gap-3" : "gap-3"}>
-        <View className={wide ? "flex-[2]" : ""}>
-          <Field label="Nombre">
-            <TextField
-              value={row.name}
-              onChangeText={(name) => onChange({ name })}
-              placeholder="Ej.: San Isidro"
-              accessibilityLabel="Nombre del hipódromo"
-            />
-          </Field>
-        </View>
-        <View className={wide ? "flex-1" : ""}>
-          <Field label="Comisión (%)">
-            <TextField
-              value={row.commission}
-              onChangeText={(commission) => onChange({ commission })}
-              keyboardType="decimal-pad"
-              placeholder="15"
-              accessibilityLabel="Comisión del hipódromo"
-            />
-          </Field>
-        </View>
-        <View className={wide ? "flex-1" : ""}>
-          <Field label="Ajuste al depositar (%)">
-            <TextField
-              value={row.adjustment}
-              onChangeText={(adjustment) => onChange({ adjustment })}
-              keyboardType="numbers-and-punctuation"
-              placeholder="Ej.: -5"
-              accessibilityLabel="Ajuste al depositar"
-            />
-          </Field>
-        </View>
-      </View>
+      <Field label="Nombre">
+        <TextField
+          value={row.name}
+          onChangeText={(name) => onChange({ name })}
+          placeholder="Ej.: San Isidro"
+          accessibilityLabel="Nombre del hipódromo"
+        />
+      </Field>
+      <CommissionModeField
+        mode={row.mode}
+        onModeChange={(mode) => onChange({ mode })}
+        commission={row.commission}
+        onCommissionChange={(commission) => onChange({ commission })}
+        adjustment={row.adjustment}
+        onAdjustmentChange={(adjustment) => onChange({ adjustment })}
+      />
       <Field label="Saldo inicial">
         <BalanceFields value={row} onChange={(next) => onChange(next)} label="Saldo inicial con el hipódromo" />
       </Field>
@@ -548,9 +529,12 @@ export function RacingWelcome({
               lines={ready.map((racetrack) => ({
                 key: racetrack.name,
                 name: racetrack.name,
-                detail: `Comisión ${percentText(racetrack.commissionBasisPoints)}${
-                  racetrack.depositAdjustmentBasisPoints === 0 ? "" : ` · Ajuste ${percentText(racetrack.depositAdjustmentBasisPoints)}`
-                }`,
+                detail:
+                  commissionModeOf(racetrack) === "retained"
+                    ? `${percentText(racetrack.commissionBasisPoints)} de la venta neta, descontado del depósito`
+                    : `Comisión ${percentText(racetrack.commissionBasisPoints)}${
+                        racetrack.depositAdjustmentBasisPoints === 0 ? "" : ` · Ajuste ${percentText(racetrack.depositAdjustmentBasisPoints)}`
+                      }`,
                 cents: racetrack.openingCents,
               }))}
               totalLabel="Total a pagar a los hipódromos"

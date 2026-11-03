@@ -121,3 +121,33 @@ export function currentCommissionBasisPoints(
   }
   return getRacetrack(racetrackId, source).commissionBasisPoints;
 }
+
+/**
+ * How the agency charges a racetrack.
+ * fixed: a commission on the net, plus an optional adjustment when depositing.
+ * retained: the agency keeps a share of the net from the cash and deposits the rest.
+ * Retained is stored as commission X with a deposit adjustment of -X, so settleDay
+ * and the August totals do not change. It is a draft rule for Federico to try.
+ */
+export type CommissionMode = "fixed" | "retained";
+
+/** 6.75 % of the net, the share Federico mentioned. The owner can type another one. */
+export const DEFAULT_RETAINED_COMMISSION_BASIS_POINTS = 675;
+
+export function commissionModeOf(rates: { commissionBasisPoints: number; depositAdjustmentBasisPoints: number }): CommissionMode {
+  return rates.depositAdjustmentBasisPoints !== 0 && rates.depositAdjustmentBasisPoints === -rates.commissionBasisPoints
+    ? "retained"
+    : "fixed";
+}
+
+/** The two stored rates for a mode. In retained mode the adjustment is ignored. */
+export function racetrackRates(
+  mode: CommissionMode,
+  commissionBasisPoints: number,
+  depositAdjustmentBasisPoints: number,
+): { commissionBasisPoints: number; depositAdjustmentBasisPoints: number } {
+  if (mode === "retained") {
+    return { commissionBasisPoints, depositAdjustmentBasisPoints: -commissionBasisPoints };
+  }
+  return { commissionBasisPoints, depositAdjustmentBasisPoints };
+}

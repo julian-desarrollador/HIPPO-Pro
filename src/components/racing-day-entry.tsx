@@ -28,6 +28,7 @@ import {
   currentCommissionBasisPoints,
   emptyDayReportMessage,
   formatAmountInput,
+  commissionModeOf,
   formatSignedPercent,
   chooseImageFile,
   ledgerErrorMessage,
@@ -607,6 +608,27 @@ function DayBreakdown({
   settlement: DaySettlement;
 }) {
   const commissionLabel = `Comisión (${formatSignedPercent(settlement.commissionBasisPoints)})`;
+
+  if (commissionModeOf(settlement) === "retained") {
+    // The agency keeps its share from the cash: the lines add up to A depositar.
+    return (
+      <View>
+        <BreakdownLine label="Vendido" cents={soldCents} />
+        <BreakdownLine label="− Cancelados" cents={cancelledCents} />
+        <View className="my-2 h-px bg-line" />
+        <BreakdownLine label="Neto" cents={settlement.netCents} size="md" />
+        <BreakdownLine label="− Pagado" cents={paidCents} />
+        <View className="my-2 h-px bg-line" />
+        <BreakdownLine label="Ganancia del día" cents={settlement.dayGainCents} />
+        <BreakdownLine
+          label={`− Tu comisión (${formatSignedPercent(settlement.commissionBasisPoints)} del neto)`}
+          cents={settlement.commissionCents}
+        />
+        <View className="my-2 h-px bg-line" />
+        <BreakdownLine label="A depositar" cents={settlement.amountToDepositCents} size="md" tone="navy" />
+      </View>
+    );
+  }
 
   return (
     <View>

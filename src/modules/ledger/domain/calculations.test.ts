@@ -5,6 +5,7 @@ import { canViewAgencyBalances } from "./access";
 import { settleDay } from "./calculations";
 import { EXPENSE_CATEGORIES, expenseCategoriesFor } from "./expense-categories";
 import { formatCents, formatSignedPercent } from "./money";
+import { RACETRACKS, commissionModeOf, racetrackRates } from "./racetracks";
 
 describe("settleDay", () => {
   it("en San Isidro cobra el 15% y resta el 5% del neto al depositar", () => {
@@ -119,5 +120,35 @@ describe("formatSignedPercent", () => {
   it("usa coma para los decimales", () => {
     assert.equal(formatSignedPercent(1350), "13,5 %");
     assert.equal(formatSignedPercent(1460), "14,6 %");
+  });
+});
+
+describe("comisión descontada del depósito", () => {
+  it("con el 6,75% la agencia se queda su parte y deposita el resto", () => {
+    const day = settleDay({
+      racetrackId: "nuevo",
+      soldCents: 10_000_000,
+      cancelledCents: 0,
+      paidCents: 6_000_000,
+      ...racetrackRates("retained", 675, 0),
+    });
+    assert.equal(day.netCents, 10_000_000);
+    assert.equal(day.dayGainCents, 4_000_000);
+    assert.equal(day.commissionCents, 675_000);
+    assert.equal(day.amountToDepositCents, 3_325_000);
+  });
+
+  it("se reconoce por el ajuste igual a la comisión con el signo cambiado", () => {
+    assert.equal(commissionModeOf({ commissionBasisPoints: 675, depositAdjustmentBasisPoints: -675 }), "retained");
+    assert.equal(commissionModeOf({ commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0 }), "fixed");
+    assert.equal(commissionModeOf({ commissionBasisPoints: 0, depositAdjustmentBasisPoints: 0 }), "fixed");
+    for (const racetrack of RACETRACKS) {
+      assert.equal(commissionModeOf(racetrack), "fixed", racetrack.name);
+    }
+  });
+
+  it("el porcentaje fijo deja la comisión y el ajuste como vienen", () => {
+    assert.deepEqual(racetrackRates("fixed", 1500, -500), { commissionBasisPoints: 1500, depositAdjustmentBasisPoints: -500 });
+    assert.deepEqual(racetrackRates("retained", 800, -500), { commissionBasisPoints: 800, depositAdjustmentBasisPoints: -800 });
   });
 });

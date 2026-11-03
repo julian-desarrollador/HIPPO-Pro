@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { agencyIdFromName, newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
+import { agencyIdFromName, agencySignupProblem, newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
 
 describe("nueva agencia", () => {
   it("pide el nombre de la agencia, el del dueño y un correo válido", () => {
@@ -39,5 +39,26 @@ describe("quitar una agencia", () => {
     assert.equal(removalNameMatches("AgenciaNorte", "Agencia Norte"), false);
     assert.equal(removalNameMatches("", ""), false);
     assert.equal(removalNameMatches("   ", "Agencia Norte"), false);
+  });
+});
+
+describe("alta directa de una agencia", () => {
+  it("pide una contraseña de al menos 6 caracteres", () => {
+    assert.equal(
+      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "12345", "12345"),
+      "La contraseña tiene que tener al menos 6 caracteres.",
+    );
+  });
+
+  it("pide repetir la misma contraseña", () => {
+    assert.equal(
+      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "123456", "123457"),
+      "Las contraseñas no coinciden.",
+    );
+    assert.equal(agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "123456", "123456"), null);
+  });
+
+  it("revisa primero la agencia, el dueño y el correo", () => {
+    assert.equal(agencySignupProblem("", "Ana", "ana@norte.com", "123456", "123456"), "Escribí el nombre de la agencia.");
   });
 });

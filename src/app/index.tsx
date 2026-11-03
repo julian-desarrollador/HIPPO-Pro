@@ -16,6 +16,7 @@ import {
   SecondaryButton,
   TextField,
 } from "@/components/form-controls";
+import { CommissionModeField } from "@/components/commission-mode-field";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { MonthStartForm, monthStartTitle } from "@/components/month-start";
 import { RacingWelcome } from "@/components/starting-balances";
@@ -23,6 +24,7 @@ import { WelcomeCelebration, WelcomeReminder } from "@/components/welcome-hero";
 import { StatCard } from "@/components/stat-card";
 import { wideLayout } from "@/constants/layout";
 import {
+  commissionModeOf,
   currentCommissionBasisPoints,
   formatAmountInput,
   formatPercentInput,
@@ -31,8 +33,10 @@ import {
   parseSignedPercentToBasisPoints,
   racetrackHasMovements,
   racetrackOpeningCents,
+  racetrackRates,
   readAmount,
   useLedger,
+  type CommissionMode,
 } from "@/modules/ledger";
 
 type OpeningSide = "owe" | "owed";
@@ -79,6 +83,7 @@ function RacingHome() {
   const [name, setName] = useState("");
   const [commission, setCommission] = useState("");
   const [adjustment, setAdjustment] = useState("");
+  const [commissionMode, setCommissionMode] = useState<CommissionMode>("fixed");
   const [openingSide, setOpeningSide] = useState<OpeningSide>("owe");
   const [opening, setOpening] = useState("");
   const [message, setMessage] = useState("");
@@ -113,6 +118,7 @@ function RacingHome() {
     setName("");
     setCommission("");
     setAdjustment("");
+    setCommissionMode("fixed");
     setOpeningSide("owe");
     setOpening("");
     setError("");
@@ -128,8 +134,11 @@ function RacingHome() {
     setManageOpen(false);
     setEditingId(id);
     setName(track.name);
-    setCommission(formatPercentInput(currentCommissionBasisPoints(id, snapshot.commissions, snapshot)));
-    setAdjustment(track.depositAdjustmentBasisPoints === 0 ? "" : formatPercentInput(track.depositAdjustmentBasisPoints));
+    const currentCommission = currentCommissionBasisPoints(id, snapshot.commissions, snapshot);
+    const mode = commissionModeOf({ commissionBasisPoints: currentCommission, depositAdjustmentBasisPoints: track.depositAdjustmentBasisPoints });
+    setCommissionMode(mode);
+    setCommission(formatPercentInput(currentCommission));
+    setAdjustment(mode === "retained" || track.depositAdjustmentBasisPoints === 0 ? "" : formatPercentInput(track.depositAdjustmentBasisPoints));
     const openingCents = racetrackOpeningCents(snapshot, id);
     setOpeningSide(openingCents < 0 ? "owed" : "owe");
     setOpening(openingCents === 0 ? "" : formatAmountInput(Math.abs(openingCents)));
@@ -156,7 +165,7 @@ function RacingHome() {
       return;
     }
     const commissionBasisPoints = parsePercentToBasisPoints(commission);
-    const depositAdjustmentBasisPoints = adjustment.trim() ? parseSignedPercentToBasisPoints(adjustment) : 0;
+    const typedAdjustment = commissionMode === "fixed" && adjustment.trim() ? parseSignedPercentToBasisPoints(adjustment) : 0;
     if (!name.trim()) {
       setMessage("");
       setError("Escribí el nombre del hipódromo.");
@@ -167,11 +176,13 @@ function RacingHome() {
       setError("El porcentaje tiene que estar entre 0 y 100.");
       return;
     }
-    if (depositAdjustmentBasisPoints === null) {
+    if (typedAdjustment === null) {
       setMessage("");
       setError("El ajuste tiene que estar entre -100 y 100.");
       return;
     }
+    const rates = racetrackRates(commissionMode, commissionBasisPoints, typedAdjustment);
+    const depositAdjustmentBasisPoints = rates.depositAdjustmentBasisPoints;
     const openingAmount = readAmount(opening, true);
     if (openingAmount === null) {
       setMessage("");
@@ -299,30 +310,15 @@ function RacingHome() {
             <Field label="Nombre">
               <TextField value={name} onChangeText={setName} placeholder="Nombre" accessibilityLabel="Nombre del hipódromo" />
             </Field>
-            <Field label="Comisión">
-              <TextField
-                value={commission}
-                onChangeText={setCommission}
-                keyboardType="decimal-pad"
-                placeholder="15"
-                accessibilityLabel="Comisión del hipódromo"
-              />
-            </Field>
-            <Text className="text-[15px] leading-5 text-muted">
-              Vale para los días que se carguen después. Los ya cargados conservan su porcentaje.
-            </Text>
-            <Field label="Ajuste al depositar (%)">
-              <TextField
-                value={adjustment}
-                onChangeText={setAdjustment}
-                keyboardType="numbers-and-punctuation"
-                placeholder="0"
-                accessibilityLabel="Ajuste al depositar"
-              />
-            </Field>
-            <Text className="text-[15px] leading-5 text-muted">
-              Lo que se suma o se resta del neto al depositar. Por ejemplo -5. También vale para los días que se carguen después.
-            </Text>
+            <CommissionModeField
+              mode={commissionMode}
+              onModeChange={setCommissionMode}
+              commission={commission}
+              onCommissionChange={setCommission}
+              adjustment={adjustment}
+              onAdjustmentChange={setAdjustment}
+              showNotes
+            />
             <Field label={`Saldo al empezar ${monthTitle(snapshot.month).toLocaleLowerCase("es")}`}>
               <View className="gap-3">
                 <ChoiceChips options={openingSideOptions} value={openingSide} onChange={setOpeningSide} />

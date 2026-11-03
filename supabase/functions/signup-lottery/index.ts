@@ -1,5 +1,7 @@
-// Opens a lottery agency for someone who does not have an account yet.
-// Always lottery. Racing and both stay on create-agency, which needs a session.
+// Opens a racing or a lottery agency for someone who does not have an account
+// yet. productMode is "racing" or "lottery"; without it, lottery (the first
+// version only opened lottery). Both is added later by the owner. Invited
+// owners still come from create-agency, which needs a session.
 // Deploy with JWT verification off: supabase functions deploy signup-lottery --no-verify-jwt
 // The app calls it with the anon key only. Never put the service role in the app.
 // Keep the Spanish messages aligned with lotterySignupProblem in src/modules/identity/agency-invite.ts.
@@ -85,6 +87,11 @@ function emptyAgencySnapshot(agencyId: string): Record<string, unknown> {
   };
 }
 
+/** A new agency starts with one service. Keep aligned with startingModeOf in create-agency. */
+function startingModeOf(value: unknown): "racing" | "lottery" {
+  return value === "racing" ? "racing" : "lottery";
+}
+
 function readText(body: object, key: string): string {
   const value = (body as Record<string, unknown>)[key];
   return typeof value === "string" ? value : "";
@@ -137,13 +144,14 @@ Deno.serve(async (req: Request) => {
 
   const name = agencyName.trim().replace(/\s+/g, " ");
   const agencyId = agencyIdFromName(name);
+  const productMode = startingModeOf(readText(body, "productMode"));
   const cleanOwner = ownerName.trim();
   const cleanEmail = ownerEmail.trim().toLowerCase();
 
   const { error: agencyError } = await admin.from("agencies").insert({
     agency_id: agencyId,
     name,
-    product_mode: "lottery",
+    product_mode: productMode,
   });
   if (agencyError) {
     return agencyError.code === "23505"

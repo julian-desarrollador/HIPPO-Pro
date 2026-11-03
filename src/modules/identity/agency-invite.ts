@@ -49,11 +49,13 @@ export function newAgencyProblem(agencyName: string, ownerName: string, ownerEma
   return inviteOperatorProblem(ownerName, ownerEmail);
 }
 
-export function lotterySignupProblem(
+/** Keep the Spanish messages aligned with supabase/functions/signup-lottery/index.ts. */
+export function agencySignupProblem(
   agencyName: string,
   ownerName: string,
   ownerEmail: string,
   password: string,
+  confirmPassword: string,
 ): string | null {
   const problem = newAgencyProblem(agencyName, ownerName, ownerEmail);
   if (problem) {
@@ -61,6 +63,9 @@ export function lotterySignupProblem(
   }
   if (password.length < 6) {
     return "La contraseña tiene que tener al menos 6 caracteres.";
+  }
+  if (password !== confirmPassword) {
+    return "Las contraseñas no coinciden.";
   }
   return null;
 }

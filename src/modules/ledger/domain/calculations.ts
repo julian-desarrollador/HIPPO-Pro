@@ -5,6 +5,8 @@ import type { RacetrackId } from "./types";
 
 export type DaySettlement = {
   netCents: Cents;
+  /** Net minus what was paid to bettors: the cash the day left before the agency's share. */
+  dayGainCents: Cents;
   commissionCents: Cents;
   adjustmentCents: Cents;
   amountToDepositCents: Cents;
@@ -32,6 +34,7 @@ export function settleDay(input: {
 
   return {
     netCents,
+    dayGainCents: netCents - input.paidCents,
     commissionCents,
     adjustmentCents,
     amountToDepositCents: netCents - input.paidCents + adjustmentCents,

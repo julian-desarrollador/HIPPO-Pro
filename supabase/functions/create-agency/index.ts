@@ -205,9 +205,11 @@ async function insertAgency(
 }
 
 /**
- * An owner of a removed agency who never signed in (the invite expired) is
- * deleted, so the same email can be invited again. Anyone else is kept.
- * Returns false only when that deletion fails.
+ * An owner of a removed agency who never got in is deleted, so the same email
+ * can be invited again. Never got in: no sign-in at all (the invite expired),
+ * or the invite link was opened but the password was never saved
+ * (password_pending). Opening the link alone sets last_sign_in_at.
+ * Anyone else is kept. Returns false only when that deletion fails.
  */
 async function releaseUnusedOwner(admin: SupabaseClient, email: string): Promise<boolean> {
   const { data: profiles, error } = await admin
@@ -227,7 +229,11 @@ async function releaseUnusedOwner(admin: SupabaseClient, email: string): Promise
     return true;
   }
   const { data: userData, error: userError } = await admin.auth.admin.getUserById(profile.user_id);
-  if (userError || !userData.user || userData.user.last_sign_in_at) {
+  if (userError || !userData.user) {
+    return true;
+  }
+  const passwordPending = userData.user.user_metadata?.password_pending === true;
+  if (userData.user.last_sign_in_at && !passwordPending) {
     return true;
   }
   const { error: deleteError } = await admin.auth.admin.deleteUser(profile.user_id);

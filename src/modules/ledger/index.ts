@@ -4,7 +4,16 @@ export { settleDay } from "./domain/calculations";
 export type { DaySettlement } from "./domain/calculations";
 export { EXPENSE_CATEGORIES, categoryHasExpenses, expenseCategoriesFor, listExpenseCategories } from "./domain/expense-categories";
 export { formatCents, formatSignedPercent } from "./domain/money";
-export { RACETRACKS, currentCommissionBasisPoints, listRacetracks, racetrackHasMovements } from "./domain/racetracks";
+export {
+  DEFAULT_RETAINED_COMMISSION_BASIS_POINTS,
+  RACETRACKS,
+  commissionModeOf,
+  currentCommissionBasisPoints,
+  listRacetracks,
+  racetrackHasMovements,
+  racetrackRates,
+} from "./domain/racetracks";
+export type { CommissionMode } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
 export type { CashExpense, CashIncome, CashIncomeKind, RacetrackId, ScheduleDay, TerminalId, ViewerRole } from "./domain/types";
 export type { CashLine, CashPersonLine, CashSummary } from "./application/use-cases/summarize-cash-day";

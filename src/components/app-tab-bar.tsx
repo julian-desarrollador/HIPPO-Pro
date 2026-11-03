@@ -24,8 +24,10 @@ import { isLotteryPath, palette, usePalette } from "@/constants/palette";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
+import { HelpPanel } from "@/components/help-panel";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
+import { SupportInbox } from "@/components/support-inbox";
 import { canAddService, useLedger, type AgencyMode, type AgencyService, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
@@ -292,6 +294,8 @@ export function CustomTabList(props: TabListProps) {
   const canRemoveService = role === "owner" && !readOnly && agencyMode === "both" && removeService !== null;
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const [agenciesOpen, setAgenciesOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
   const { collapsed, railOnly, toggle, width } = useContext(SidebarContext);
@@ -450,6 +454,8 @@ export function CustomTabList(props: TabListProps) {
                 onSignOut={signOut}
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
                 onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
+                onOpenHelp={() => setHelpOpen(true)}
+                onOpenSupport={canCreateAgencies ? () => setSupportOpen(true) : null}
                 agencyMode={agencyMode}
                 serviceToAdd={!canCreateAgencies && serviceToAdd && addService ? serviceToAdd : null}
                 onAddService={!canCreateAgencies && serviceToAdd && addService ? () => addService(serviceToAdd) : null}
@@ -521,6 +527,28 @@ export function CustomTabList(props: TabListProps) {
           setAccountOpen(true);
         }}
       />
+      <HelpPanel
+        visible={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onBack={() => {
+          setHelpOpen(false);
+          setAccountOpen(true);
+        }}
+        displayName={displayName}
+        userId={userId}
+        agencyId={readOnly ? "" : snapshot.agencyId}
+      />
+      {canCreateAgencies ? (
+        <SupportInbox
+          visible={supportOpen}
+          onClose={() => setSupportOpen(false)}
+          onBack={() => {
+            setSupportOpen(false);
+            setAccountOpen(true);
+          }}
+          userId={userId}
+        />
+      ) : null}
     </NavChromeContext.Provider>
   );
 }
@@ -688,6 +716,8 @@ function AccountMenu({
   onSignOut,
   onOpenOperators,
   onOpenAgencies,
+  onOpenHelp,
+  onOpenSupport,
   agencyMode,
   serviceToAdd,
   onAddService,
@@ -701,6 +731,8 @@ function AccountMenu({
   onSignOut: () => void;
   onOpenOperators: (() => void) | null;
   onOpenAgencies: (() => void) | null;
+  onOpenHelp: (() => void) | null;
+  onOpenSupport: (() => void) | null;
   agencyMode: AgencyMode;
   serviceToAdd: AgencyService | null;
   onAddService: (() => Promise<void>) | null;
@@ -729,7 +761,7 @@ function AccountMenu({
     />
   );
 
-  if (onOpenOperators || onOpenAgencies) {
+  if (onOpenOperators || onOpenAgencies || onOpenHelp) {
     const pick = (action: () => void) => {
       onOpenChange(false);
       action();
@@ -753,6 +785,8 @@ function AccountMenu({
             {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => onOpenChange(false)} /> : null}
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
             {onOpenAgencies ? <SecondaryButton label="Agencias" onPress={() => pick(onOpenAgencies)} /> : null}
+            {onOpenSupport ? <SecondaryButton label="Consultas" onPress={() => pick(onOpenSupport)} /> : null}
+            {onOpenHelp ? <SecondaryButton label="Ayuda" onPress={() => pick(onOpenHelp)} /> : null}
             {(serviceToAdd && openAdd) || (canRemoveService && openRemove) ? (
               <AgencyServiceCards
                 mode={agencyMode}

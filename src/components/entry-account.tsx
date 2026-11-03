@@ -4,28 +4,35 @@ import { Pressable, Text, View } from "react-native";
 import { Feedback, Field, PrimaryButton, SecondaryButton, TextField } from "@/components/form-controls";
 import { Card } from "@/components/screen-frame";
 import { SignInScreen } from "@/components/sign-in-screen";
-import { lotterySignupProblem } from "@/modules/identity/agency-invite";
+import { agencySignupProblem } from "@/modules/identity/agency-invite";
 import { readFunctionMessage } from "@/modules/identity/operator-admin";
 import { browserSupabase } from "@/modules/ledger/adapters/outbound/supabase-browser";
 import { readSupabaseConfig } from "@/modules/ledger/adapters/outbound/supabase-config";
 
-export function EntryAccount({
-  panel,
-  onClose,
-}: {
-  panel: "sign-in" | "lottery";
-  onClose: () => void;
-}) {
+export type EntryPanel = "sign-in" | SignupMode;
+
+type SignupMode = "racing" | "lottery";
+
+const panelTitles: Record<EntryPanel, string> = {
+  "sign-in": "Entrar",
+  racing: "Agencia hípica",
+  lottery: "Agencia de lotería",
+};
+
+const signupIntro: Record<SignupMode, string> = {
+  racing: "Elegí el nombre de la agencia, el tuyo y una contraseña. Entrás a Inicio con el libro vacío y cargás tus hipódromos.",
+  lottery: "Elegí el nombre de la agencia, el tuyo y una contraseña. Entrás a la quiniela con el libro vacío.",
+};
+
+export function EntryAccount({ panel, onClose }: { panel: EntryPanel; onClose: () => void }) {
   return (
     <Card>
       <View className="gap-4">
         <View className="flex-row items-center justify-between gap-3">
-          <Text className="font-sans text-[24px] font-semibold text-navy">
-            {panel === "lottery" ? "Agencia de lotería" : "Entrar"}
-          </Text>
+          <Text className="font-sans text-[24px] font-semibold text-navy">{panelTitles[panel]}</Text>
           <SecondaryButton label="Cerrar" onPress={onClose} />
         </View>
-        {panel === "lottery" ? <LotterySignup /> : <LandingSignIn />}
+        {panel === "sign-in" ? <LandingSignIn /> : <AgencySignup key={panel} mode={panel} />}
       </View>
     </Card>
   );
@@ -66,11 +73,12 @@ function LandingSignIn() {
   );
 }
 
-function LotterySignup() {
+function AgencySignup({ mode }: { mode: SignupMode }) {
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -80,7 +88,7 @@ function LotterySignup() {
     if (busy) {
       return;
     }
-    const problem = lotterySignupProblem(agencyName, ownerName, email, password);
+    const problem = agencySignupProblem(agencyName, ownerName, email, password, confirmPassword);
     if (problem) {
       setError(problem);
       setMessage("");
@@ -101,6 +109,7 @@ function LotterySignup() {
         ownerName: ownerName.trim(),
         ownerEmail: email.trim(),
         password,
+        productMode: mode,
       },
     });
     if (invokeError) {
@@ -122,9 +131,7 @@ function LotterySignup() {
 
   return (
     <View className="gap-4">
-      <Text className="text-[17px] leading-6 text-ink">
-        Elegí el nombre de la agencia, el tuyo y una contraseña. Entrás a la quiniela con el libro vacío.
-      </Text>
+      <Text className="text-[17px] leading-6 text-ink">{signupIntro[mode]}</Text>
       <Field label="Nombre de la agencia">
         <TextField value={agencyName} onChangeText={setAgencyName} placeholder="Agencia Norte" accessibilityLabel="Nombre de la agencia" />
       </Field>
@@ -149,6 +156,16 @@ function LotterySignup() {
           secureTextEntry
           placeholder="Al menos 6 caracteres"
           accessibilityLabel="Contraseña"
+        />
+      </Field>
+      <Field label="Repetir contraseña">
+        <TextField
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          placeholder="La misma contraseña"
+          accessibilityLabel="Repetir contraseña"
+          onSubmitEditing={() => void submit()}
         />
       </Field>
       <Feedback error={error} message={message} />
