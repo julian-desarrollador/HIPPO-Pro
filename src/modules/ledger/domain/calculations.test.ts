@@ -124,31 +124,57 @@ describe("formatSignedPercent", () => {
 });
 
 describe("comisión descontada del depósito", () => {
-  it("con el 6,75% la agencia se queda su parte y deposita el resto", () => {
-    const day = settleDay({
+  const retained = (soldCents: number, paidCents: number) =>
+    settleDay({
       racetrackId: "nuevo",
-      soldCents: 10_000_000,
+      soldCents,
       cancelledCents: 0,
-      paidCents: 6_000_000,
-      ...racetrackRates("retained", 675, 0),
+      paidCents,
+      ...racetrackRates("retained", 675, 0, 2000),
     });
-    assert.equal(day.netCents, 10_000_000);
-    assert.equal(day.dayGainCents, 4_000_000);
-    assert.equal(day.commissionCents, 675_000);
-    assert.equal(day.amountToDepositCents, 3_325_000);
+
+  it("el ejemplo de Federico: 6,75% del neto más 20% de la ganancia menos su 6,75%", () => {
+    const day = retained(100_000_000, 60_000_000);
+    assert.equal(day.dayGainCents, 40_000_000);
+    assert.equal(day.netShareCents, 6_750_000);
+    assert.equal(day.profitShareBaseCents, 37_300_000);
+    assert.equal(day.profitShareCents, 7_460_000);
+    assert.equal(day.commissionCents, 14_210_000);
+    assert.equal(day.amountToDepositCents, 25_790_000);
   });
 
-  it("se reconoce por el ajuste igual a la comisión con el signo cambiado", () => {
-    assert.equal(commissionModeOf({ commissionBasisPoints: 675, depositAdjustmentBasisPoints: -675 }), "retained");
-    assert.equal(commissionModeOf({ commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0 }), "fixed");
-    assert.equal(commissionModeOf({ commissionBasisPoints: 0, depositAdjustmentBasisPoints: 0 }), "fixed");
+  it("si se pagó más de lo vendido, el 20% queda en cero y la agencia cobra solo el 6,75% del neto", () => {
+    const day = retained(100_000_000, 120_000_000);
+    assert.equal(day.dayGainCents, -20_000_000);
+    assert.equal(day.profitShareBaseCents, 0);
+    assert.equal(day.profitShareCents, 0);
+    assert.equal(day.commissionCents, 6_750_000);
+    assert.equal(day.amountToDepositCents, -26_750_000);
+  });
+
+  it("sin la parte de la ganancia se calcula igual que antes", () => {
+    const day = settleDay({ racetrackId: "san-isidro", soldCents: 1_000_000, cancelledCents: 0, paidCents: 400_000 });
+    assert.equal(day.commissionCents, 150_000);
+    assert.equal(day.amountToDepositCents, 550_000);
+    assert.equal(day.profitShareBasisPoints, undefined);
+    assert.equal(day.profitShareCents, 0);
+  });
+
+  it("el modo sale de la parte de la ganancia", () => {
+    assert.equal(commissionModeOf({ profitShareBasisPoints: 2000 }), "retained");
+    assert.equal(commissionModeOf({ profitShareBasisPoints: 0 }), "retained");
+    assert.equal(commissionModeOf({}), "fixed");
     for (const racetrack of RACETRACKS) {
       assert.equal(commissionModeOf(racetrack), "fixed", racetrack.name);
     }
   });
 
-  it("el porcentaje fijo deja la comisión y el ajuste como vienen", () => {
-    assert.deepEqual(racetrackRates("fixed", 1500, -500), { commissionBasisPoints: 1500, depositAdjustmentBasisPoints: -500 });
-    assert.deepEqual(racetrackRates("retained", 800, -500), { commissionBasisPoints: 800, depositAdjustmentBasisPoints: -800 });
+  it("cada modo guarda solo sus porcentajes", () => {
+    assert.deepEqual(racetrackRates("fixed", 1500, -500, 2000), { commissionBasisPoints: 1500, depositAdjustmentBasisPoints: -500 });
+    assert.deepEqual(racetrackRates("retained", 675, -500, 2000), {
+      commissionBasisPoints: 675,
+      depositAdjustmentBasisPoints: 0,
+      profitShareBasisPoints: 2000,
+    });
   });
 });

@@ -3,12 +3,25 @@ import { isBuiltinRacetrack, listRacetracks, RACETRACKS, racetrackHasMovements, 
 import type { Cents } from "../../domain/money";
 import type { AgencyRacetrack, LedgerSnapshot, OpeningBalance, RacetrackCommission } from "../../domain/types";
 import { assertAdjustmentBasisPoints, assertCommissionBasisPoints } from "../../domain/validation";
+
+function assertProfitShare(profitShareBasisPoints: number | undefined): void {
+  if (profitShareBasisPoints !== undefined) {
+    assertCommissionBasisPoints(profitShareBasisPoints);
+  }
+}
+
+/** Only retained racetracks carry the share; a fixed one must not keep an old value. */
+function withProfitShare(profitShareBasisPoints: number | undefined): Pick<AgencyRacetrack, "profitShareBasisPoints"> {
+  return profitShareBasisPoints === undefined ? {} : { profitShareBasisPoints };
+}
 import type { LedgerRepository } from "../ports/ledger-repository";
 
 export type AddRacetrackInput = {
   name: string;
   commissionBasisPoints: number;
   depositAdjustmentBasisPoints: number;
+  /** Retained mode («Descontado del depósito»): the share of the day gain. Missing in fixed mode. */
+  profitShareBasisPoints?: number;
   /**
    * What was owed to the racetrack when the agency started the book, at the start of
    * snapshot.month. Positive: the agency owes. Negative: the racetrack owes. It carries
@@ -57,6 +70,7 @@ export function addRacetrack(repository: LedgerRepository, input: AddRacetrackIn
   const id = racetrackIdFromName(name);
   assertCommissionBasisPoints(input.commissionBasisPoints);
   assertAdjustmentBasisPoints(input.depositAdjustmentBasisPoints);
+  assertProfitShare(input.profitShareBasisPoints);
 
   const existing = listRacetracks(snapshot);
   if (existing.some((racetrack) => racetrack.id === id || comparableName(racetrack.name) === comparableName(name))) {
@@ -73,6 +87,7 @@ export function addRacetrack(repository: LedgerRepository, input: AddRacetrackIn
       name,
       commissionBasisPoints: input.commissionBasisPoints,
       depositAdjustmentBasisPoints: input.depositAdjustmentBasisPoints,
+      ...withProfitShare(input.profitShareBasisPoints),
     };
     repository.save({
       ...snapshot,
@@ -93,6 +108,7 @@ export function addRacetrack(repository: LedgerRepository, input: AddRacetrackIn
     name,
     commissionBasisPoints: input.commissionBasisPoints,
     depositAdjustmentBasisPoints: input.depositAdjustmentBasisPoints,
+    ...withProfitShare(input.profitShareBasisPoints),
   };
   repository.save({
     ...snapshot,
@@ -129,6 +145,7 @@ export function updateRacetrack(repository: LedgerRepository, input: UpdateRacet
   const name = normalizedName(input.name);
   assertCommissionBasisPoints(input.commissionBasisPoints);
   assertAdjustmentBasisPoints(input.depositAdjustmentBasisPoints);
+  assertProfitShare(input.profitShareBasisPoints);
 
   const duplicate = listRacetracks(snapshot).some(
     (racetrack) => racetrack.id !== input.id && comparableName(racetrack.name) === comparableName(name),
@@ -142,6 +159,7 @@ export function updateRacetrack(repository: LedgerRepository, input: UpdateRacet
     name,
     commissionBasisPoints: input.commissionBasisPoints,
     depositAdjustmentBasisPoints: input.depositAdjustmentBasisPoints,
+    ...withProfitShare(input.profitShareBasisPoints),
   };
   const current = snapshot.racetracks ?? [];
   const index = current.findIndex((item) => item.id === input.id);

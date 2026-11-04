@@ -7,6 +7,11 @@ export type AgencyRacetrack = {
   name: string;
   commissionBasisPoints: number;
   depositAdjustmentBasisPoints: number;
+  /**
+   * Present only in retained mode («Descontado del depósito»): the agency's share of the day gain.
+   * See settleDay. Missing on the August racetracks and on every fixed-mode racetrack.
+   */
+  profitShareBasisPoints?: number;
 };
 
 export type AgencyExpenseCategory = {
@@ -35,6 +40,8 @@ export type DailySale = {
   commissionBasisPoints?: number;
   /** Copied from the racetrack when the day is recorded. Missing on the August seed. */
   depositAdjustmentBasisPoints?: number;
+  /** Copied from a retained-mode racetrack when the day is recorded. Missing in fixed mode. */
+  profitShareBasisPoints?: number;
 };
 
 export type RacetrackCommission = {

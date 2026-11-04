@@ -99,6 +99,15 @@ function diffRacetracks(before: LedgerSnapshot, after: LedgerSnapshot): { lines:
         `El ajuste pasó de ${formatSignedPercent(old.depositAdjustmentBasisPoints)} a ${formatSignedPercent(track.depositAdjustmentBasisPoints)}.`,
       );
     }
+    if (old.profitShareBasisPoints !== track.profitShareBasisPoints) {
+      clauses.push(
+        track.profitShareBasisPoints === undefined
+          ? "Pasó a porcentaje fijo."
+          : old.profitShareBasisPoints === undefined
+            ? `Pasó a descontado del depósito, con ${formatSignedPercent(track.profitShareBasisPoints)} de la ganancia.`
+            : `La parte de la ganancia pasó de ${formatSignedPercent(old.profitShareBasisPoints)} a ${formatSignedPercent(track.profitShareBasisPoints)}.`,
+      );
+    }
     if (clauses.length === 1 && oldCommission !== newCommission && old.name === track.name && !adjustmentChanged && oldOpening === newOpening) {
       lines.push(
         `Cambió la comisión de ${old.name} de ${formatSignedPercent(oldCommission)} a ${formatSignedPercent(newCommission)}.`,

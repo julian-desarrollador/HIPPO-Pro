@@ -1005,3 +1005,70 @@ describe("total del estado de cuenta inicial", () => {
     assert.equal(sumStartingBalances([]), 0);
   });
 });
+
+describe("hipódromo con comisión descontada del depósito", () => {
+  it("el día guarda la parte de la ganancia y el mes suma la comisión y lo que hay que depositar", () => {
+    const repository = createInMemoryLedgerRepository();
+    addRacetrack(repository, {
+      name: "Rosario",
+      commissionBasisPoints: 675,
+      depositAdjustmentBasisPoints: 0,
+      profitShareBasisPoints: 2000,
+    });
+    const day = recordDay(repository, {
+      date: "2026-09-03",
+      racetrackId: "rosario",
+      soldCents: 100_000_000,
+      cancelledCents: 0,
+      paidCents: 60_000_000,
+    });
+    assert.equal(day.profitShareBasisPoints, 2000);
+    const track = summarizeMonth(repository.load(), "2026-09").racetracks.find((item) => item.racetrackId === "rosario");
+    assert.equal(track?.commissionCents, 14_210_000);
+    assert.equal(track?.owedCents, 25_790_000);
+  });
+
+  it("pasar el hipódromo a porcentaje fijo no cambia los días ya cargados", () => {
+    const repository = createInMemoryLedgerRepository();
+    addRacetrack(repository, {
+      name: "Rosario",
+      commissionBasisPoints: 675,
+      depositAdjustmentBasisPoints: 0,
+      profitShareBasisPoints: 2000,
+    });
+    recordDay(repository, {
+      date: "2026-09-03",
+      racetrackId: "rosario",
+      soldCents: 100_000_000,
+      cancelledCents: 0,
+      paidCents: 60_000_000,
+    });
+    updateRacetrack(repository, { id: "rosario", name: "Rosario", commissionBasisPoints: 1500, depositAdjustmentBasisPoints: 0 });
+    assert.equal(repository.load().racetracks?.find((item) => item.id === "rosario")?.profitShareBasisPoints, undefined);
+    const track = summarizeMonth(repository.load(), "2026-09").racetracks.find((item) => item.racetrackId === "rosario");
+    assert.equal(track?.commissionCents, 14_210_000);
+    assert.equal(track?.owedCents, 25_790_000);
+  });
+
+  it("un día cargado con porcentaje fijo no pasa a descontado si después cambia el hipódromo", () => {
+    const repository = createInMemoryLedgerRepository();
+    addRacetrack(repository, { name: "Rosario", commissionBasisPoints: 1000, depositAdjustmentBasisPoints: 0 });
+    recordDay(repository, {
+      date: "2026-09-03",
+      racetrackId: "rosario",
+      soldCents: 100_000_000,
+      cancelledCents: 0,
+      paidCents: 60_000_000,
+    });
+    updateRacetrack(repository, {
+      id: "rosario",
+      name: "Rosario",
+      commissionBasisPoints: 675,
+      depositAdjustmentBasisPoints: 0,
+      profitShareBasisPoints: 2000,
+    });
+    const track = summarizeMonth(repository.load(), "2026-09").racetracks.find((item) => item.racetrackId === "rosario");
+    assert.equal(track?.commissionCents, 10_000_000);
+    assert.equal(track?.owedCents, 40_000_000);
+  });
+});

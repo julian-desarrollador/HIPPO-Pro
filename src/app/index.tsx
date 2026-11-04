@@ -84,6 +84,7 @@ function RacingHome() {
   const [commission, setCommission] = useState("");
   const [adjustment, setAdjustment] = useState("");
   const [commissionMode, setCommissionMode] = useState<CommissionMode>("fixed");
+  const [profitShare, setProfitShare] = useState("");
   const [openingSide, setOpeningSide] = useState<OpeningSide>("owe");
   const [opening, setOpening] = useState("");
   const [message, setMessage] = useState("");
@@ -119,6 +120,7 @@ function RacingHome() {
     setCommission("");
     setAdjustment("");
     setCommissionMode("fixed");
+    setProfitShare("");
     setOpeningSide("owe");
     setOpening("");
     setError("");
@@ -135,8 +137,9 @@ function RacingHome() {
     setEditingId(id);
     setName(track.name);
     const currentCommission = currentCommissionBasisPoints(id, snapshot.commissions, snapshot);
-    const mode = commissionModeOf({ commissionBasisPoints: currentCommission, depositAdjustmentBasisPoints: track.depositAdjustmentBasisPoints });
+    const mode = commissionModeOf(track);
     setCommissionMode(mode);
+    setProfitShare(track.profitShareBasisPoints === undefined ? "" : formatPercentInput(track.profitShareBasisPoints));
     setCommission(formatPercentInput(currentCommission));
     setAdjustment(mode === "retained" || track.depositAdjustmentBasisPoints === 0 ? "" : formatPercentInput(track.depositAdjustmentBasisPoints));
     const openingCents = racetrackOpeningCents(snapshot, id);
@@ -181,8 +184,13 @@ function RacingHome() {
       setError("El ajuste tiene que estar entre -100 y 100.");
       return;
     }
-    const rates = racetrackRates(commissionMode, commissionBasisPoints, typedAdjustment);
-    const depositAdjustmentBasisPoints = rates.depositAdjustmentBasisPoints;
+    const typedShare = commissionMode === "retained" ? parsePercentToBasisPoints(profitShare) : 0;
+    if (typedShare === null) {
+      setMessage("");
+      setError("El porcentaje de la ganancia tiene que estar entre 0 y 100.");
+      return;
+    }
+    const rates = racetrackRates(commissionMode, commissionBasisPoints, typedAdjustment, typedShare);
     const openingAmount = readAmount(opening, true);
     if (openingAmount === null) {
       setMessage("");
@@ -195,10 +203,10 @@ function RacingHome() {
     setError("");
     try {
       if (editingId) {
-        await updateRacetrack({ id: editingId, name, commissionBasisPoints, depositAdjustmentBasisPoints, openingCents });
+        await updateRacetrack({ id: editingId, name, ...rates, openingCents });
         setMessage("Hipódromo actualizado.");
       } else {
-        await addRacetrack({ name, commissionBasisPoints, depositAdjustmentBasisPoints, openingCents });
+        await addRacetrack({ name, ...rates, openingCents });
         setMessage("Hipódromo agregado.");
       }
       setName("");
@@ -317,6 +325,8 @@ function RacingHome() {
               onCommissionChange={setCommission}
               adjustment={adjustment}
               onAdjustmentChange={setAdjustment}
+              profitShare={profitShare}
+              onProfitShareChange={setProfitShare}
               showNotes
             />
             <Field label={`Saldo al empezar ${monthTitle(snapshot.month).toLocaleLowerCase("es")}`}>

@@ -28,7 +28,7 @@ import {
   currentCommissionBasisPoints,
   emptyDayReportMessage,
   formatAmountInput,
-  commissionModeOf,
+  formatCents,
   formatSignedPercent,
   chooseImageFile,
   ledgerErrorMessage,
@@ -157,6 +157,11 @@ function DayEntryScreen({
     editingDay && editingDay.racetrackId === selected.id
       ? editingDay.depositAdjustmentBasisPoints
       : selected.depositAdjustmentBasisPoints;
+  // A day being edited keeps the mode it was loaded with, as updateDay does.
+  const previewShare =
+    editingDay && editingDay.racetrackId === selected.id
+      ? editingDay.profitShareBasisPoints
+      : selected.profitShareBasisPoints;
   const preview =
     soldCents !== null && cancelledCents !== null && paidCents !== null
       ? settleDay({
@@ -166,6 +171,7 @@ function DayEntryScreen({
           paidCents,
           commissionBasisPoints: previewCommission,
           depositAdjustmentBasisPoints: previewAdjustment,
+          profitShareBasisPoints: previewShare,
         })
       : null;
 
@@ -609,8 +615,8 @@ function DayBreakdown({
 }) {
   const commissionLabel = `Comisión (${formatSignedPercent(settlement.commissionBasisPoints)})`;
 
-  if (commissionModeOf(settlement) === "retained") {
-    // The agency keeps its share from the cash: the lines add up to A depositar.
+  if (settlement.profitShareBasisPoints !== undefined) {
+    // The agency keeps its two shares from the cash: the lines add up to A depositar.
     return (
       <View>
         <BreakdownLine label="Vendido" cents={soldCents} />
@@ -620,10 +626,17 @@ function DayBreakdown({
         <BreakdownLine label="− Pagado" cents={paidCents} />
         <View className="my-2 h-px bg-line" />
         <BreakdownLine label="Ganancia del día" cents={settlement.dayGainCents} />
-        <BreakdownLine
-          label={`− Tu comisión (${formatSignedPercent(settlement.commissionBasisPoints)} del neto)`}
-          cents={settlement.commissionCents}
-        />
+        <View className="mt-2">
+          <BreakdownLine
+            label={`Tu ${formatSignedPercent(settlement.commissionBasisPoints)} de la venta neta`}
+            cents={settlement.netShareCents}
+          />
+          <BreakdownLine
+            label={`Tu ${formatSignedPercent(settlement.profitShareBasisPoints)} de la ganancia (sobre ${formatCents(settlement.profitShareBaseCents)})`}
+            cents={settlement.profitShareCents}
+          />
+          <BreakdownLine label="− Tu comisión total" cents={settlement.commissionCents} />
+        </View>
         <View className="my-2 h-px bg-line" />
         <BreakdownLine label="A depositar" cents={settlement.amountToDepositCents} size="md" tone="navy" />
       </View>
@@ -659,8 +672,11 @@ function BreakdownLine({
 }) {
   return (
     <View className="flex-row items-center justify-between gap-3 py-0.5">
-      <Text className="shrink text-[15px] text-muted">{label}</Text>
-      <MoneyText cents={cents} size={size} tone={tone} />
+      <Text className="min-w-0 flex-1 text-[15px] text-muted">{label}</Text>
+      {/* The amount never shrinks: a long label wraps instead. */}
+      <View style={{ flexShrink: 0 }}>
+        <MoneyText cents={cents} size={size} tone={tone} />
+      </View>
     </View>
   );
 }

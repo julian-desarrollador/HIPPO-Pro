@@ -10,6 +10,8 @@ export type RacetrackRule = {
    * The 5% and 1% rates are still unconfirmed with Federico.
    */
   depositAdjustmentBasisPoints: number;
+  /** Retained mode only. See AgencyRacetrack. */
+  profitShareBasisPoints?: number;
 };
 
 export const RACETRACKS: readonly RacetrackRule[] = [
@@ -68,6 +70,7 @@ export function listRacetracks(source?: RacetrackCatalog | readonly AgencyRacetr
       name: override.name,
       commissionBasisPoints: override.commissionBasisPoints,
       depositAdjustmentBasisPoints: override.depositAdjustmentBasisPoints,
+      ...(override.profitShareBasisPoints === undefined ? {} : { profitShareBasisPoints: override.profitShareBasisPoints }),
     };
   });
   const added = extras.filter((racetrack) => !isBuiltinRacetrack(racetrack.id) && !hidden.has(racetrack.id));
@@ -124,30 +127,37 @@ export function currentCommissionBasisPoints(
 
 /**
  * How the agency charges a racetrack.
- * fixed: a commission on the net, plus an optional adjustment when depositing.
- * retained: the agency keeps a share of the net from the cash and deposits the rest.
- * Retained is stored as commission X with a deposit adjustment of -X, so settleDay
- * and the August totals do not change. It is a draft rule for Federico to try.
+ * fixed: a commission on the net, plus an optional adjustment when depositing (the August rule).
+ * retained («Descontado del depósito»): the agency keeps a share of the net plus a share of the
+ * day gain, and deposits the rest. It is the presence of profitShareBasisPoints. See settleDay.
  */
 export type CommissionMode = "fixed" | "retained";
 
-/** 6.75 % of the net, the share Federico mentioned. The owner can type another one. */
+/** 6,75 % of the net, the share Federico gave. The owner can type another one. */
 export const DEFAULT_RETAINED_COMMISSION_BASIS_POINTS = 675;
 
-export function commissionModeOf(rates: { commissionBasisPoints: number; depositAdjustmentBasisPoints: number }): CommissionMode {
-  return rates.depositAdjustmentBasisPoints !== 0 && rates.depositAdjustmentBasisPoints === -rates.commissionBasisPoints
-    ? "retained"
-    : "fixed";
+/** 20 % of the day gain, the share Federico gave. The owner can type another one. */
+export const DEFAULT_PROFIT_SHARE_BASIS_POINTS = 2000;
+
+export function commissionModeOf(rates: { profitShareBasisPoints?: number }): CommissionMode {
+  return rates.profitShareBasisPoints === undefined ? "fixed" : "retained";
 }
 
-/** The two stored rates for a mode. In retained mode the adjustment is ignored. */
+export type RacetrackRates = {
+  commissionBasisPoints: number;
+  depositAdjustmentBasisPoints: number;
+  profitShareBasisPoints?: number;
+};
+
+/** The stored rates for a mode. Retained has no deposit adjustment; fixed has no share of the gain. */
 export function racetrackRates(
   mode: CommissionMode,
   commissionBasisPoints: number,
   depositAdjustmentBasisPoints: number,
-): { commissionBasisPoints: number; depositAdjustmentBasisPoints: number } {
+  profitShareBasisPoints: number,
+): RacetrackRates {
   if (mode === "retained") {
-    return { commissionBasisPoints, depositAdjustmentBasisPoints: -commissionBasisPoints };
+    return { commissionBasisPoints, depositAdjustmentBasisPoints: 0, profitShareBasisPoints };
   }
   return { commissionBasisPoints, depositAdjustmentBasisPoints };
 }

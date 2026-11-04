@@ -18,9 +18,25 @@ function trackBlock(day: SettledDay): string {
     paidCents: day.paidCents,
     commissionBasisPoints: day.commissionBasisPoints,
     depositAdjustmentBasisPoints: day.depositAdjustmentBasisPoints,
+    profitShareBasisPoints: day.profitShareBasisPoints,
   });
+  const title = day.terminalId ? `${day.racetrackName} · Terminal ${day.terminalId}` : day.racetrackName;
+  if (settlement.profitShareBasisPoints !== undefined) {
+    return [
+      title,
+      `Vendido: ${formatCents(day.soldCents)}`,
+      `Cancelados: ${formatCents(day.cancelledCents)}`,
+      `Neto: ${formatCents(settlement.netCents)}`,
+      `Pagado: ${formatCents(day.paidCents)}`,
+      `Ganancia del día: ${formatCents(settlement.dayGainCents)}`,
+      `Agencia ${formatSignedPercent(settlement.commissionBasisPoints)} del neto: ${formatCents(settlement.netShareCents)}`,
+      `Agencia ${formatSignedPercent(settlement.profitShareBasisPoints)} de la ganancia: ${formatCents(settlement.profitShareCents)}`,
+      `Comisión total: ${formatCents(settlement.commissionCents)}`,
+      `A depositar: ${formatCents(settlement.amountToDepositCents)}`,
+    ].join("\n");
+  }
   return [
-    day.terminalId ? `${day.racetrackName} · Terminal ${day.terminalId}` : day.racetrackName,
+    title,
     `Vendido: ${formatCents(day.soldCents)}`,
     `Cancelados: ${formatCents(day.cancelledCents)}`,
     `Neto: ${formatCents(settlement.netCents)}`,

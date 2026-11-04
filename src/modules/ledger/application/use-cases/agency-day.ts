@@ -294,6 +294,7 @@ export function previewAgencyDay(
         paidCents: track.paidCents,
         commissionBasisPoints: stored?.commissionBasisPoints,
         depositAdjustmentBasisPoints: stored?.depositAdjustmentBasisPoints ?? rule.depositAdjustmentBasisPoints,
+        profitShareBasisPoints: stored ? stored.profitShareBasisPoints : rule.profitShareBasisPoints,
       });
       tracks.push({
         racetrackId: track.racetrackId,

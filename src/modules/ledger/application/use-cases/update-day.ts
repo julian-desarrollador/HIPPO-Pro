@@ -41,8 +41,12 @@ export function updateDay(repository: LedgerRepository, input: UpdateDayInput): 
     throw new LedgerError(conflict);
   }
 
+  const sameRacetrack = current.racetrackId === racetrackId;
+  // A day keeps the rates it was loaded with. Moving it to another racetrack takes that one's.
+  const profitShareBasisPoints = sameRacetrack ? current.profitShareBasisPoints : racetrack.profitShareBasisPoints;
+  const { profitShareBasisPoints: _previousShare, ...rest } = current;
   const updated: DailySale = {
-    ...current,
+    ...rest,
     date: input.date,
     racetrackId,
     terminalId,
@@ -55,6 +59,7 @@ export function updateDay(repository: LedgerRepository, input: UpdateDayInput): 
         : currentCommissionBasisPoints(racetrackId, snapshot.commissions, snapshot),
     depositAdjustmentBasisPoints:
       current.racetrackId === racetrackId ? current.depositAdjustmentBasisPoints : racetrack.depositAdjustmentBasisPoints,
+    ...(profitShareBasisPoints === undefined ? {} : { profitShareBasisPoints }),
   };
   const days = snapshot.days.slice();
   days[index] = updated;

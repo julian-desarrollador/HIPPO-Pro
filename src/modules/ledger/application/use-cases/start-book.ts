@@ -29,6 +29,8 @@ export type StartingRacetrackInput = {
   name: string;
   commissionBasisPoints: number;
   depositAdjustmentBasisPoints: number;
+  /** Retained mode («Descontado del depósito»): the share of the day gain. Missing in fixed mode. */
+  profitShareBasisPoints?: number;
   /** Positive: the agency owes the racetrack. Negative: the racetrack owes the agency. No commission. */
   openingCents: Cents;
 };

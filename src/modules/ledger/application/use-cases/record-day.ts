@@ -79,6 +79,7 @@ export function recordDay(repository: LedgerRepository, input: RecordDayInput): 
     paidCents: input.paidCents,
     commissionBasisPoints: currentCommissionBasisPoints(racetrackId, snapshot.commissions, snapshot),
     depositAdjustmentBasisPoints: racetrack.depositAdjustmentBasisPoints,
+    ...(racetrack.profitShareBasisPoints === undefined ? {} : { profitShareBasisPoints: racetrack.profitShareBasisPoints }),
   };
 
   repository.save({ ...snapshot, days: [...snapshot.days, day] });

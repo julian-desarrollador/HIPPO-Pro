@@ -5,6 +5,7 @@ export type { DaySettlement } from "./domain/calculations";
 export { EXPENSE_CATEGORIES, categoryHasExpenses, expenseCategoriesFor, listExpenseCategories } from "./domain/expense-categories";
 export { formatCents, formatSignedPercent } from "./domain/money";
 export {
+  DEFAULT_PROFIT_SHARE_BASIS_POINTS,
   DEFAULT_RETAINED_COMMISSION_BASIS_POINTS,
   RACETRACKS,
   commissionModeOf,
@@ -13,7 +14,7 @@ export {
   racetrackHasMovements,
   racetrackRates,
 } from "./domain/racetracks";
-export type { CommissionMode } from "./domain/racetracks";
+export type { CommissionMode, RacetrackRates } from "./domain/racetracks";
 export type { ExpenseCategory } from "./domain/expense-categories";
 export type { CashExpense, CashIncome, CashIncomeKind, RacetrackId, ScheduleDay, TerminalId, ViewerRole } from "./domain/types";
 export type { CashLine, CashPersonLine, CashSummary } from "./application/use-cases/summarize-cash-day";

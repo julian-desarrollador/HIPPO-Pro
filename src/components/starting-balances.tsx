@@ -22,7 +22,6 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { mobileTabBarHeight, wideLayout } from "@/constants/layout";
 import { usePalette } from "@/constants/palette";
 import {
-  commissionModeOf,
   formatAmountInput,
   formatPercentInput,
   ledgerErrorMessage,
@@ -327,10 +326,17 @@ export function OpeningSummary({
   );
 }
 
-type RacetrackDraft = BalanceDraft & { key: number; name: string; mode: CommissionMode; commission: string; adjustment: string };
+type RacetrackDraft = BalanceDraft & {
+  key: number;
+  name: string;
+  mode: CommissionMode;
+  commission: string;
+  adjustment: string;
+  profitShare: string;
+};
 
 function emptyRacetrack(key: number): RacetrackDraft {
-  return { key, name: "", mode: "fixed", commission: "", adjustment: "", ...draftFromCents(0) };
+  return { key, name: "", mode: "fixed", commission: "", adjustment: "", profitShare: "", ...draftFromCents(0) };
 }
 
 function readRacetracks(rows: readonly RacetrackDraft[]): StartingRacetrackInput[] | string {
@@ -348,12 +354,16 @@ function readRacetracks(rows: readonly RacetrackDraft[]): StartingRacetrackInput
     if (typedAdjustment === null) {
       return `El ajuste de ${name} tiene que estar entre -100 y 100.`;
     }
-    const { depositAdjustmentBasisPoints } = racetrackRates(row.mode, commissionBasisPoints, typedAdjustment);
+    const typedShare = row.mode === "retained" ? parsePercentToBasisPoints(row.profitShare) : 0;
+    if (typedShare === null) {
+      return `El porcentaje de la ganancia de ${name} tiene que estar entre 0 y 100.`;
+    }
+    const rates = racetrackRates(row.mode, commissionBasisPoints, typedAdjustment, typedShare);
     const openingCents = readSignedAmount(row);
     if (openingCents === null) {
       return `Revisá el saldo de ${name}. Usá 1.000.000,00.`;
     }
-    racetracks.push({ name, commissionBasisPoints, depositAdjustmentBasisPoints, openingCents });
+    racetracks.push({ name, ...rates, openingCents });
   }
   if (racetracks.length === 0) {
     return "Agregá al menos un hipódromo.";
@@ -404,6 +414,8 @@ function RacetrackCard({
         onCommissionChange={(commission) => onChange({ commission })}
         adjustment={row.adjustment}
         onAdjustmentChange={(adjustment) => onChange({ adjustment })}
+        profitShare={row.profitShare}
+        onProfitShareChange={(profitShare) => onChange({ profitShare })}
       />
       <Field label="Saldo inicial">
         <BalanceFields value={row} onChange={(next) => onChange(next)} label="Saldo inicial con el hipódromo" />
@@ -530,8 +542,8 @@ export function RacingWelcome({
                 key: racetrack.name,
                 name: racetrack.name,
                 detail:
-                  commissionModeOf(racetrack) === "retained"
-                    ? `${percentText(racetrack.commissionBasisPoints)} de la venta neta, descontado del depósito`
+                  racetrack.profitShareBasisPoints !== undefined
+                    ? `${percentText(racetrack.commissionBasisPoints)} del neto + ${percentText(racetrack.profitShareBasisPoints)} de la ganancia, descontado del depósito`
                     : `Comisión ${percentText(racetrack.commissionBasisPoints)}${
                         racetrack.depositAdjustmentBasisPoints === 0 ? "" : ` · Ajuste ${percentText(racetrack.depositAdjustmentBasisPoints)}`
                       }`,

@@ -8,7 +8,13 @@ function settleSnapshotDay(
   snapshot: LedgerSnapshot,
   day: Pick<
     DailySale,
-    "racetrackId" | "soldCents" | "cancelledCents" | "paidCents" | "commissionBasisPoints" | "depositAdjustmentBasisPoints"
+    | "racetrackId"
+    | "soldCents"
+    | "cancelledCents"
+    | "paidCents"
+    | "commissionBasisPoints"
+    | "depositAdjustmentBasisPoints"
+    | "profitShareBasisPoints"
   >,
 ) {
   const rule = getRacetrack(day.racetrackId, snapshot);
@@ -20,6 +26,9 @@ function settleSnapshotDay(
     paidCents: day.paidCents,
     commissionBasisPoints: day.commissionBasisPoints ?? (builtin ? undefined : rule.commissionBasisPoints),
     depositAdjustmentBasisPoints: day.depositAdjustmentBasisPoints ?? (builtin ? undefined : rule.depositAdjustmentBasisPoints),
+    // A day with copied rates keeps its mode, so switching a racetrack to retained does not move old days.
+    profitShareBasisPoints:
+      day.commissionBasisPoints !== undefined || builtin ? day.profitShareBasisPoints : rule.profitShareBasisPoints,
   });
 }
 
