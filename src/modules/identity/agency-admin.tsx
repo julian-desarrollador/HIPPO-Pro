@@ -2,18 +2,13 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { agencyModeFrom, type AgencyMode } from "@/modules/ledger";
-import { isLedgerSnapshot } from "@/modules/ledger/adapters/outbound/ledger-snapshot";
-import type { LedgerSnapshot } from "@/modules/ledger/domain/types";
+
+import { openedAgencyFrom, type OpenedAgency } from "./opened-agency";
 
 import { newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
 import { readFunctionMessage } from "./operator-admin";
 
-export type OpenedAgency = {
-  agencyId: string;
-  agencyName: string;
-  agencyMode: AgencyMode;
-  snapshot: LedgerSnapshot;
-};
+export type { OpenedAgency } from "./opened-agency";
 
 export type AgencyKind = "home" | "personal" | "other";
 
@@ -132,12 +127,7 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
       if (error) {
         return readFunctionMessage(error, data);
       }
-      const name = data && typeof data === "object" && "name" in data && typeof data.name === "string" ? data.name.trim() : "";
-      const snapshot = data && typeof data === "object" && "snapshot" in data ? data.snapshot : null;
-      if (!name || !isLedgerSnapshot(snapshot) || snapshot.agencyId !== agencyId) {
-        return "No se pudo abrir la agencia.";
-      }
-      return { agencyId, agencyName: name, agencyMode: agencyModeFrom(data && typeof data === "object" && "productMode" in data ? data.productMode : "racing"), snapshot };
+      return openedAgencyFrom(data, agencyId) ?? "No se pudo abrir la agencia.";
     },
   };
 }

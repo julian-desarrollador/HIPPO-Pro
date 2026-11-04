@@ -1,4 +1,6 @@
 // Creates an agency with an empty book and invites its first owner.
+// read returns another agency's racing book and, if it has one, its lottery
+// book, for a read-only visit.
 // create-personal makes an empty book for the caller only, with no invite
 // and no change to the caller's profile. list hides other people's personal
 // agencies. archive removes a real agency from the list and from sign-in, and
@@ -315,7 +317,23 @@ Deno.serve(async (req: Request) => {
     if (ledgerError || !ledger || ledger.snapshot === null || typeof ledger.snapshot !== "object") {
       return json(400, { message: "No se pudo abrir la agencia." });
     }
-    return json(200, { name: agency.name.trim(), productMode: productModeOf(agency.product_mode), snapshot: ledger.snapshot });
+    // The lottery book is in its own table. Its policy only lets an agency read its own row,
+    // so a visit gets it here, with the service role, like the racing book. No row: null.
+    const { data: lottery, error: lotteryError } = await admin
+      .from("lottery_ledgers")
+      .select("snapshot")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+    if (lotteryError) {
+      return json(400, { message: "No se pudo abrir la agencia." });
+    }
+    const lotterySnapshot = lottery && lottery.snapshot !== null && typeof lottery.snapshot === "object" ? lottery.snapshot : null;
+    return json(200, {
+      name: agency.name.trim(),
+      productMode: productModeOf(agency.product_mode),
+      snapshot: ledger.snapshot,
+      lotterySnapshot,
+    });
   }
 
   if (action === "list") {

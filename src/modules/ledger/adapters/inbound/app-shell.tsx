@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
@@ -17,6 +17,7 @@ import { createLocalStorageLotteryRepository } from "../outbound/local-storage-l
 import { openLotteryLedger } from "../outbound/lottery-ledger";
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
 import type { LotteryRepository } from "../../application/ports/lottery-repository";
+import type { LotterySnapshot } from "../../domain/lottery";
 import { PREVIEW_AGENCY_ID, PREVIEW_AGENCY_NAME } from "../outbound/august-2026-seed";
 import { createSupabaseLedgerRemote } from "../outbound/supabase-ledger-remote";
 import { createSupabaseLotteryRemote } from "../outbound/supabase-lottery-remote";
@@ -28,7 +29,7 @@ import { DayPhotoProvider } from "./day-photo-context";
 import { DepositPhotoProvider } from "./deposit-photo-context";
 import { ExpensePhotoProvider } from "./expense-photo-context";
 import { LedgerProvider } from "./ledger-provider";
-import { LotteryProvider } from "./lottery-provider";
+import { LotteryProvider, type OpenLottery } from "./lottery-provider";
 
 let browserLottery: LotteryRepository | null = null;
 
@@ -289,6 +290,8 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     agencyMode: AgencyMode;
     readOnly: boolean;
     personal: boolean;
+    /** Read-only visits only: the lottery book create-agency returned. */
+    lotterySnapshot: LotterySnapshot | null;
   } | null>(null);
   const request = useRef(0);
   const openLottery = useCallback(
@@ -299,6 +302,16 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   phaseRef.current = phase;
   const visitRef = useRef(visit);
   visitRef.current = visit;
+  // Another agency's lottery row is not readable with this session: a read-only
+  // visit uses the copy create-agency returned, in memory, like its racing book.
+  const visitLottery = visit?.readOnly ? visit.lotterySnapshot : undefined;
+  const lotteryOpener = useMemo<OpenLottery>(
+    () =>
+      visitLottery === undefined
+        ? openLottery
+        : () => Promise.resolve(createInMemoryLotteryRepository(visitLottery)),
+    [openLottery, visitLottery],
+  );
   const addService = useCallback(async (service: AgencyService) => {
     const visit = visitRef.current;
     if (visit && !visit.personal) {
@@ -505,6 +518,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       repository: createInMemoryLedgerRepository(agency.snapshot),
       readOnly: true,
       personal: false,
+      lotterySnapshot: agency.lotterySnapshot,
     });
   }
 
@@ -518,6 +532,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         repository,
         readOnly: false,
         personal: true,
+        lotterySnapshot: null,
       });
       return null;
     } catch {
@@ -614,7 +629,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       addService={addService}
       removeService={removeService}
     >
-      <LotteryProvider open={openLottery}>
+      <LotteryProvider open={lotteryOpener}>
         {visit?.readOnly ? (
           pages
         ) : (
