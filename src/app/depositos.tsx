@@ -270,6 +270,7 @@ export default function DepositosScreen() {
             <View className="mt-1">
               <MoneyText cents={track.owedCents} size="lg" tone="navy" />
             </View>
+            {track.owedCents < 0 ? <Text className="mt-1 text-[15px] text-muted">El hipódromo le debe a la agencia.</Text> : null}
             <View className="mt-4">
               <KeyValueList
                 rows={[

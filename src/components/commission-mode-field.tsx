@@ -17,7 +17,7 @@ const modeHelp: Record<CommissionMode, string> = {
   fixed:
     "La agencia cobra un porcentaje del neto. Al depositar se paga el neto menos lo pagado, más o menos el ajuste si hay.",
   retained:
-    "La agencia cobra dos partes: un porcentaje de la venta neta y otro de la ganancia del día (lo vendido menos lo pagado, menos ese mismo porcentaje). Deposita el resto. Ejemplo: neto $1.000.000 y pagado $600.000, con 6,75 % y 20 %: ganás $67.500 + 20 % de $373.000 ($74.600) = $142.100 y depositás $257.900. Si un día se paga más de lo vendido, solo cobrás la parte de la venta neta.",
+    "La agencia cobra dos partes: un porcentaje de la venta neta y otro de la ganancia del día (lo vendido menos lo pagado, menos ese mismo porcentaje). Deposita el resto. Ejemplo: neto $1.000.000 y pagado $600.000, con 6,75 % y 20 %: ganás $67.500 + 20 % de $373.000 ($74.600) = $142.100 y depositás $257.900. Si un día se paga más de lo vendido, no cobrás el 20 % y lo que queda negativo se descuenta de lo que le debés al hipódromo.",
 };
 
 /** How the agency charges a racetrack. The screen only collects text; racetrackRates turns it into rates. */

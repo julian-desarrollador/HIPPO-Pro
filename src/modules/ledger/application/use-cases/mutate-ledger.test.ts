@@ -1072,3 +1072,37 @@ describe("hipódromo con comisión descontada del depósito", () => {
     assert.equal(track?.owedCents, 40_000_000);
   });
 });
+
+describe("día en pérdida con comisión descontada del depósito", () => {
+  function retainedTrack() {
+    const repository = createInMemoryLedgerRepository();
+    addRacetrack(repository, {
+      name: "Rosario",
+      commissionBasisPoints: 675,
+      depositAdjustmentBasisPoints: 0,
+      profitShareBasisPoints: 2000,
+    });
+    return repository;
+  }
+  const owed = (repository: ReturnType<typeof createInMemoryLedgerRepository>) =>
+    summarizeMonth(repository.load(), "2026-09").racetracks.find((item) => item.racetrackId === "rosario")?.owedCents;
+  const load = (repository: ReturnType<typeof createInMemoryLedgerRepository>, date: string, soldCents: number, paidCents: number) =>
+    recordDay(repository, { date, racetrackId: "rosario", soldCents, cancelledCents: 0, paidCents });
+
+  it("lo perdido se descuenta de lo acumulado y el saldo que queda es lo que se deposita", () => {
+    const repository = retainedTrack();
+    load(repository, "2026-09-01", 400_000_000, 200_000_000);
+    assert.equal(owed(repository), 135_700_000);
+    load(repository, "2026-09-02", 100_000_000, 200_000_000);
+    assert.equal(owed(repository), 28_950_000);
+    recordDeposit(repository, { date: "2026-09-03", racetrackId: "rosario", amountCents: 28_950_000 });
+    assert.equal(owed(repository), 0);
+  });
+
+  it("si lo perdido supera lo acumulado, el saldo queda negativo: el hipódromo le debe a la agencia", () => {
+    const repository = retainedTrack();
+    load(repository, "2026-09-01", 100_000_000, 60_000_000);
+    load(repository, "2026-09-02", 100_000_000, 200_000_000);
+    assert.equal(owed(repository), 25_790_000 - 106_750_000);
+  });
+});

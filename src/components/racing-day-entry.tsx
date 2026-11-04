@@ -639,6 +639,11 @@ function DayBreakdown({
         </View>
         <View className="my-2 h-px bg-line" />
         <BreakdownLine label="A depositar" cents={settlement.amountToDepositCents} size="md" tone="navy" />
+        {settlement.amountToDepositCents < 0 ? (
+          <Text className="mt-1 text-[15px] leading-5 text-muted">
+            Este día queda a favor de la agencia: se descuenta del saldo a pagar.
+          </Text>
+        ) : null}
       </View>
     );
   }
