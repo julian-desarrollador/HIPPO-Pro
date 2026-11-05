@@ -23,9 +23,12 @@ import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { Card, ScreenFrame } from "@/components/screen-frame";
 import { TimedNotice } from "@/components/timed-notice";
 import {
+  canManageExpenseCategories,
   canViewPartnerWithdrawals,
   categoryGoesToResult,
   categoryHasExpenses,
+  expenseCategoryLabel,
+  knownExpenseCategories,
   expenseCategoriesFor,
   chooseImageFile,
   formatAmountInput,
@@ -66,6 +69,14 @@ export default function GastosScreen() {
     readOnly,
   } = useLedger();
   const expenseCategories = expenseCategoriesFor(role, allCategories);
+  const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY_ID);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // While editing an expense whose category left the list, that category is still a choice.
+  const editedCategory =
+    editingId && !expenseCategories.some((category) => category.id === categoryId)
+      ? knownExpenseCategories(snapshot).find((category) => category.id === categoryId)
+      : undefined;
+  const formCategories = editedCategory ? [...expenseCategories, editedCategory] : expenseCategories;
   const photos = useExpensePhotos();
   const window = useWindowDimensions();
   const [photoIds, setPhotoIds] = useState<ReadonlySet<string>>(new Set());
@@ -76,10 +87,8 @@ export default function GastosScreen() {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string | null | undefined>(undefined);
   const [paidOn, setPaidOn] = useState(() => openingDate(viewMonth));
-  const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY_ID);
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editingId) {
@@ -88,10 +97,11 @@ export default function GastosScreen() {
   }, [editingId, viewMonth]);
 
   useEffect(() => {
-    if (!expenseCategories.some((category) => category.id === categoryId)) {
+    // An expense being edited keeps its category, even if it left the list.
+    if (!editingId && !expenseCategories.some((category) => category.id === categoryId)) {
       setCategoryId(expenseCategories[0]?.id ?? DEFAULT_CATEGORY_ID);
     }
-  }, [categoryId, expenseCategories]);
+  }, [categoryId, editingId, expenseCategories]);
 
   const [pendingRemoveExpenseId, setPendingRemoveExpenseId] = useState<string | null>(null);
   const [pendingRemoveCategoryId, setPendingRemoveCategoryId] = useState<string | null>(null);
@@ -113,7 +123,7 @@ export default function GastosScreen() {
     .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
     .map((expense) => ({
       ...expense,
-      categoryLabel: allCategories.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
+      categoryLabel: expenseCategoryLabel(expense.categoryId, snapshot),
     }));
   const agency = expenses.filter((expense) => expense.kind === "agency");
 
@@ -293,8 +303,8 @@ export default function GastosScreen() {
 
     setMessage("Guardando…");
     setError("");
-    const goesToResult = categoryGoesToResult(allCategories, categoryId);
-    const savedLabel = allCategories.find((category) => category.id === categoryId)?.label ?? "";
+    const goesToResult = categoryGoesToResult(knownExpenseCategories(snapshot), categoryId);
+    const savedLabel = expenseCategoryLabel(categoryId, snapshot);
     try {
       let expenseId = editingId;
       if (editingId) {
@@ -408,11 +418,11 @@ export default function GastosScreen() {
             <DateField value={paidOn} onChange={setPaidOn} />
           </Field>
           <Field label="Categoría">
-            <ChoiceChips searchable options={expenseCategories} value={categoryId} onChange={setCategoryId} />
+            <ChoiceChips searchable options={formCategories} value={categoryId} onChange={setCategoryId} />
           </Field>
           <View className="flex-row flex-wrap items-center gap-4">
             <SecondaryButton className="self-start" label="Agregar categoría" onPress={openAddCategory} />
-            {expenseCategories.length > 0 ? (
+            {expenseCategories.length > 0 && canManageExpenseCategories(role) ? (
               <SecondaryButton
                 className="self-start"
                 label="Editar o quitar"
@@ -499,25 +509,19 @@ export default function GastosScreen() {
       </Dialog>
       <Dialog visible={manageOpen} title="Categorías" onClose={() => setManageOpen(false)}>
         {expenseCategories.map((category) => {
-          const inUse = categoryHasExpenses(snapshot, category.id);
           return (
             <View key={category.id} className="gap-1">
               <View className="flex-row items-center justify-between gap-3">
                 <Text className="flex-1 text-[17px] font-semibold text-navy">{category.label}</Text>
                 <RowActions
                   onEdit={() => startCategoryEdit(category.id)}
-                  onRemove={
-                    inUse
-                      ? undefined
-                      : () => {
-                          setManageOpen(false);
-                          setPendingRemoveCategoryId(category.id);
-                        }
-                  }
+                  onRemove={() => {
+                    setManageOpen(false);
+                    setPendingRemoveCategoryId(category.id);
+                  }}
                 />
               </View>
               {category.kind === "agency" ? null : <Text className="text-[15px] text-muted">Solo la ve el dueño</Text>}
-              {inUse ? <Text className="text-[15px] text-muted">Tiene gastos. Quitá esos movimientos antes.</Text> : null}
             </View>
           );
         })}
@@ -569,7 +573,12 @@ export default function GastosScreen() {
       </Dialog>
       <ConfirmDialog
         visible={pendingRemoveCategoryId !== null}
-        title="¿Quitar esta categoría?"
+        title={pendingRemoveCategoryId ? `¿Quitar ${expenseCategoryLabel(pendingRemoveCategoryId, snapshot)} de la lista?` : ""}
+        detail={
+          pendingRemoveCategoryId && categoryHasExpenses(snapshot, pendingRemoveCategoryId)
+            ? "Ya no aparece para cargar. Los gastos cargados quedan como están y siguen sumando. Si la necesitás de nuevo, agregala con el mismo nombre."
+            : "Ya no aparece para cargar. Si la necesitás de nuevo, agregala con el mismo nombre."
+        }
         onCancel={() => setPendingRemoveCategoryId(null)}
         onConfirm={() => void confirmRemoveCategory()}
       />

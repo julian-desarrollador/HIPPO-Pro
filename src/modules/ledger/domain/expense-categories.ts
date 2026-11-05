@@ -100,6 +100,35 @@ export function listExpenseCategories(source?: CategoryCatalog | readonly Agency
   return [...builtins, ...ownerWithdrawals, ...added];
 }
 
+/**
+ * Every category the book knows, also the ones taken off the list. An expense keeps
+ * its category when that category is removed: this is where its name comes from.
+ */
+export function knownExpenseCategories(source?: CategoryCatalog | readonly AgencyExpenseCategory[]): readonly ExpenseCategory[] {
+  const { extras, labels } = readCategoryCatalog(source);
+  const builtins = [...EXPENSE_CATEGORIES, ...OWNER_WITHDRAWAL_CATEGORIES].map((category) => ({
+    ...category,
+    label: labels.get(category.id) ?? category.label,
+  }));
+  return [...builtins, ...extras.filter((category) => !isBuiltinCategory(category.id))];
+}
+
+export function expenseCategoryLabel(id: string, source?: CategoryCatalog | readonly AgencyExpenseCategory[]): string {
+  return knownExpenseCategories(source).find((category) => category.id === id)?.label ?? id;
+}
+
+/** A category taken off the list, with this id or this name. Adding it again brings this one back. */
+export function findRemovedCategory(
+  source: CategoryCatalog,
+  id: string,
+  label: string,
+): ExpenseCategory | undefined {
+  const { hidden } = readCategoryCatalog(source);
+  return knownExpenseCategories(source).find(
+    (category) => hidden.has(category.id) && (category.id === id || comparableLabel(category.label) === comparableLabel(label)),
+  );
+}
+
 export function isBuiltinCategory(id: string): boolean {
   return EXPENSE_CATEGORIES.some((category) => category.id === id) || OWNER_WITHDRAWAL_CATEGORIES.some((category) => category.id === id);
 }
@@ -110,6 +139,15 @@ export function categoryHasExpenses(snapshot: Pick<LedgerSnapshot, "expenses">, 
 
 export function getExpenseCategory(id: string, source?: CategoryCatalog | readonly AgencyExpenseCategory[]): ExpenseCategory {
   const found = listExpenseCategories(source).find((category) => category.id === id);
+  if (!found) {
+    throw new LedgerError("unknown-category");
+  }
+  return found;
+}
+
+/** For editing an expense whose category is no longer on the list. New expenses use getExpenseCategory. */
+export function getKnownExpenseCategory(id: string, source?: CategoryCatalog | readonly AgencyExpenseCategory[]): ExpenseCategory {
+  const found = knownExpenseCategories(source).find((category) => category.id === id);
   if (!found) {
     throw new LedgerError("unknown-category");
   }

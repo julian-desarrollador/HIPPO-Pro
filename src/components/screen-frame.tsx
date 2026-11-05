@@ -146,7 +146,8 @@ export function SectionTitle({ title, trailing }: { title: string; trailing?: Re
         {title}
       </Text>
       <View className="h-px flex-1 bg-line" />
-      {trailing}
+      {/* An amount never shrinks: a long title wraps instead. */}
+      {trailing ? <View style={{ flexShrink: 0 }}>{trailing}</View> : null}
     </View>
   );
 }

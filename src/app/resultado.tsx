@@ -8,10 +8,10 @@ import { ExpenseTable, type ExpenseRow } from "@/components/expense-table";
 import { ConfirmDialog, Dialog, Feedback, PrimaryButton } from "@/components/form-controls";
 import { Card, ScreenFrame } from "@/components/screen-frame";
 import { MoneyText } from "@/components/stat-card";
-import { ledgerErrorMessage, useExpensePhotos, useLedger } from "@/modules/ledger";
+import { expenseCategoryLabel, ledgerErrorMessage, useExpensePhotos, useLedger } from "@/modules/ledger";
 
 export default function ResultadoScreen() {
-  const { canViewBalances, summary, reportText, snapshot, expenseCategories, removeExpense, viewMonth, readOnly } = useLedger();
+  const { canViewBalances, summary, reportText, snapshot, removeExpense, viewMonth, readOnly } = useLedger();
   const photos = useExpensePhotos();
   const window = useWindowDimensions();
   const [photoIds, setPhotoIds] = useState<ReadonlySet<string>>(new Set());
@@ -26,7 +26,7 @@ export default function ResultadoScreen() {
     .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
     .map((expense) => ({
       ...expense,
-      categoryLabel: expenseCategories.find((category) => category.id === expense.categoryId)?.label ?? expense.categoryId,
+      categoryLabel: expenseCategoryLabel(expense.categoryId, snapshot),
     }));
 
   useEffect(() => {

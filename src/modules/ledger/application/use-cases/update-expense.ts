@@ -1,5 +1,5 @@
 import { LedgerError } from "../../domain/errors";
-import { getExpenseCategory } from "../../domain/expense-categories";
+import { getKnownExpenseCategory } from "../../domain/expense-categories";
 import type { Expense } from "../../domain/types";
 import { assertCents, assertIsoDate } from "../../domain/validation";
 import type { LedgerRepository } from "../ports/ledger-repository";
@@ -17,7 +17,7 @@ export function updateExpense(repository: LedgerRepository, input: UpdateExpense
   }
 
   assertIsoDate(input.paidOn);
-  const category = getExpenseCategory(input.categoryId, snapshot);
+  const category = getKnownExpenseCategory(input.categoryId, snapshot);
   assertCents(input.amountCents, { allowZero: false });
 
   const current = snapshot.expenses[index];

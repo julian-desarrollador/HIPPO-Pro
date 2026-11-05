@@ -23,7 +23,7 @@ export type LedgerErrorCode =
   | "invalid-adjustment"
   | "duplicate-category"
   | "builtin-category"
-  | "category-in-use"
+  | "category-owner-only"
   | "duplicate-bettor"
   | "unknown-bettor"
   | "bettor-in-use"

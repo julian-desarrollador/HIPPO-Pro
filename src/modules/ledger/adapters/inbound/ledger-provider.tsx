@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 
-import { canViewAgencyBalances, canViewPartnerWithdrawals } from "../../domain/access";
+import { canManageExpenseCategories, canViewAgencyBalances, canViewPartnerWithdrawals } from "../../domain/access";
+import { LedgerError } from "../../domain/errors";
 import type { AgencyMode, AgencyService } from "../../domain/features";
 import type { TerminalServiceSet } from "../../domain/terminal-services";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
@@ -337,8 +338,20 @@ export function LedgerProvider({
       // Only an owner can make a category owner-only. An operator's is always public.
       addExpenseCategory: (input) =>
         publish(() => saveExpenseCategory(repository, canViewPartnerWithdrawals(role) ? input : { ...input, kind: "agency" })),
-      updateExpenseCategory: (input) => publish(() => saveUpdatedExpenseCategory(repository, input)),
-      removeExpenseCategory: (id) => publish(() => deleteExpenseCategory(repository, id)),
+      updateExpenseCategory: (input) =>
+        publish(() => {
+          if (!canManageExpenseCategories(role)) {
+            throw new LedgerError("category-owner-only");
+          }
+          saveUpdatedExpenseCategory(repository, input);
+        }),
+      removeExpenseCategory: (id) =>
+        publish(() => {
+          if (!canManageExpenseCategories(role)) {
+            throw new LedgerError("category-owner-only");
+          }
+          deleteExpenseCategory(repository, id);
+        }),
       addBettor: (input) => publish(() => saveBettor(repository, input)),
       updateBettor: (input) => publish(() => saveUpdatedBettor(repository, input)),
       removeBettor: (id) => publish(() => deleteBettor(repository, id)),

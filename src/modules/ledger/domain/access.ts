@@ -9,6 +9,11 @@ export function canViewPartnerWithdrawals(role: ViewerRole): boolean {
   return role === "owner";
 }
 
+/** Adding a category is for everyone. Renaming or removing one changes the whole agency's list. */
+export function canManageExpenseCategories(role: ViewerRole): boolean {
+  return role === "owner";
+}
+
 /** History rows about owner-only money stay out of the operator's view. */
 export function visibleAuditEntries(entries: readonly AuditEntry[], role: ViewerRole): readonly AuditEntry[] {
   return canViewPartnerWithdrawals(role) ? entries : entries.filter((entry) => !entry.ownerOnly);

@@ -1,6 +1,6 @@
 import { bettorPlayAmounts } from "../../domain/bettor-account";
 import { incomeKindLabel } from "./summarize-cash-day";
-import { listExpenseCategories } from "../../domain/expense-categories";
+import { expenseCategoryLabel, listExpenseCategories } from "../../domain/expense-categories";
 import { formatCents, formatSignedPercent } from "../../domain/money";
 import { currentCommissionBasisPoints, listRacetracks } from "../../domain/racetracks";
 import type { AuditEntry, BettorPlay, CashIncome, LedgerSnapshot, ViewerRole } from "../../domain/types";
@@ -47,7 +47,7 @@ function dayLabel(snapshot: LedgerSnapshot, day: { date: string; racetrackId: st
 }
 
 function categoryName(snapshot: LedgerSnapshot, id: string): string {
-  return listExpenseCategories(snapshot).find((category) => category.id === id)?.label ?? id;
+  return expenseCategoryLabel(id, snapshot);
 }
 
 function bettorName(snapshot: LedgerSnapshot, id: string): string {

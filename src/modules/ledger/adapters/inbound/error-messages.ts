@@ -25,7 +25,7 @@ const MESSAGES: Record<LedgerError["code"], string> = {
   "invalid-adjustment": "El ajuste tiene que estar entre -100 y 100.",
   "duplicate-category": "Ya hay una categoría con ese nombre.",
   "builtin-category": "Las categorías de agosto no se pueden cambiar.",
-  "category-in-use": "Esta categoría ya tiene gastos. Quitá esos movimientos antes.",
+  "category-owner-only": "Las categorías las cambia o las quita el dueño.",
   "duplicate-bettor": "Ya hay un apostador con ese nombre.",
   "unknown-bettor": "Ese apostador no está.",
   "bettor-in-use": "Este apostador ya tiene días o pagos. Quitá esos movimientos antes.",

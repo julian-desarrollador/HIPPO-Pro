@@ -12,7 +12,7 @@ import { recordExpense } from "./record-expense";
 import { removeBettorPlay, removeDay, removeDeposit, removeExpense } from "./remove-entry";
 import { getBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./summarize-bettors";
 import { listSettledDays, summarizeMonth } from "./summarize-month";
-import { categoryGoesToResult, expenseCategoriesFor, listExpenseCategories } from "../../domain/expense-categories";
+import { categoryGoesToResult, expenseCategoriesFor, expenseCategoryLabel, listExpenseCategories } from "../../domain/expense-categories";
 import { updateCommission } from "./update-commission";
 import { updateDay } from "./update-day";
 import { updateDeposit } from "./update-deposit";
@@ -582,7 +582,7 @@ describe("categorías de gastos agregadas", () => {
     assert.equal(september.partnerWithdrawalCents, 0);
   });
 
-  it("rechaza un nombre vacío, uno repetido y quitar una categoría fija", () => {
+  it("rechaza un nombre vacío y uno repetido", () => {
     const repository = createInMemoryLedgerRepository();
     assert.throws(
       () => addExpenseCategory(repository, { label: "   " }),
@@ -596,10 +596,6 @@ describe("categorías de gastos agregadas", () => {
     assert.throws(
       () => addExpenseCategory(repository, { label: "Seguro" }),
       (error: unknown) => error instanceof LedgerError && error.code === "duplicate-category",
-    );
-    assert.throws(
-      () => removeExpenseCategory(repository, "luz"),
-      (error: unknown) => error instanceof LedgerError && error.code === "category-in-use",
     );
   });
 
@@ -649,7 +645,7 @@ describe("categorías de gastos agregadas", () => {
     assert.equal(listExpenseCategories(repository.load().expenseCategories).find((category) => category.id === "seguro")?.label, "Seguro del local");
   });
 
-  it("no deja quitar una categoría con un gasto y sí lo deja si está vacía", () => {
+  it("una categoría vacía se borra del todo", () => {
     const repository = createInMemoryLedgerRepository();
     const augustBefore = summarizeMonth(repository.load());
     addExpenseCategory(repository, { label: "Seguro" });
@@ -660,10 +656,6 @@ describe("categorías de gastos agregadas", () => {
       amountCents: 10_000,
       month: "2026-09",
     });
-    assert.throws(
-      () => removeExpenseCategory(repository, "seguro"),
-      (error: unknown) => error instanceof LedgerError && error.code === "category-in-use",
-    );
     removeExpense(repository, expense.id);
     removeExpenseCategory(repository, "seguro");
     const after = summarizeMonth(repository.load());
@@ -1202,5 +1194,88 @@ describe("Adelanto y Retiro en una agencia que no es Dolores", () => {
     removeExpenseCategory(repository, adelanto.id);
     assert.equal(find(repository, "Adelanto dueño").length, 0);
     assert.equal(find(repository, "Adelanto").length, 0);
+  });
+});
+
+describe("sumar y quitar categorías según la necesidad", () => {
+  const labels = (repository: ReturnType<typeof createInMemoryLedgerRepository>) =>
+    listExpenseCategories(repository.load()).map((category) => category.label);
+  const expenseIn = (categoryId: string) => ({ paidOn: "2026-09-04", categoryId, detail: "", amountCents: 10_000, month: "2026-09" });
+
+  it("quitar una fija con gastos la saca de la lista y no cambia los totales", () => {
+    const repository = createInMemoryLedgerRepository();
+    recordExpense(repository, expenseIn("alquiler"));
+    const before = summarizeMonth(repository.load(), "2026-09");
+    removeExpenseCategory(repository, "alquiler");
+    assert.equal(labels(repository).includes("Alquiler"), false);
+    assert.deepEqual(summarizeMonth(repository.load(), "2026-09"), before);
+    assert.equal(expenseCategoryLabel("alquiler", repository.load()), "Alquiler");
+  });
+
+  it("una fija renombrada conserva su nombre en los gastos al quitarla", () => {
+    const repository = createInMemoryLedgerRepository();
+    updateExpenseCategory(repository, { id: "alquiler", label: "Alquiler del local" });
+    recordExpense(repository, expenseIn("alquiler"));
+    removeExpenseCategory(repository, "alquiler");
+    assert.equal(expenseCategoryLabel("alquiler", repository.load()), "Alquiler del local");
+  });
+
+  it("quitar una propia con gastos conserva su nombre y su tipo", () => {
+    const repository = createInMemoryLedgerRepository();
+    addExpenseCategory(repository, { label: "Seguro", kind: "partner-withdrawal" });
+    recordExpense(repository, expenseIn("seguro"));
+    removeExpenseCategory(repository, "seguro");
+    assert.equal(labels(repository).includes("Seguro"), false);
+    assert.equal(expenseCategoryLabel("seguro", repository.load()), "Seguro");
+    assert.equal(summarizeMonth(repository.load(), "2026-09").partnerWithdrawalCents, 10_000);
+  });
+
+  it("quitar y volver a agregar una fija la devuelve sin duplicarla", () => {
+    const repository = createInMemoryLedgerRepository();
+    removeExpenseCategory(repository, "luz");
+    assert.equal(labels(repository).includes("Luz"), false);
+    const back = addExpenseCategory(repository, { label: " luz " });
+    assert.equal(back.id, "luz");
+    assert.equal(labels(repository).filter((label) => label === "Luz").length, 1);
+    assert.equal((repository.load().expenseCategories ?? []).some((category) => category.id === "luz"), false);
+  });
+
+  it("una privada que vuelve sigue siendo privada aunque se elija pública", () => {
+    const repository = createInMemoryLedgerRepository();
+    addExpenseCategory(repository, { label: "Seguro", kind: "partner-withdrawal" });
+    recordExpense(repository, expenseIn("seguro"));
+    removeExpenseCategory(repository, "seguro");
+    const back = addExpenseCategory(repository, { label: "Seguro", kind: "agency" });
+    assert.equal(back.kind, "partner-withdrawal");
+    assert.equal(listExpenseCategories(repository.load()).find((category) => category.id === "seguro")?.kind, "partner-withdrawal");
+  });
+
+  it("un gasto de una categoría quitada se edita, pero no se carga uno nuevo", () => {
+    const repository = createInMemoryLedgerRepository();
+    const expense = recordExpense(repository, expenseIn("alquiler"));
+    removeExpenseCategory(repository, "alquiler");
+    updateExpense(repository, { id: expense.id, paidOn: "2026-09-05", categoryId: "alquiler", detail: "", amountCents: 20_000 });
+    assert.equal(summarizeMonth(repository.load(), "2026-09").agencyExpenseCents, 20_000);
+    assert.throws(
+      () => recordExpense(repository, expenseIn("alquiler")),
+      (error: unknown) => error instanceof LedgerError && error.code === "unknown-category",
+    );
+  });
+
+  it("en Dolores, quitar una categoría con gastos de agosto no mueve agosto", () => {
+    const repository = createInMemoryLedgerRepository();
+    const before = summarizeMonth(repository.load());
+    removeExpenseCategory(repository, "luz");
+    removeExpenseCategory(repository, "adelanto-fede");
+    assert.deepEqual(summarizeMonth(repository.load()), before);
+  });
+
+  it("el historial dice el nombre de una categoría quitada, no su id", () => {
+    const repository = createInMemoryLedgerRepository();
+    const expense = recordExpense(repository, expenseIn("cargas-sociales"));
+    removeExpenseCategory(repository, "cargas-sociales");
+    const before = repository.load();
+    removeExpense(repository, expense.id);
+    assert.match(describeLedgerChange(before, repository.load()) ?? "", /Cargas sociales/);
   });
 });

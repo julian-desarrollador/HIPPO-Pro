@@ -1,5 +1,5 @@
 import { LedgerError } from "../../domain/errors";
-import { categoryHasExpenses, isBuiltinCategory, listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
+import { categoryHasExpenses, findRemovedCategory, isBuiltinCategory, listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { racetrackIdFromName } from "../../domain/racetracks";
 import type { AgencyExpenseCategory, CategoryLabel, ExpenseKind } from "../../domain/types";
 import type { LedgerRepository } from "../ports/ledger-repository";
@@ -22,7 +22,7 @@ function normalizedLabel(raw: string): string {
   return label;
 }
 
-export function addExpenseCategory(repository: LedgerRepository, input: AddExpenseCategoryInput): AgencyExpenseCategory {
+export function addExpenseCategory(repository: LedgerRepository, input: AddExpenseCategoryInput): ExpenseCategory {
   const snapshot = repository.load();
   const label = normalizedLabel(input.label);
   const id = racetrackIdFromName(label);
@@ -33,6 +33,16 @@ export function addExpenseCategory(repository: LedgerRepository, input: AddExpen
   );
   if (duplicate) {
     throw new LedgerError("duplicate-category");
+  }
+
+  // Same name as one taken off the list: it comes back with its kind, so its expenses stay in the same table.
+  const removed = findRemovedCategory(snapshot, id, label);
+  if (removed) {
+    repository.save({
+      ...snapshot,
+      hiddenCategoryIds: (snapshot.hiddenCategoryIds ?? []).filter((hiddenId) => hiddenId !== removed.id),
+    });
+    return removed;
   }
 
   const category: AgencyExpenseCategory = { id, label, kind: input.kind ?? "agency" };
@@ -91,8 +101,11 @@ export function removeExpenseCategory(repository: LedgerRepository, id: string):
   if (!listExpenseCategories(snapshot).some((category) => category.id === id)) {
     throw new LedgerError("unknown-category");
   }
+
+  // With expenses it only leaves the list: they keep its name and keep adding up.
   if (categoryHasExpenses(snapshot, id)) {
-    throw new LedgerError("category-in-use");
+    repository.save({ ...snapshot, hiddenCategoryIds: [...(snapshot.hiddenCategoryIds ?? []), id] });
+    return;
   }
 
   repository.save({
