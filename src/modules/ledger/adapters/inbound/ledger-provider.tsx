@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 
-import { canViewAgencyBalances } from "../../domain/access";
+import { canViewAgencyBalances, canViewPartnerWithdrawals } from "../../domain/access";
 import type { AgencyMode, AgencyService } from "../../domain/features";
 import type { TerminalServiceSet } from "../../domain/terminal-services";
 import { listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
@@ -334,7 +334,9 @@ export function LedgerProvider({
       currentMonth: currentYearMonth(),
       setMonthOpening: (month, balances) =>
         publish(() => writeMonthOpening(repository, { role, month, currentMonth: currentYearMonth(), balances })),
-      addExpenseCategory: (input) => publish(() => saveExpenseCategory(repository, input)),
+      // Only an owner can make a category owner-only. An operator's is always public.
+      addExpenseCategory: (input) =>
+        publish(() => saveExpenseCategory(repository, canViewPartnerWithdrawals(role) ? input : { ...input, kind: "agency" })),
       updateExpenseCategory: (input) => publish(() => saveUpdatedExpenseCategory(repository, input)),
       removeExpenseCategory: (id) => publish(() => deleteExpenseCategory(repository, id)),
       addBettor: (input) => publish(() => saveBettor(repository, input)),

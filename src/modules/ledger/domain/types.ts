@@ -17,7 +17,8 @@ export type AgencyRacetrack = {
 export type AgencyExpenseCategory = {
   id: string;
   label: string;
-  kind: "agency";
+  /** agency: public, listed in Gastos. partner-withdrawal: owner only, listed in Resultado. */
+  kind: ExpenseKind;
 };
 
 export type ViewerRole = "owner" | "operator";
@@ -186,6 +187,8 @@ export type AuditEntry = {
   /** Name of the signed-in person. Rows written before this field stay without it. */
   actorName?: string;
   summary: string;
+  /** Mentions an owner-only expense or category. An operator does not see this row. */
+  ownerOnly?: boolean;
 };
 
 export type LedgerSnapshot = {

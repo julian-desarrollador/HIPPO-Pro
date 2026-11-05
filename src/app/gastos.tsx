@@ -21,7 +21,10 @@ import {
 import { ExpenseTable, type ExpenseRow } from "@/components/expense-table";
 import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { Card, ScreenFrame } from "@/components/screen-frame";
+import { TimedNotice } from "@/components/timed-notice";
 import {
+  canViewPartnerWithdrawals,
+  categoryGoesToResult,
   categoryHasExpenses,
   expenseCategoriesFor,
   chooseImageFile,
@@ -34,6 +37,18 @@ import {
 } from "@/modules/ledger";
 
 const DEFAULT_CATEGORY_ID = "sueldo";
+
+type CategoryKind = "agency" | "partner-withdrawal";
+
+const categoryKindOptions: readonly { id: CategoryKind; label: string }[] = [
+  { id: "agency", label: "Pública" },
+  { id: "partner-withdrawal", label: "Solo la ve el dueño" },
+];
+
+const categoryKindHelp: Record<CategoryKind, string> = {
+  agency: "La ven dueños y operadores. Sus gastos se listan en esta página.",
+  "partner-withdrawal": "El operador no la ve. Sus gastos se listan en la página Resultado, en Adelantos y retiros.",
+};
 
 export default function GastosScreen() {
   const {
@@ -82,7 +97,10 @@ export default function GastosScreen() {
   const [pendingRemoveCategoryId, setPendingRemoveCategoryId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  // Label of the advance or withdrawal just saved: it leaves this screen for Resultado.
+  const [savedToResult, setSavedToResult] = useState<string | null>(null);
   const [categoryLabel, setCategoryLabel] = useState("");
+  const [categoryKind, setCategoryKind] = useState<CategoryKind>("agency");
   const [categoryError, setCategoryError] = useState("");
   const [categorySaving, setCategorySaving] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -261,6 +279,7 @@ export default function GastosScreen() {
     setFormOpen(false);
     setEditingCategoryId(null);
     setCategoryLabel("");
+    setCategoryKind("agency");
     setCategoryError("");
   }
 
@@ -274,16 +293,18 @@ export default function GastosScreen() {
 
     setMessage("Guardando…");
     setError("");
+    const goesToResult = categoryGoesToResult(allCategories, categoryId);
+    const savedLabel = allCategories.find((category) => category.id === categoryId)?.label ?? "";
     try {
       let expenseId = editingId;
       if (editingId) {
         await updateExpense({ id: editingId, paidOn, categoryId, detail, amountCents });
         setEditingId(null);
-        setMessage("Gasto actualizado.");
+        setMessage(goesToResult ? "Actualizado en Resultado." : "Gasto actualizado.");
       } else {
         const created = await recordExpense({ paidOn, categoryId, detail, amountCents, month: viewMonth });
         expenseId = created.id;
-        setMessage("Gasto cargado.");
+        setMessage(goesToResult ? "Cargado en Resultado." : "Gasto cargado.");
       }
       const photoError = expenseId ? await keepPhoto(expenseId) : null;
       setAmount("");
@@ -291,6 +312,9 @@ export default function GastosScreen() {
       clearPhotoChoice();
       if (photoError) {
         setError(photoError);
+      }
+      if (goesToResult) {
+        setSavedToResult(savedLabel);
       }
     } catch (caught) {
       setMessage("");
@@ -306,6 +330,7 @@ export default function GastosScreen() {
       setCategoryError("Escribí el nombre.");
       return;
     }
+    const newKind = categoryKind;
 
     setCategorySaving(true);
     setCategoryError("");
@@ -314,11 +339,12 @@ export default function GastosScreen() {
         await updateExpenseCategory({ id: editingCategoryId, label: categoryLabel });
         setMessage("Categoría actualizada.");
       } else {
-        await addExpenseCategory({ label: categoryLabel });
-        setMessage("Categoría agregada.");
+        await addExpenseCategory({ label: categoryLabel, kind: newKind });
+        setMessage(newKind === "agency" ? "Categoría agregada." : "Categoría agregada. Solo la ve el dueño.");
       }
       setError("");
       setCategoryLabel("");
+      setCategoryKind("agency");
       setEditingCategoryId(null);
       setFormOpen(false);
     } catch (caught) {
@@ -446,10 +472,24 @@ export default function GastosScreen() {
         photoIds={photos ? photoIds : undefined}
         onOpenPhoto={photos ? (id) => void openPhoto(id) : undefined}
       />
+      <TimedNotice
+        visible={savedToResult !== null}
+        title="Se guardó en Resultado"
+        detail={`${savedToResult ?? ""} no aparece en Gastos. Lo ves en la página Resultado, en Adelantos y retiros.`}
+        onClose={() => setSavedToResult(null)}
+      />
       <Dialog visible={formOpen} title={editingCategoryId ? "Editar categoría" : "Nueva categoría"} onClose={closeCategoryForm}>
         <Field label="Nombre">
           <TextField value={categoryLabel} onChangeText={setCategoryLabel} placeholder="Nombre" accessibilityLabel="Nombre de la categoría" />
         </Field>
+        {!editingCategoryId && canViewPartnerWithdrawals(role) ? (
+          <Field label="¿Quién la ve?">
+            <View className="gap-2">
+              <ChoiceChips options={categoryKindOptions} value={categoryKind} onChange={setCategoryKind} />
+              <Text className="text-[15px] leading-5 text-muted">{categoryKindHelp[categoryKind]}</Text>
+            </View>
+          </Field>
+        ) : null}
         <Feedback error={categoryError} />
         <PrimaryButton
           label={categorySaving ? "Guardando…" : editingCategoryId ? "Guardar" : "Agregar categoría"}
@@ -476,6 +516,7 @@ export default function GastosScreen() {
                   }
                 />
               </View>
+              {category.kind === "agency" ? null : <Text className="text-[15px] text-muted">Solo la ve el dueño</Text>}
               {inUse ? <Text className="text-[15px] text-muted">Tiene gastos. Quitá esos movimientos antes.</Text> : null}
             </View>
           );

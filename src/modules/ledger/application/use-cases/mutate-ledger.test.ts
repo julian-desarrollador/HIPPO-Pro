@@ -12,7 +12,7 @@ import { recordExpense } from "./record-expense";
 import { removeBettorPlay, removeDay, removeDeposit, removeExpense } from "./remove-entry";
 import { getBettorAccount, shownBettorBalanceCents, summarizeBettorTotals } from "./summarize-bettors";
 import { listSettledDays, summarizeMonth } from "./summarize-month";
-import { listExpenseCategories } from "../../domain/expense-categories";
+import { categoryGoesToResult, expenseCategoriesFor, listExpenseCategories } from "../../domain/expense-categories";
 import { updateCommission } from "./update-commission";
 import { updateDay } from "./update-day";
 import { updateDeposit } from "./update-deposit";
@@ -1104,5 +1104,103 @@ describe("día en pérdida con comisión descontada del depósito", () => {
     load(repository, "2026-09-01", 100_000_000, 60_000_000);
     load(repository, "2026-09-02", 100_000_000, 200_000_000);
     assert.equal(owed(repository), 25_790_000 - 106_750_000);
+  });
+});
+
+describe("categoría que solo ve el dueño", () => {
+  function withPrivateCategory() {
+    const repository = createInMemoryLedgerRepository();
+    addExpenseCategory(repository, { label: "Retiro socio", kind: "partner-withdrawal" });
+    return repository;
+  }
+
+  it("sus gastos van a Resultado y el saldo del mes da lo mismo que con un gasto común", () => {
+    const repository = withPrivateCategory();
+    const categories = listExpenseCategories(repository.load());
+    assert.equal(categoryGoesToResult(categories, "retiro-socio"), true);
+    recordExpense(repository, { paidOn: "2026-09-04", categoryId: "retiro-socio", detail: "", amountCents: 10_000, month: "2026-09" });
+    const month = summarizeMonth(repository.load(), "2026-09");
+    assert.equal(month.partnerWithdrawalCents, 10_000);
+    assert.equal(month.agencyExpenseCents, 0);
+    assert.equal(month.outflowCents, 10_000);
+  });
+
+  it("el operador no la ve y el dueño sí", () => {
+    const categories = listExpenseCategories(withPrivateCategory().load());
+    assert.equal(expenseCategoriesFor("owner", categories).some((category) => category.id === "retiro-socio"), true);
+    assert.equal(expenseCategoriesFor("operator", categories).some((category) => category.id === "retiro-socio"), false);
+  });
+
+  it("renombrarla no la vuelve pública", () => {
+    const repository = withPrivateCategory();
+    const renamed = updateExpenseCategory(repository, { id: "retiro-socio", label: "Retiro del socio" });
+    assert.equal(renamed.kind, "partner-withdrawal");
+    assert.equal(listExpenseCategories(repository.load()).find((category) => category.id === "retiro-socio")?.kind, "partner-withdrawal");
+  });
+
+  it("sin elegir, una categoría nueva es pública", () => {
+    const repository = createInMemoryLedgerRepository();
+    assert.equal(addExpenseCategory(repository, { label: "Seguro" }).kind, "agency");
+  });
+});
+
+describe("Adelanto y Retiro en una agencia que no es Dolores", () => {
+  const namedOnes = ["adelanto-fede", "adelanto-mati", "retiro-sag-fede", "retiro-sag-mati"];
+  function otherAgency() {
+    return createInMemoryLedgerRepository({ ...createEmptyAgencySnapshot("norte"), hiddenCategoryIds: namedOnes });
+  }
+  const find = (repository: ReturnType<typeof createInMemoryLedgerRepository>, label: string) =>
+    listExpenseCategories(repository.load()).filter((category) => category.label === label);
+
+  it("ya vienen creadas y solo las ve el dueño", () => {
+    const categories = listExpenseCategories(otherAgency().load());
+    assert.equal(categories.find((category) => category.label === "Adelanto")?.kind, "partner-withdrawal");
+    assert.equal(categories.find((category) => category.label === "Retiro")?.kind, "partner-withdrawal");
+    const forOperator = expenseCategoriesFor("operator", categories).map((category) => category.label);
+    assert.equal(forOperator.includes("Adelanto"), false);
+    assert.equal(forOperator.includes("Retiro"), false);
+  });
+
+  it("un gasto en Retiro va a Resultado, con el aviso", () => {
+    const repository = otherAgency();
+    const retiro = find(repository, "Retiro")[0];
+    assert.ok(retiro);
+    assert.equal(categoryGoesToResult(listExpenseCategories(repository.load()), retiro.id), true);
+    recordExpense(repository, { paidOn: "2026-09-04", categoryId: retiro.id, detail: "", amountCents: 10_000, month: "2026-09" });
+    const month = summarizeMonth(repository.load(), "2026-09");
+    assert.equal(month.partnerWithdrawalCents, 10_000);
+    assert.equal(month.agencyExpenseCents, 0);
+  });
+
+  it("en Dolores no aparecen y agosto no cambia", () => {
+    const repository = createInMemoryLedgerRepository();
+    const before = summarizeMonth(repository.load());
+    assert.equal(find(repository, "Adelanto").length, 0);
+    assert.equal(find(repository, "Retiro").length, 0);
+    assert.equal(find(repository, "Adelanto Fede").length, 1);
+    assert.deepEqual(summarizeMonth(repository.load()), before);
+  });
+
+  it("si el dueño ya tenía su propio Retiro, no se duplica", () => {
+    const repository = otherAgency();
+    const withOwn = createInMemoryLedgerRepository({
+      ...repository.load(),
+      expenseCategories: [{ id: "retiro", label: "Retiro", kind: "agency" }],
+    });
+    const retiros = find(withOwn, "Retiro");
+    assert.equal(retiros.length, 1);
+    assert.equal(retiros[0]?.id, "retiro");
+    assert.equal(retiros[0]?.kind, "agency");
+  });
+
+  it("se pueden renombrar y quitar, y quitada no vuelve", () => {
+    const repository = otherAgency();
+    const adelanto = find(repository, "Adelanto")[0];
+    assert.ok(adelanto);
+    updateExpenseCategory(repository, { id: adelanto.id, label: "Adelanto dueño" });
+    assert.equal(find(repository, "Adelanto dueño")[0]?.kind, "partner-withdrawal");
+    removeExpenseCategory(repository, adelanto.id);
+    assert.equal(find(repository, "Adelanto dueño").length, 0);
+    assert.equal(find(repository, "Adelanto").length, 0);
   });
 });

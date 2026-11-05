@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { canViewAgencyBalances } from "./access";
 import { settleDay } from "./calculations";
-import { EXPENSE_CATEGORIES, expenseCategoriesFor } from "./expense-categories";
+import { EXPENSE_CATEGORIES, categoryGoesToResult, expenseCategoriesFor } from "./expense-categories";
 import { formatCents, formatSignedPercent } from "./money";
 import { RACETRACKS, commissionModeOf, racetrackRates } from "./racetracks";
 
@@ -176,5 +176,17 @@ describe("comisión descontada del depósito", () => {
       depositAdjustmentBasisPoints: 0,
       profitShareBasisPoints: 2000,
     });
+  });
+});
+
+describe("adónde va un gasto", () => {
+  it("los adelantos y retiros van a Resultado, los gastos comunes no", () => {
+    assert.equal(categoryGoesToResult(EXPENSE_CATEGORIES, "adelanto-fede"), true);
+    assert.equal(categoryGoesToResult(EXPENSE_CATEGORIES, "retiro-sag-mati"), true);
+    assert.equal(categoryGoesToResult(EXPENSE_CATEGORIES, "sueldo"), false);
+  });
+
+  it("una categoría que no existe no avisa nada", () => {
+    assert.equal(categoryGoesToResult(EXPENSE_CATEGORIES, "no-existe"), false);
   });
 });

@@ -1,8 +1,8 @@
-export { canViewAgencyBalances, canViewPartnerWithdrawals } from "./domain/access";
+export { canViewAgencyBalances, canViewPartnerWithdrawals, visibleAuditEntries } from "./domain/access";
 export { bettorHasMovements } from "./domain/bettor-account";
 export { settleDay } from "./domain/calculations";
 export type { DaySettlement } from "./domain/calculations";
-export { EXPENSE_CATEGORIES, categoryHasExpenses, expenseCategoriesFor, listExpenseCategories } from "./domain/expense-categories";
+export { EXPENSE_CATEGORIES, categoryGoesToResult, categoryHasExpenses, expenseCategoriesFor, listExpenseCategories } from "./domain/expense-categories";
 export { formatCents, formatSignedPercent } from "./domain/money";
 export {
   DEFAULT_PROFIT_SHARE_BASIS_POINTS,

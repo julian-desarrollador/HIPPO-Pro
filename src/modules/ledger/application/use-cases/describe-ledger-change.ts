@@ -247,14 +247,20 @@ function diffDeposits(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
   return lines;
 }
 
-function diffExpenses(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
-  const lines: string[] = [];
+/** Lines an operator may read, and lines only the owner may read. */
+type SplitLines = { shared: string[]; ownerOnly: string[] };
+
+function diffExpenses(before: LedgerSnapshot, after: LedgerSnapshot): SplitLines {
+  const shared: string[] = [];
+  const ownerOnly: string[] = [];
   const previous = new Map(before.expenses.map((expense) => [expense.id, expense]));
   const next = new Map(after.expenses.map((expense) => [expense.id, expense]));
   for (const [id, expense] of next) {
     const old = previous.get(id);
     if (!old) {
-      lines.push(`Cargó un gasto de ${formatCents(expense.amountCents)} en ${categoryName(after, expense.categoryId)}.`);
+      (expense.kind === "agency" ? shared : ownerOnly).push(
+        `Cargó un gasto de ${formatCents(expense.amountCents)} en ${categoryName(after, expense.categoryId)}.`,
+      );
       continue;
     }
     const clauses: string[] = [];
@@ -274,35 +280,39 @@ function diffExpenses(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
       clauses.push(`El mes pasó a ${expense.month}.`);
     }
     if (clauses.length > 0) {
-      lines.push(`Editó un gasto de ${categoryName(before, old.categoryId)}. ${clauses.join(" ")}`);
+      // Moving between public and owner-only mentions the private side: it stays with the owner.
+      (old.kind === "agency" && expense.kind === "agency" ? shared : ownerOnly).push(
+        `Editó un gasto de ${categoryName(before, old.categoryId)}. ${clauses.join(" ")}`,
+      );
     }
   }
   for (const [id, expense] of previous) {
     if (!next.has(id)) {
-      lines.push(`Quitó un gasto de ${categoryName(before, expense.categoryId)}.`);
+      (expense.kind === "agency" ? shared : ownerOnly).push(`Quitó un gasto de ${categoryName(before, expense.categoryId)}.`);
     }
   }
-  return lines;
+  return { shared, ownerOnly };
 }
 
-function diffCategories(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
-  const lines: string[] = [];
+function diffCategories(before: LedgerSnapshot, after: LedgerSnapshot): SplitLines {
+  const shared: string[] = [];
+  const ownerOnly: string[] = [];
   const previous = new Map(listExpenseCategories(before).map((category) => [category.id, category]));
   const next = new Map(listExpenseCategories(after).map((category) => [category.id, category]));
   for (const [id, category] of next) {
     const old = previous.get(id);
     if (!old) {
-      lines.push(`Agregó la categoría ${category.label}.`);
+      (category.kind === "agency" ? shared : ownerOnly).push(`Agregó la categoría ${category.label}.`);
     } else if (old.label !== category.label) {
-      lines.push(`Renombró la categoría ${old.label} a ${category.label}.`);
+      (category.kind === "agency" ? shared : ownerOnly).push(`Renombró la categoría ${old.label} a ${category.label}.`);
     }
   }
   for (const [id, category] of previous) {
     if (!next.has(id)) {
-      lines.push(`Quitó la categoría ${category.label}.`);
+      (category.kind === "agency" ? shared : ownerOnly).push(`Quitó la categoría ${category.label}.`);
     }
   }
-  return lines;
+  return { shared, ownerOnly };
 }
 
 function diffBettors(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
@@ -495,21 +505,23 @@ function diffPayments(before: LedgerSnapshot, after: LedgerSnapshot): string[] {
   return lines;
 }
 
-export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapshot): string | null {
+function changeLines(before: LedgerSnapshot, after: LedgerSnapshot): SplitLines {
   const startedBook =
     before.startingBalances?.status !== "done" && after.startingBalances?.status === "done"
       ? ["Cargó el estado de cuenta inicial."]
       : [];
   const racetracks = diffRacetracks(before, after);
-  const lines = [
+  const expenses = diffExpenses(before, after);
+  const categories = diffCategories(before, after);
+  const shared = [
     ...startedBook,
     ...racetracks.lines,
     ...diffCommissions(before, after, racetracks.editedIds),
     ...diffMonthOpenings(before, after),
     ...diffDays(before, after),
     ...diffDeposits(before, after),
-    ...diffExpenses(before, after),
-    ...diffCategories(before, after),
+    ...expenses.shared,
+    ...categories.shared,
     ...diffBettors(before, after),
     ...diffPlays(before, after),
     ...diffPayments(before, after),
@@ -517,10 +529,13 @@ export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapsh
     ...diffStaff(before, after),
     ...diffSchedule(before, after),
   ];
-  if (lines.length === 0) {
-    return null;
-  }
-  return lines.join(" ");
+  return { shared, ownerOnly: [...expenses.ownerOnly, ...categories.ownerOnly] };
+}
+
+export function describeLedgerChange(before: LedgerSnapshot, after: LedgerSnapshot): string | null {
+  const { shared, ownerOnly } = changeLines(before, after);
+  const lines = [...shared, ...ownerOnly];
+  return lines.length === 0 ? null : lines.join(" ");
 }
 
 function namedActor(actorName?: string): { actorName: string } | Record<string, never> {
@@ -535,12 +550,15 @@ export function withAuditEntry(
   at: string,
   actorName?: string,
 ): LedgerSnapshot {
-  const summary = describeLedgerChange(before, after);
-  if (!summary) {
-    return after;
+  const { shared, ownerOnly } = changeLines(before, after);
+  const entries: AuditEntry[] = [];
+  if (shared.length > 0) {
+    entries.push({ id: createId("audit"), at, actor, summary: shared.join(" "), ...namedActor(actorName) });
   }
-  const entry: AuditEntry = { id: createId("audit"), at, actor, summary, ...namedActor(actorName) };
-  return { ...after, audit: [...(after.audit ?? []), entry] };
+  if (ownerOnly.length > 0) {
+    entries.push({ id: createId("audit"), at, actor, summary: ownerOnly.join(" "), ownerOnly: true, ...namedActor(actorName) });
+  }
+  return entries.length === 0 ? after : { ...after, audit: [...(after.audit ?? []), ...entries] };
 }
 
 export function withRestoreAudit(snapshot: LedgerSnapshot, actor: ViewerRole, at: string, actorName?: string): LedgerSnapshot {

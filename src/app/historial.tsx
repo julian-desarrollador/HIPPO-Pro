@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { localYearMonth } from "@/components/calendar-grid";
 import { DataTable } from "@/components/data-table";
 import { ScreenFrame } from "@/components/screen-frame";
-import { useLedger } from "@/modules/ledger";
+import { useLedger, visibleAuditEntries } from "@/modules/ledger";
 
 function formatWhen(iso: string): string {
   const date = new Date(iso);
@@ -28,8 +28,8 @@ function whoLabel(actor: string, actorName?: string): string {
 }
 
 export default function HistorialScreen() {
-  const { snapshot, viewMonth } = useLedger();
-  const audit = snapshot.audit ?? [];
+  const { snapshot, viewMonth, role } = useLedger();
+  const audit = visibleAuditEntries(snapshot.audit ?? [], role);
   const rows = audit
     .filter((entry) => localYearMonth(entry.at) === viewMonth)
     .slice()

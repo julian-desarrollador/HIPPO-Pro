@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createInMemoryLedgerRepository } from "../../adapters/outbound/in-memory-ledger-repository";
 import { createEmptyAgencySnapshot } from "../../adapters/outbound/starting-snapshot";
+import { visibleAuditEntries } from "../../domain/access";
 import { describeLedgerChange, withAuditEntry, withRestoreAudit } from "./describe-ledger-change";
 import { updateCommission } from "./update-commission";
 import { addRacetrack, updateRacetrack } from "./manage-racetracks";
@@ -54,5 +55,35 @@ describe("historial", () => {
     const newAgencyBefore = newAgency.load();
     addRacetrack(newAgency, { name: "San Isidro", commissionBasisPoints: 1200, depositAdjustmentBasisPoints: 0 });
     assert.equal(describeLedgerChange(newAgencyBefore, newAgency.load()), "Agregó el hipódromo San Isidro.");
+  });
+});
+
+describe("historial de lo que solo ve el dueño", () => {
+  const agency = { id: "e1", agencyId: "dolores", month: "2026-09", paidOn: "2026-09-04", categoryId: "luz", detail: "", amountCents: 10_000, kind: "agency" as const };
+  const partner = { ...agency, id: "e2", categoryId: "adelanto-fede", kind: "partner-withdrawal" as const };
+  const base = createEmptyAgencySnapshot("dolores");
+
+  it("un adelanto queda marcado y el operador no lo ve", () => {
+    const after = withAuditEntry(base, { ...base, expenses: [partner] }, "owner", "2026-09-04T10:00:00.000Z");
+    const rows = after.audit ?? [];
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.ownerOnly, true);
+    assert.equal(visibleAuditEntries(rows, "owner").length, 1);
+    assert.equal(visibleAuditEntries(rows, "operator").length, 0);
+  });
+
+  it("un gasto común lo ven los dos", () => {
+    const after = withAuditEntry(base, { ...base, expenses: [agency] }, "operator", "2026-09-04T10:00:00.000Z");
+    const rows = after.audit ?? [];
+    assert.equal(rows[0]?.ownerOnly, undefined);
+    assert.equal(visibleAuditEntries(rows, "operator").length, 1);
+  });
+
+  it("si un guardado toca los dos, el operador ve solo lo suyo", () => {
+    const after = withAuditEntry(base, { ...base, expenses: [agency, partner] }, "owner", "2026-09-04T10:00:00.000Z");
+    const seen = visibleAuditEntries(after.audit ?? [], "operator");
+    assert.equal(seen.length, 1);
+    assert.match(seen[0]?.summary ?? "", /Luz/);
+    assert.doesNotMatch(seen[0]?.summary ?? "", /Adelanto/);
   });
 });

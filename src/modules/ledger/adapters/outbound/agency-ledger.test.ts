@@ -127,7 +127,8 @@ describe("libro de una agencia nueva", () => {
     const snapshot = repository.load();
     assert.equal(listRacetracks(snapshot).length, 0);
     const categories = listExpenseCategories(snapshot);
-    assert.equal(categories.some((category) => category.kind === "partner-withdrawal"), false);
+    const withdrawals = categories.filter((category) => category.kind === "partner-withdrawal").map((category) => category.label);
+    assert.deepEqual(withdrawals, ["Adelanto", "Retiro"]);
     assert.ok(categories.some((category) => category.id === "sueldo"));
   });
 

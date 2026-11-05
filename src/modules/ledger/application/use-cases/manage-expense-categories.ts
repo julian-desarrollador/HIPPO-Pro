@@ -1,11 +1,13 @@
 import { LedgerError } from "../../domain/errors";
 import { categoryHasExpenses, isBuiltinCategory, listExpenseCategories, type ExpenseCategory } from "../../domain/expense-categories";
 import { racetrackIdFromName } from "../../domain/racetracks";
-import type { AgencyExpenseCategory, CategoryLabel } from "../../domain/types";
+import type { AgencyExpenseCategory, CategoryLabel, ExpenseKind } from "../../domain/types";
 import type { LedgerRepository } from "../ports/ledger-repository";
 
 export type AddExpenseCategoryInput = {
   label: string;
+  /** agency (the default) is public. partner-withdrawal is owner only and is listed in Resultado. */
+  kind?: ExpenseKind;
 };
 
 function comparableLabel(label: string): string {
@@ -33,12 +35,12 @@ export function addExpenseCategory(repository: LedgerRepository, input: AddExpen
     throw new LedgerError("duplicate-category");
   }
 
-  const category: AgencyExpenseCategory = { id, label, kind: "agency" };
+  const category: AgencyExpenseCategory = { id, label, kind: input.kind ?? "agency" };
   repository.save({ ...snapshot, expenseCategories: [...(snapshot.expenseCategories ?? []), category] });
   return category;
 }
 
-export type UpdateExpenseCategoryInput = AddExpenseCategoryInput & { id: string };
+export type UpdateExpenseCategoryInput = Pick<AddExpenseCategoryInput, "label"> & { id: string };
 
 function withLabel(labels: readonly CategoryLabel[] | undefined, id: string, label: string): CategoryLabel[] {
   const next = (labels ?? []).slice();
@@ -76,7 +78,8 @@ export function updateExpenseCategory(repository: LedgerRepository, input: Updat
   if (index === -1) {
     throw new LedgerError("unknown-category");
   }
-  const category: AgencyExpenseCategory = { id: input.id, label, kind: "agency" };
+  // Renaming never changes the kind: its expenses stay in the same table.
+  const category: AgencyExpenseCategory = { id: input.id, label, kind: current.kind };
   const expenseCategories = stored.slice();
   expenseCategories[index] = category;
   repository.save({ ...snapshot, expenseCategories });
