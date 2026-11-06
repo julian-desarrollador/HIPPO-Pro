@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
 import { formatIsoDate } from "@/components/format-date";
 import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, RowActions, SecondaryButton, uploadPreviewHeight } from "@/components/form-controls";
+import { LotteryGameLogo } from "@/components/lottery-game-logo";
 import { Card, ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { scrollToEditForm } from "@/components/scroll-to-edit-form";
 import { MoneyText } from "@/components/stat-card";
@@ -438,7 +439,10 @@ export default function CombinedLoadScreen() {
 
       {games.map((game) => (
         <Card key={game.id}>
-          <Text className="font-semibold text-ink">{game.name}</Text>
+          <View className="flex-row items-center gap-3">
+            <LotteryGameLogo gameId={game.id} name={game.name} />
+            <Text className="min-w-0 flex-1 text-[17px] font-semibold text-navy">{game.name}</Text>
+          </View>
           <View className={wide ? "mt-3 flex-row flex-wrap gap-4" : "mt-3 gap-3"}>
             <View className="flex-1" style={wide ? { minWidth: 140 } : undefined}>
               <Field label="Apuestas">
