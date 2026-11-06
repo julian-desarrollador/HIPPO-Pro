@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 
-import { Field, PrimaryButton, TextField } from "@/components/form-controls";
+import { Field, PasswordField, PrimaryButton, TextField } from "@/components/form-controls";
 
 export function SignInScreen({
   onSubmit,
@@ -79,10 +79,9 @@ export function SignInScreen({
           />
         </Field>
         <Field label="Contraseña">
-          <TextField
+          <PasswordField
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             placeholder="Contraseña"
             accessibilityLabel="Contraseña"
           />
@@ -130,19 +129,17 @@ export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) =
       <View className="w-full max-w-[400px] gap-4 rounded-[14px] border border-line bg-card p-5">
         <Text className="font-serif text-[30px] text-navy">Nueva contraseña</Text>
         <Field label="Contraseña">
-          <TextField
+          <PasswordField
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             placeholder="Nueva contraseña"
             accessibilityLabel="Nueva contraseña"
           />
         </Field>
         <Field label="Confirmar contraseña">
-          <TextField
+          <PasswordField
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry
             placeholder="Confirmar contraseña"
             accessibilityLabel="Confirmar contraseña"
           />

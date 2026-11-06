@@ -1,5 +1,5 @@
-import { type ReactNode, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, type TextInputProps, View } from "react-native";
+import { type ReactNode, type RefAttributes, useRef, useState } from "react";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, type TextInputProps, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { usePalette } from "@/constants/palette";
@@ -62,7 +62,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function TextField(props: TextInputProps) {
+export function TextField(props: TextInputProps & RefAttributes<TextInput>) {
   const palette = usePalette();
   return (
     <TextInput
@@ -70,6 +70,53 @@ export function TextField(props: TextInputProps) {
       className="rounded-[10px] border border-line bg-card px-3 py-2.5 text-[17px] text-ink"
       {...props}
     />
+  );
+}
+
+/** On web, pressing the eye would blur the field and close the phone keyboard. */
+const keepFieldFocus = { onMouseDown: (event: { preventDefault: () => void }) => event.preventDefault() };
+
+/** The DOM input behind a TextInput. Null on native. */
+function webInput(field: TextInput | null): HTMLInputElement | null {
+  return Platform.OS === "web" ? (field as unknown as HTMLInputElement | null) : null;
+}
+
+export function PasswordField(props: Omit<TextInputProps, "secureTextEntry">) {
+  const palette = usePalette();
+  const [shown, setShown] = useState(false);
+  const field = useRef<TextInput>(null);
+
+  function toggle() {
+    setShown((current) => !current);
+    const input = webInput(field.current);
+    if (input && field.current?.isFocused()) {
+      const { selectionStart, selectionEnd } = input;
+      // Older browsers send the caret to the start once the new input type is laid out.
+      requestAnimationFrame(() => input.setSelectionRange(selectionStart, selectionEnd));
+    }
+  }
+
+  return (
+    <View>
+      {/* While shown it is plain text: the keyboard must not capitalize or correct the password. */}
+      <TextField
+        {...props}
+        ref={field}
+        secureTextEntry={!shown}
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        style={{ paddingRight: 44 }}
+      />
+      <Pressable
+        {...keepFieldFocus}
+        accessibilityRole="button"
+        accessibilityLabel={shown ? "Ocultar contraseña" : "Mostrar contraseña"}
+        onPress={toggle}
+        className="absolute bottom-0 right-0 top-0 w-11 cursor-pointer items-center justify-center">
+        <Ionicons name={shown ? "eye-off-outline" : "eye-outline"} size={22} color={palette.muted} />
+      </Pressable>
+    </View>
   );
 }
 

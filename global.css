@@ -47,6 +47,11 @@
   --color-chrome-muted: #d4dfd9;
 }
 
+/* Edge adds its own eye to password fields, next to the one in PasswordField. */
+input::-ms-reveal {
+  display: none;
+}
+
 .table-scroll {
   scrollbar-color: var(--color-muted) var(--color-tint);
   scrollbar-width: auto;

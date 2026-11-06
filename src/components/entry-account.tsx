@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
-import { Feedback, Field, PrimaryButton, SecondaryButton, TextField } from "@/components/form-controls";
+import { Feedback, Field, PasswordField, PrimaryButton, SecondaryButton, TextField } from "@/components/form-controls";
 import { Card } from "@/components/screen-frame";
 import { SignInScreen } from "@/components/sign-in-screen";
 import { agencySignupProblem } from "@/modules/identity/agency-invite";
@@ -159,19 +159,17 @@ function AgencySignup({ mode, onSignIn }: { mode: SignupMode; onSignIn?: () => v
         />
       </Field>
       <Field label="Contraseña">
-        <TextField
+        <PasswordField
           value={password}
           onChangeText={setPassword}
-          secureTextEntry
           placeholder="Al menos 6 caracteres"
           accessibilityLabel="Contraseña"
         />
       </Field>
       <Field label="Repetir contraseña">
-        <TextField
+        <PasswordField
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          secureTextEntry
           placeholder="La misma contraseña"
           accessibilityLabel="Repetir contraseña"
           onSubmitEditing={() => void submit()}
