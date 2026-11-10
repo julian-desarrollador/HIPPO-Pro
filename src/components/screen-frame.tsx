@@ -87,7 +87,7 @@ export function ScreenFrame({
           <ConfirmDialog
             visible={confirmingRemoval}
             title={`¿Quitar ${agencyName}?`}
-            detail="Se borra el libro y las fotos. No se puede deshacer."
+            detail="Sale de la lista. Si fue un error, se puede recuperar."
             confirmLabel="Quitar"
             onCancel={() => setConfirmingRemoval(false)}
             onConfirm={() => void removePersonalAgency()}

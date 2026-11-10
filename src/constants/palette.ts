@@ -1,5 +1,3 @@
-import { useAgencyMode } from "@/modules/ledger/adapters/inbound/ledger-provider";
-
 export const palette = {
   canvas: "#D9EAF5",
   card: "#F3F8FC",
@@ -11,6 +9,8 @@ export const palette = {
   accent: "#186DAA",
   celeste: "#99CFF5",
   brand: "#59B349",
+  /** The logo's green, one step darker, so the lottery ball reads on a light card. */
+  brandDeep: "#3F8F33",
   chromeActive: "#2F6D9D",
   chromeMuted: "#CCDEEA",
   negative: "#B42318",
@@ -36,7 +36,7 @@ export const palette = {
 
 export type Palette = { [Key in keyof typeof palette]: string };
 
-/** Same roles as `palette`, in green. Keep in sync with `.theme-lottery` in global.css. */
+/** The lottery plan on the entry page only. Inside the app every agency is blue. */
 export const lotteryPalette: Palette = {
   ...palette,
   canvas: "#E2EBE6",
@@ -56,7 +56,7 @@ export function isLotteryPath(pathname: string): boolean {
   return pathname === "/quiniela" || pathname.startsWith("/quiniela/");
 }
 
+/** Every agency uses the HippoPro blue. Lottery shows as a tag, not as another palette. */
 export function usePalette(): Palette {
-  const mode = useAgencyMode();
-  return mode === "lottery" || mode === "both" ? lotteryPalette : palette;
+  return palette;
 }

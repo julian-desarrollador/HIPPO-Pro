@@ -245,6 +245,7 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
   confirmEnabled = true,
+  destructive,
   children,
 }: {
   visible: boolean;
@@ -255,6 +256,8 @@ export function ConfirmDialog({
   onConfirm: () => void;
   /** False keeps Quitar dimmed and inert, for example until a name is typed. */
   confirmEnabled?: boolean;
+  /** The red button with any label. Quitar is red without asking. */
+  destructive?: boolean;
   /** Extra content between the detail and the buttons. */
   children?: ReactNode;
 }) {
@@ -262,7 +265,7 @@ export function ConfirmDialog({
   if (!visible) {
     return null;
   }
-  const removing = confirmLabel === "Quitar";
+  const removing = destructive ?? confirmLabel === "Quitar";
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onCancel}>
@@ -282,7 +285,7 @@ export function ConfirmDialog({
             {removing ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Confirmar quitar"
+                accessibilityLabel={`Confirmar ${confirmLabel.toLocaleLowerCase("es-AR")}`}
                 accessibilityState={{ disabled: !confirmEnabled }}
                 disabled={!confirmEnabled}
                 onPress={onConfirm}
@@ -291,7 +294,7 @@ export function ConfirmDialog({
                     ? "cursor-pointer items-center rounded-[10px] bg-negative px-5 py-2.5"
                     : "items-center rounded-[10px] bg-negative px-5 py-2.5 opacity-40"
                 }>
-                <Text className="text-[16px] font-semibold text-white">Quitar</Text>
+                <Text className="text-[16px] font-semibold text-white">{confirmLabel}</Text>
               </Pressable>
             ) : (
               <PrimaryButton label={confirmLabel} onPress={onConfirm} />

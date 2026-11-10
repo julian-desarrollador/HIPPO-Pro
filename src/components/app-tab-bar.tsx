@@ -21,6 +21,7 @@ import {
   wideLayout,
 } from "@/constants/layout";
 import { isLotteryPath, palette, usePalette } from "@/constants/palette";
+import { ServiceLine, ServiceTags } from "@/components/service-tags";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
@@ -28,6 +29,7 @@ import { HelpPanel } from "@/components/help-panel";
 import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
 import { SupportInbox } from "@/components/support-inbox";
+import { TrashPanel } from "@/components/trash-panel";
 import { canAddService, useLedger, type AgencyMode, type AgencyService, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
@@ -74,17 +76,6 @@ const UNIFIED_ROUTES: Record<string, Href> = {
   "/resultado": "/quiniela/resultado",
   "/quiniela/carga": "/carga-dia",
 };
-
-/** On web the class switches the CSS colors, including dialogs rendered outside the menu. */
-function useProductTheme(unified: boolean, navy: string) {
-  useEffect(() => {
-    if (Platform.OS !== "web" || typeof document === "undefined") {
-      return;
-    }
-    document.documentElement.classList.toggle("theme-lottery", unified);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", navy);
-  }, [navy, unified]);
-}
 
 function bettorPageTitle(
   pathname: string,
@@ -289,22 +280,21 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, setRole, signOut, snapshot, addService, removeService, readOnly } = useLedger();
+  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, canManageTrash, setRole, signOut, snapshot, addService, removeService, readOnly } = useLedger();
   const serviceToAdd = role === "owner" && !readOnly ? canAddService(agencyMode) : null;
   const canRemoveService = role === "owner" && !readOnly && agencyMode === "both" && removeService !== null;
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const [agenciesOpen, setAgenciesOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
   const { collapsed, railOnly, toggle, width } = useContext(SidebarContext);
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const unified = agencyMode === "both" || agencyMode === "lottery";
   const palette = usePalette();
-  useProductTheme(unified, palette.navy);
   const pageTitle =
     bettorPageTitle(pathname, snapshot.bettors) ??
     PAGE_TITLES[pathname] ??
@@ -415,7 +405,7 @@ export function CustomTabList(props: TabListProps) {
                 />
               </Pressable>
             </View>
-            <AgencyBlock name={agencyName} railOnly={railOnly} />
+            <AgencyBlock name={agencyName} mode={agencyMode} railOnly={railOnly} />
             {items}
           </Animated.View>
         ) : null}
@@ -443,7 +433,7 @@ export function CustomTabList(props: TabListProps) {
                 {pageTitle}
               </Text>
             ) : (
-              <Brand compact agencyName={agencyName} />
+              <Brand compact agencyName={agencyName} agencyMode={agencyMode} />
             )}
             {signOut ? (
               <AccountMenu
@@ -454,6 +444,7 @@ export function CustomTabList(props: TabListProps) {
                 onSignOut={signOut}
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
                 onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
+                onOpenTrash={canCreateAgencies && canManageTrash ? () => setTrashOpen(true) : null}
                 onOpenHelp={() => setHelpOpen(true)}
                 onOpenSupport={canCreateAgencies ? () => setSupportOpen(true) : null}
                 agencyMode={agencyMode}
@@ -538,6 +529,16 @@ export function CustomTabList(props: TabListProps) {
         userId={userId}
         agencyId={readOnly ? "" : snapshot.agencyId}
       />
+      {canCreateAgencies && canManageTrash ? (
+        <TrashPanel
+          visible={trashOpen}
+          onClose={() => setTrashOpen(false)}
+          onBack={() => {
+            setTrashOpen(false);
+            setAccountOpen(true);
+          }}
+        />
+      ) : null}
       {canCreateAgencies ? (
         <SupportInbox
           visible={supportOpen}
@@ -613,7 +614,7 @@ function agencyInitials(name: string): string {
 
 const mark = require("../../assets/images/brand-mark.png");
 
-function Brand({ compact = false, agencyName = "" }: { compact?: boolean; agencyName?: string }) {
+function Brand({ compact = false, agencyName = "", agencyMode }: { compact?: boolean; agencyName?: string; agencyMode?: AgencyMode }) {
   const size = compact ? 40 : 52;
   return (
     <View
@@ -634,22 +635,23 @@ function Brand({ compact = false, agencyName = "" }: { compact?: boolean; agency
         <Text
           className="text-white"
           numberOfLines={1}
-          style={{ fontFamily: "DMSans_700Bold", fontSize: compact ? 20 : 22, letterSpacing: -0.4 }}
+          style={{ fontFamily: "DMSans_700Bold", fontSize: compact ? 20 : 22, letterSpacing: -0.4, lineHeight: compact ? 23 : undefined }}
         >
           Hippo
           <Text style={{ color: palette.brand }}>Pro</Text>
         </Text>
         {compact && agencyName ? (
-          <Text className="text-[13px] text-chrome-muted" numberOfLines={1}>
+          <Text className="text-[13px] leading-4 text-chrome-muted" numberOfLines={1}>
             {agencyName}
           </Text>
         ) : null}
+        {compact && agencyMode ? <ServiceLine mode={agencyMode} /> : null}
       </View>
     </View>
   );
 }
 
-function AgencyBlock({ name, railOnly }: { name: string; railOnly: boolean }) {
+function AgencyBlock({ name, mode, railOnly }: { name: string; mode: AgencyMode; railOnly: boolean }) {
   const palette = usePalette();
   if (railOnly) {
     return (
@@ -684,26 +686,27 @@ function AgencyBlock({ name, railOnly }: { name: string; railOnly: boolean }) {
         borderRadius: 10,
         borderWidth: 1,
         borderColor: palette.chromeActive,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
+        gap: 10,
         paddingHorizontal: 12,
         paddingVertical: 10,
       }}
     >
-      <Ionicons name="storefront" size={20} color={palette.celeste} />
-      <Text
-        style={{
-          flex: 1,
-          minWidth: 0,
-          color: "white",
-          fontFamily: "DMSans_600SemiBold",
-          fontSize: 17,
-        }}
-        numberOfLines={2}
-      >
-        {name}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Ionicons name="storefront" size={20} color={palette.celeste} />
+        <Text
+          style={{
+            flex: 1,
+            minWidth: 0,
+            color: "white",
+            fontFamily: "DMSans_600SemiBold",
+            fontSize: 17,
+          }}
+          numberOfLines={2}
+        >
+          {name}
+        </Text>
+      </View>
+      <ServiceTags mode={mode} tone="chrome" />
     </View>
   );
 }
@@ -716,6 +719,7 @@ function AccountMenu({
   onSignOut,
   onOpenOperators,
   onOpenAgencies,
+  onOpenTrash,
   onOpenHelp,
   onOpenSupport,
   agencyMode,
@@ -731,6 +735,7 @@ function AccountMenu({
   onSignOut: () => void;
   onOpenOperators: (() => void) | null;
   onOpenAgencies: (() => void) | null;
+  onOpenTrash: (() => void) | null;
   onOpenHelp: (() => void) | null;
   onOpenSupport: (() => void) | null;
   agencyMode: AgencyMode;
@@ -785,6 +790,7 @@ function AccountMenu({
             {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => onOpenChange(false)} /> : null}
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
             {onOpenAgencies ? <SecondaryButton label="Agencias" onPress={() => pick(onOpenAgencies)} /> : null}
+            {onOpenTrash ? <SecondaryButton label="Papelera" onPress={() => pick(onOpenTrash)} /> : null}
             {onOpenSupport ? <SecondaryButton label="Consultas" onPress={() => pick(onOpenSupport)} /> : null}
             {onOpenHelp ? <SecondaryButton label="Ayuda" onPress={() => pick(onOpenHelp)} /> : null}
             {(serviceToAdd && openAdd) || (canRemoveService && openRemove) ? (

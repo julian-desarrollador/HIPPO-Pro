@@ -76,6 +76,8 @@ type LedgerContextValue = {
   userId: string;
   canInviteOwners: boolean;
   canCreateAgencies: boolean;
+  /** Sees the Papelera: restores removed agencies or deletes them for good. */
+  canManageTrash: boolean;
   sessionAgencyId: string;
   setRole: (role: ViewerRole) => void;
   persistence: "browser" | "agency";
@@ -186,6 +188,7 @@ export function LedgerProvider({
   userId = "",
   canInviteOwners = false,
   canCreateAgencies = false,
+  canManageTrash = false,
   sessionAgencyId = "",
   persistence = "browser",
   readOnly = false,
@@ -204,6 +207,7 @@ export function LedgerProvider({
   userId?: string;
   canInviteOwners?: boolean;
   canCreateAgencies?: boolean;
+  canManageTrash?: boolean;
   sessionAgencyId?: string;
   persistence?: "browser" | "agency";
   readOnly?: boolean;
@@ -266,6 +270,7 @@ export function LedgerProvider({
       userId,
       canInviteOwners,
       canCreateAgencies,
+      canManageTrash,
       sessionAgencyId,
       setRole: (next) => {
         if (!lockedRole) {
@@ -399,7 +404,7 @@ export function LedgerProvider({
       removeService,
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [addService, agencyMode, agencyName, canCreateAgencies, canInviteOwners, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
+  }, [addService, agencyMode, agencyName, canCreateAgencies, canInviteOwners, canManageTrash, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
 
   return (
     <RacingCommitContext.Provider value={racingCommitRef}>

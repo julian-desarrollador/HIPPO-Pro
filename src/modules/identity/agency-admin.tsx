@@ -3,20 +3,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { agencyModeFrom, type AgencyMode } from "@/modules/ledger";
 
+import { archivedAgenciesFrom, type ArchivedAgency } from "./archived-agency";
 import { openedAgencyFrom, type OpenedAgency } from "./opened-agency";
 
 import { newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
 import { readFunctionMessage } from "./operator-admin";
 
+export type { ArchivedAgency } from "./archived-agency";
 export type { OpenedAgency } from "./opened-agency";
 
-export type AgencyKind = "home" | "personal" | "other";
+/** personal: the caller's own test. test: someone else's, listed only for whoever manages the trash. */
+export type AgencyKind = "home" | "personal" | "test" | "other";
 
 export type AgencyEntry = {
   agencyId: string;
   name: string;
   kind: AgencyKind;
   productMode: AgencyMode;
+  /** Whose test it is, for kind test. Empty otherwise. */
+  testOf: string;
 };
 
 export type CreatedPersonalAgency = {
@@ -32,12 +37,18 @@ type AgencyAdmin = {
   /** Hides a real agency and closes its sign-in. Its data stays in the base. */
   archive: (agency: AgencyEntry, confirmName: string) => Promise<string | null>;
   read: (agencyId: string) => Promise<OpenedAgency | string>;
+  /** The trash. Only an account with can_manage_trash gets an answer. */
+  listArchived: () => Promise<ArchivedAgency[]>;
+  /** Back to the list, and its people can sign in again. */
+  restore: (agency: ArchivedAgency) => Promise<string | null>;
+  /** Deletes the books, the photos and the accounts that were only in it. */
+  purge: (agency: ArchivedAgency, confirmName: string) => Promise<string | null>;
 };
 
 const AgencyAdminContext = createContext<AgencyAdmin | null>(null);
 
 function isAgencyKind(value: unknown): value is AgencyKind {
-  return value === "home" || value === "personal" || value === "other";
+  return value === "home" || value === "personal" || value === "test" || value === "other";
 }
 
 function agencyEntryFrom(value: unknown): AgencyEntry | null {
@@ -53,6 +64,7 @@ function agencyEntryFrom(value: unknown): AgencyEntry | null {
     name: row.name,
     kind: row.kind,
     productMode: agencyModeFrom(row.productMode),
+    testOf: row.kind === "test" && typeof row.testOf === "string" ? row.testOf.trim() : "",
   };
 }
 
@@ -128,6 +140,29 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
         return readFunctionMessage(error, data);
       }
       return openedAgencyFrom(data, agencyId) ?? "No se pudo abrir la agencia.";
+    },
+    async listArchived() {
+      const { data, error } = await client.functions.invoke("create-agency", { body: { action: "list-archived" } });
+      const agencies = error ? null : archivedAgenciesFrom(data);
+      if (!agencies) {
+        throw new Error("archived");
+      }
+      return agencies;
+    },
+    async restore(agency) {
+      const { data, error } = await client.functions.invoke("create-agency", {
+        body: { action: "restore", agencyId: agency.agencyId },
+      });
+      return error ? readFunctionMessage(error, data) : null;
+    },
+    async purge(agency, confirmName) {
+      if (!removalNameMatches(confirmName, agency.name)) {
+        return "El nombre no coincide.";
+      }
+      const { data, error } = await client.functions.invoke("create-agency", {
+        body: { action: "purge", agencyId: agency.agencyId, confirmName: confirmName.trim() },
+      });
+      return error ? readFunctionMessage(error, data) : null;
     },
   };
 }

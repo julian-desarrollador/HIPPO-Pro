@@ -17,13 +17,14 @@
   --color-accent: #186daa;
   --color-celeste: #99cff5;
   --color-brand: #59b349;
+  --color-brand-deep: #3f8f33;
   --color-chrome-active: #2f6d9d;
   --color-chrome-muted: #ccdeea;
   --color-negative: #b42318;
   --color-positive: #1b7a32;
   --color-amber-soft: #fef6e7;
   --color-amber-ink: #8a5a00;
-  /* Entry page, plus paper behind the lottery logos. Keep in sync with palette.ts. Not swapped by .theme-lottery. */
+  /* Entry page, plus paper behind the lottery logos. Keep in sync with palette.ts. */
   --color-deep: #0f2a4a;
   --color-mist: #f4f8fb;
   --color-wash: #eaf2f8;
@@ -31,20 +32,6 @@
   --color-hairline: #d7e3ec;
   --color-slate: #334155;
   --color-caption: #64748b;
-}
-
-/* Quiniela. Same roles, in green; keep in sync with lotteryPalette. */
-.theme-lottery {
-  --color-canvas: #e2ebe6;
-  --color-card: #f6f8f7;
-  --color-line: #c0cfc6;
-  --color-muted: #44584e;
-  --color-navy: #17382e;
-  --color-tint: #e5eee9;
-  --color-accent: #1f5a44;
-  --color-celeste: #b9d0c4;
-  --color-chrome-active: #2a4d40;
-  --color-chrome-muted: #d4dfd9;
 }
 
 /* Edge adds its own eye to password fields, next to the one in PasswordField. */

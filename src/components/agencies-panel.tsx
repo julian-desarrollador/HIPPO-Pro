@@ -13,6 +13,7 @@ import {
 } from "@/components/form-controls";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { SectionTitle } from "@/components/screen-frame";
+import { ServiceIcons } from "@/components/service-tags";
 import { wideLayout } from "@/constants/layout";
 import { usePalette } from "@/constants/palette";
 import {
@@ -21,6 +22,21 @@ import {
 } from "@/modules/identity/agency-admin";
 import { removalNameMatches } from "@/modules/identity/agency-invite";
 import { canAddService, useAgencyVisit, useLedger, type AgencyMode, type AgencyService } from "@/modules/ledger";
+
+/** Tests can be removed from the list. Someone else's shows up only for whoever manages the trash. */
+function isTest(agency: AgencyEntry): boolean {
+  return agency.kind === "personal" || agency.kind === "test";
+}
+
+function testTag(agency: AgencyEntry): string | null {
+  if (agency.kind === "personal") {
+    return "Prueba";
+  }
+  if (agency.kind === "test") {
+    return agency.testOf ? `Prueba de ${agency.testOf}` : "Prueba de otra persona";
+  }
+  return null;
+}
 
 export function AgencyMenuList({
   active,
@@ -139,12 +155,20 @@ export function AgencyMenuList({
           const last = index === agencies.length - 1;
           const label = (
             <>
-              <Text className="min-w-0 flex-1 text-[17px] font-semibold text-navy" numberOfLines={1}>
-                {agency.name}
-              </Text>
-              {choosable && agency.kind === "personal" ? (
-                <Text className="shrink-0 text-[15px] text-muted">Prueba</Text>
-              ) : null}
+              {/* The tag goes under the name, so a long one does not cut the name on a phone. */}
+              <View className="min-w-0 flex-1">
+                <View className="flex-row items-center gap-2">
+                  <Text className="shrink text-[17px] font-semibold text-navy" numberOfLines={1}>
+                    {agency.name}
+                  </Text>
+                  <ServiceIcons mode={agency.productMode} />
+                </View>
+                {choosable && testTag(agency) ? (
+                  <Text className="text-[15px] text-muted" numberOfLines={1}>
+                    {testTag(agency)}
+                  </Text>
+                ) : null}
+              </View>
               {choosable ? (
                 <Ionicons name="chevron-forward" size={18} color={palette.accent} />
               ) : (
@@ -174,7 +198,7 @@ export function AgencyMenuList({
               ) : (
                 <View className="min-w-0 flex-1 flex-row items-center gap-3">{label}</View>
               )}
-              {agency.kind === "personal" ? (
+              {isTest(agency) ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Quitar ${agency.name}`}
@@ -193,7 +217,7 @@ export function AgencyMenuList({
       <ConfirmDialog
         visible={pendingRemoval !== null}
         title={pendingRemoval ? `¿Quitar ${pendingRemoval.name}?` : "¿Quitar esta agencia?"}
-        detail="Se borra el libro y las fotos. No se puede deshacer."
+        detail="Sale de la lista. Si fue un error, se puede recuperar."
         confirmLabel="Quitar"
         onCancel={() => setPendingRemoval(null)}
         onConfirm={() => void confirmRemoval()}
@@ -520,12 +544,19 @@ export function AgenciesPanel({
               className="gap-3 rounded-[14px] border border-line px-4 py-3"
             >
               <View className="flex-row items-center gap-3">
-                <Text
-                  className="min-w-0 flex-1 text-[17px] font-semibold text-navy"
-                  numberOfLines={1}
-                >
-                  {agency.name}
-                </Text>
+                <View className="min-w-0 flex-1">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="shrink text-[17px] font-semibold text-navy" numberOfLines={1}>
+                      {agency.name}
+                    </Text>
+                    <ServiceIcons mode={agency.productMode} />
+                  </View>
+                  {!place && testTag(agency) ? (
+                    <Text className="text-[15px] text-muted" numberOfLines={1}>
+                      {testTag(agency)}
+                    </Text>
+                  ) : null}
+                </View>
                 {place ? <Text className="shrink-0 text-[15px] text-muted">{place}</Text> : null}
                 {visit && agency.agencyId !== sessionAgencyId && !current ? (
                   <Pressable
@@ -539,7 +570,7 @@ export function AgenciesPanel({
                     </Text>
                   </Pressable>
                 ) : null}
-                {agency.kind === "personal" ? (
+                {isTest(agency) ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Quitar ${agency.name}`}
@@ -576,7 +607,7 @@ export function AgenciesPanel({
     <ConfirmDialog
       visible={pendingRemoval !== null}
       title={pendingRemoval ? `¿Quitar ${pendingRemoval.name}?` : "¿Quitar esta agencia?"}
-      detail="Se borra el libro y las fotos. No se puede deshacer."
+      detail="Sale de la lista. Si fue un error, se puede recuperar."
       confirmLabel="Quitar"
       onCancel={() => setPendingRemoval(null)}
       onConfirm={() => void confirmRemoval()}
@@ -584,7 +615,7 @@ export function AgenciesPanel({
     <ConfirmDialog
       visible={pendingArchive !== null}
       title={pendingArchive ? `¿Quitar ${pendingArchive.name}?` : "¿Quitar esta agencia?"}
-      detail="Sale de la lista y su gente ya no entra. El libro, las personas y las fotos quedan guardados."
+      detail="Sale de la lista y su gente ya no entra. El libro, las personas y las fotos quedan guardados. Si fue un error, se puede recuperar."
       confirmLabel="Quitar"
       confirmEnabled={!archiveBusy && pendingArchive !== null && removalNameMatches(archiveName, pendingArchive.name)}
       onCancel={cancelArchive}

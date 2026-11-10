@@ -2,7 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { ConfirmDialog } from "@/components/form-controls";
-import { lotteryPalette, palette } from "@/constants/palette";
+import { palette } from "@/constants/palette";
+import { HorseshoeIcon, LotteryBall } from "@/components/service-tags";
 import { seesLottery, seesRacing, type AgencyMode, type AgencyService } from "@/modules/ledger";
 
 const COPY: Record<AgencyService, { title: string; detail: string; confirm: string; button: string }> = {
@@ -83,9 +84,10 @@ export function AddServiceAction({
   );
 }
 
+/** Both cards in the HippoPro blue. The icon tells them apart, as in the agency's tags. */
 const SERVICE_LOOK: Record<AgencyService, { name: string; wash: string; ink: string; accent: string }> = {
   racing: { name: "Hípica", wash: palette.tint, ink: palette.navy, accent: palette.accent },
-  lottery: { name: "Lotería", wash: lotteryPalette.tint, ink: lotteryPalette.navy, accent: lotteryPalette.accent },
+  lottery: { name: "Lotería", wash: palette.tint, ink: palette.navy, accent: palette.accent },
 };
 
 function serviceOn(mode: AgencyMode, service: AgencyService): boolean {
@@ -115,9 +117,12 @@ function ServiceCard({
     >
       <View style={{ width: 6, backgroundColor: look.accent }} />
       <View className="min-w-0 flex-1 gap-2 px-3 py-3">
-        <Text className="text-[17px] font-semibold" style={{ color: look.ink }}>
-          {look.name}
-        </Text>
+        <View className="flex-row items-center gap-2">
+          {service === "racing" ? <HorseshoeIcon size={18} color={palette.accent} /> : <LotteryBall size={16} color={palette.brandDeep} />}
+          <Text className="text-[17px] font-semibold" style={{ color: look.ink }}>
+            {look.name}
+          </Text>
+        </View>
         <Text className="text-[15px] font-semibold" style={{ color: look.ink }}>
           {on ? "En uso" : "Sin sumar"}
         </Text>

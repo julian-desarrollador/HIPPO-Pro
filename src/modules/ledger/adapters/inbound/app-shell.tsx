@@ -61,6 +61,7 @@ type Phase =
       userId: string;
       canInviteOwners: boolean;
       canCreateAgencies: boolean;
+      canManageTrash: boolean;
       agencyMode: AgencyMode;
       repository: Awaited<ReturnType<typeof openAgencyLedger>>;
     };
@@ -71,6 +72,7 @@ type Profile = {
   displayName: string;
   canInviteOwners: boolean;
   canCreateAgencies: boolean;
+  canManageTrash: boolean;
 };
 
 function isViewerRole(value: unknown): value is ViewerRole {
@@ -126,6 +128,7 @@ async function loadProfile(client: SupabaseClient, userId: string): Promise<Prof
     displayName: typeof data.display_name === "string" ? data.display_name : "",
     canInviteOwners: data.can_invite_owners === true,
     canCreateAgencies: data.can_create_agencies === true,
+    canManageTrash: data.can_manage_trash === true,
   };
 }
 
@@ -429,6 +432,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         userId: session.user.id,
         canInviteOwners: profile.canInviteOwners,
         canCreateAgencies: profile.canCreateAgencies,
+        canManageTrash: profile.canManageTrash,
         agencyMode: agency.mode,
         repository,
       });
@@ -620,6 +624,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       userId={phase.userId}
       canInviteOwners={phase.canInviteOwners}
       canCreateAgencies={phase.canCreateAgencies}
+      canManageTrash={phase.canManageTrash}
       sessionAgencyId={phase.agencyId}
       persistence="agency"
       readOnly={book.readOnly}
