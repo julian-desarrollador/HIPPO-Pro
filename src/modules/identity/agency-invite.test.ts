@@ -43,19 +43,23 @@ describe("quitar una agencia", () => {
 });
 
 describe("alta directa de una agencia", () => {
-  it("pide una contraseña de al menos 6 caracteres", () => {
+  it("pide una contraseña de al menos 10 caracteres, con letras y números", () => {
     assert.equal(
-      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "12345", "12345"),
-      "La contraseña tiene que tener al menos 6 caracteres.",
+      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "clave1234", "clave1234"),
+      "La contraseña tiene que tener al menos 10 caracteres.",
+    );
+    assert.equal(
+      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "1234567890", "1234567890"),
+      "La contraseña tiene que tener letras y números.",
     );
   });
 
   it("pide repetir la misma contraseña", () => {
     assert.equal(
-      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "123456", "123457"),
+      agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "caballo2026", "caballo2027"),
       "Las contraseñas no coinciden.",
     );
-    assert.equal(agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "123456", "123456"), null);
+    assert.equal(agencySignupProblem("Agencia Norte", "Ana", "ana@norte.com", "caballo2026", "caballo2026"), null);
   });
 
   it("revisa primero la agencia, el dueño y el correo", () => {

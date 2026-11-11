@@ -3,7 +3,7 @@
 -- and that a removed agency no longer opens for its own people.
 -- Run it in the SQL editor after agencies.sql, close-ledger.sql,
 -- day-photos.sql, deposit-photos.sql, cash-photos.sql, expense-photos.sql, personal-agencies.sql,
--- lottery-ledgers.sql and multi-agency.sql, and again after any change to a policy.
+-- lottery-ledgers.sql, multi-agency.sql and full-access.sql, and again after any change to a policy.
 -- Everything runs inside one transaction that is rolled back: the test
 -- users, agencies, books and photos never stay. A leak stops the run with
 -- an error that starts with FUGA. The last line says it passed.
@@ -513,6 +513,82 @@ $$;
 reset role;
 delete from public.profiles where agency_id = 'aislamiento-c';
 delete from public.ledgers where agency_id = 'aislamiento-c';
+
+-- Full access (full-access.sql): A gets the mark. It uses B, a real agency it is
+-- not in, as owner. It never opens B's test agency nor a removed agency.
+insert into public.agencies (agency_id, name, personal_user_id) values
+  ('aislamiento-propia-b', 'Propia B', '00000000-0000-4000-8000-00000000a002');
+insert into public.ledgers (agency_id, snapshot) values
+  ('aislamiento-propia-b', '{"agencyId":"aislamiento-propia-b","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}'),
+  ('aislamiento-c', '{"agencyId":"aislamiento-c","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}');
+update public.agencies set archived_at = now() where agency_id = 'aislamiento-c';
+update public.profiles set can_access_all_agencies = true
+where user_id = '00000000-0000-4000-8000-00000000a001';
+set local role authenticated;
+
+do $$
+declare
+  n integer;
+begin
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a001', 'role', 'authenticated')::text,
+    true
+  );
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-b';
+  if n <> 1 then
+    raise exception 'La prueba no anda: con acceso total no se lee el libro de B';
+  end if;
+  update public.ledgers set version = version + 1 where agency_id = 'aislamiento-b';
+  get diagnostics n = row_count;
+  if n <> 1 then
+    raise exception 'La prueba no anda: con acceso total no se guarda el libro de B';
+  end if;
+  select count(*) into n from public.profiles where agency_id = 'aislamiento-b';
+  if n <> 1 then
+    raise exception 'La prueba no anda: con acceso total no se ve la gente de B';
+  end if;
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-propia-b';
+  if n <> 0 then
+    raise exception 'FUGA: con acceso total se lee la agencia de prueba de otra persona';
+  end if;
+  select count(*) into n from storage.objects where name like 'aislamiento-propia-b/%';
+  if n <> 0 then
+    raise exception 'FUGA: con acceso total se ven imágenes de la agencia de prueba de otra persona';
+  end if;
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-c';
+  if n <> 0 then
+    raise exception 'FUGA: con acceso total se lee una agencia quitada';
+  end if;
+
+  -- Without the mark, B still cannot see A.
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a002', 'role', 'authenticated')::text,
+    true
+  );
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-a';
+  if n <> 0 then
+    raise exception 'FUGA: sin acceso total, B lee el libro de A';
+  end if;
+  begin
+    update public.profiles set can_access_all_agencies = true
+    where user_id = '00000000-0000-4000-8000-00000000a002';
+    get diagnostics n = row_count;
+    if n <> 0 then
+      raise exception 'FUGA: B se da acceso total';
+    end if;
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
+update public.profiles set can_access_all_agencies = false
+where user_id = '00000000-0000-4000-8000-00000000a001';
+update public.agencies set archived_at = null where agency_id = 'aislamiento-c';
+delete from public.ledgers where agency_id in ('aislamiento-c', 'aislamiento-propia-b');
+delete from public.agencies where agency_id = 'aislamiento-propia-b';
 
 -- A removed agency keeps its rows, but its own people no longer open them.
 reset role;

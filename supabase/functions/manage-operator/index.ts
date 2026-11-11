@@ -14,7 +14,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-import { addPersonToAgency, removePersonFromAgency } from "../_shared/memberships.ts";
+import { addPersonToAgency, hasFullAccess, isRealActiveAgency, removePersonFromAgency } from "../_shared/memberships.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,10 +105,10 @@ Deno.serve(async (req: Request) => {
 
   const action = "action" in body ? body.action : null;
 
-  // One row per agency the caller is in.
+  // One row per agency the caller is in. "*" reads can_access_all_agencies when it exists.
   const { data: callerRows, error: callerError } = await admin
     .from("profiles")
-    .select("agency_id, role, can_invite_owners")
+    .select("*")
     .eq("user_id", callerId);
   if (callerError || !callerRows) {
     return json(403, { message: "Solo un dueño puede hacer esto." });
@@ -118,7 +118,6 @@ Deno.serve(async (req: Request) => {
   if (!targetAgencyId) {
     return json(403, { message: "Solo un dueño puede hacer esto." });
   }
-  const caller = callerRows.find((row) => row.agency_id === targetAgencyId && row.role === "owner") ?? null;
   const { data: home, error: homeError } = await admin
     .from("agencies")
     .select("archived_at, product_mode, personal_user_id")
@@ -127,6 +126,10 @@ Deno.serve(async (req: Request) => {
   if (homeError || !home || home.archived_at != null) {
     return json(403, { message: "Esta agencia ya no está en HippoPro." });
   }
+  // Full access works as an owner who may invite owners, in every real agency.
+  const caller =
+    callerRows.find((row) => row.agency_id === targetAgencyId && row.role === "owner") ??
+    (hasFullAccess(callerRows) && isRealActiveAgency(home) ? { role: "owner", can_invite_owners: true } : null);
   // A test agency has no owner rows: whoever made it may change its services.
   const ownsPersonal = home.personal_user_id === callerId;
   if (!caller && !(ownsPersonal && (action === "add-service" || action === "remove-service"))) {

@@ -57,8 +57,12 @@ function signupProblem(agencyName: string, ownerName: string, ownerEmail: string
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
     return "El correo no es válido.";
   }
-  if (password.length < 6) {
-    return "La contraseña tiene que tener al menos 6 caracteres.";
+  // Keep aligned with src/modules/identity/password-rule.ts.
+  if (password.length < 10) {
+    return "La contraseña tiene que tener al menos 10 caracteres.";
+  }
+  if (!/\p{L}/u.test(password) || !/\d/.test(password)) {
+    return "La contraseña tiene que tener letras y números.";
   }
   return null;
 }

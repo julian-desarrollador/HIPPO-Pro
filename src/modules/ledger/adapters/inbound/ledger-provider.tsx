@@ -81,6 +81,12 @@ type LedgerContextValue = {
   canCreateAgencies: boolean;
   /** Sees the Papelera: restores removed agencies or deletes them for good. */
   canManageTrash: boolean;
+  /** Works as owner in every real agency (full-access.sql). */
+  canAccessAll: boolean;
+  /** The email of the signed-in account. Empty without a session. */
+  userEmail: string;
+  /** Mi cuenta: checks the current password and saves the new one. Null without a session. */
+  changePassword: ((current: string, next: string) => Promise<string | null>) | null;
   /** Every agency of this account. Two or more: the name menu offers to switch. */
   agencies: readonly AgencyChoice[];
   /** Opens another agency of this account. Null without a session. */
@@ -200,6 +206,9 @@ export function LedgerProvider({
   canManageTrash = false,
   agencies = NO_AGENCIES,
   switchAgency = null,
+  canAccessAll = false,
+  userEmail = "",
+  changePassword = null,
   sessionAgencyId = "",
   persistence = "browser",
   readOnly = false,
@@ -221,6 +230,9 @@ export function LedgerProvider({
   canManageTrash?: boolean;
   agencies?: readonly AgencyChoice[];
   switchAgency?: ((agencyId: string) => void) | null;
+  canAccessAll?: boolean;
+  userEmail?: string;
+  changePassword?: ((current: string, next: string) => Promise<string | null>) | null;
   sessionAgencyId?: string;
   persistence?: "browser" | "agency";
   readOnly?: boolean;
@@ -286,6 +298,9 @@ export function LedgerProvider({
       canManageTrash,
       agencies,
       switchAgency,
+      canAccessAll,
+      userEmail,
+      changePassword,
       sessionAgencyId,
       setRole: (next) => {
         if (!lockedRole) {
@@ -419,7 +434,7 @@ export function LedgerProvider({
       removeService,
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [addService, agencyMode, agencyName, agencies, canCreateAgencies, canInviteOwners, canManageTrash, chosenMonth, switchAgency, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
+  }, [addService, agencyMode, agencyName, agencies, canAccessAll, canCreateAgencies, canInviteOwners, canManageTrash, changePassword, chosenMonth, switchAgency, userEmail, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
 
   return (
     <RacingCommitContext.Provider value={racingCommitRef}>

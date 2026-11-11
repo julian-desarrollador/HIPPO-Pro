@@ -8,6 +8,8 @@ export type Membership = {
   canInviteOwners: boolean;
   canCreateAgencies: boolean;
   canManageTrash: boolean;
+  /** Works as owner in every real agency (full-access.sql). */
+  canAccessAll: boolean;
 };
 
 function isViewerRole(value: unknown): value is ViewerRole {
@@ -37,6 +39,7 @@ export function membershipsFrom(rows: unknown): Membership[] {
         canInviteOwners: row.can_invite_owners === true,
         canCreateAgencies: row.can_create_agencies === true,
         canManageTrash: row.can_manage_trash === true,
+        canAccessAll: row.can_access_all_agencies === true,
       },
     ];
   });
@@ -48,11 +51,42 @@ export function pickAgency<T extends { agencyId: string }>(agencies: readonly T[
 }
 
 /** The marks that belong to the person, not to one agency: any row that has them counts. */
-export function personMarks(memberships: readonly Membership[]): { canCreateAgencies: boolean; canManageTrash: boolean } {
+export function personMarks(
+  memberships: readonly Membership[],
+): { canCreateAgencies: boolean; canManageTrash: boolean; canAccessAll: boolean } {
   return {
     canCreateAgencies: memberships.some((membership) => membership.canCreateAgencies),
     canManageTrash: memberships.some((membership) => membership.canManageTrash),
+    canAccessAll: memberships.some((membership) => membership.canAccessAll),
   };
+}
+
+/**
+ * With full access, every real agency the account is not in joins its list as
+ * an owner who may invite owners. The name shown is the one of its own rows.
+ */
+export function withFullAccess<T extends { agencyId: string }>(
+  memberships: readonly Membership[],
+  realAgencies: readonly T[],
+): (Membership & { extra?: T })[] {
+  if (!personMarks(memberships).canAccessAll) {
+    return [...memberships];
+  }
+  const displayName = memberships.find((membership) => membership.displayName.trim())?.displayName ?? "";
+  const known = new Set(memberships.map((membership) => membership.agencyId));
+  const added = realAgencies
+    .filter((agency) => !known.has(agency.agencyId))
+    .map((agency) => ({
+      agencyId: agency.agencyId,
+      role: "owner" as const,
+      displayName,
+      canInviteOwners: true,
+      canCreateAgencies: false,
+      canManageTrash: false,
+      canAccessAll: false,
+      extra: agency,
+    }));
+  return [...memberships, ...added];
 }
 
 /**

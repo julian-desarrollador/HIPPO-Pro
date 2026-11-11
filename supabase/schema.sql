@@ -26,6 +26,8 @@ create table public.profiles (
   can_invite_owners boolean not null default false,
   can_create_agencies boolean not null default false,
   can_manage_trash boolean not null default false,
+  -- Works as owner in every real agency (full-access.sql).
+  can_access_all_agencies boolean not null default false,
   primary key (user_id, agency_id)
 );
 
@@ -86,7 +88,25 @@ as $$
   );
 $$;
 
--- Owner of that agency, or it is their own test agency.
+create or replace function public.caller_has_full_access()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where user_id = auth.uid()
+      and can_access_all_agencies = true
+  );
+$$;
+
+revoke all on function public.caller_has_full_access() from public, anon, authenticated;
+grant execute on function public.caller_has_full_access() to authenticated;
+
+-- Owner of that agency, their own test agency, or a real agency with full access.
 create or replace function public.caller_owns_agency(target text)
 returns boolean
 language sql
@@ -105,6 +125,13 @@ as $$
     from public.agencies
     where agency_id = target
       and personal_user_id = auth.uid()
+  ) or exists (
+    select 1
+    from public.agencies
+    where agency_id = target
+      and personal_user_id is null
+      and archived_at is null
+      and public.caller_has_full_access()
   );
 $$;
 
@@ -129,8 +156,8 @@ grant execute on function public.caller_is_member(text) to authenticated;
 grant execute on function public.caller_owns_agency(text) to authenticated;
 grant execute on function public.user_id_for_email(text) to service_role;
 
--- True for an agency the caller is in and for their own test agency,
--- while the agency is not removed.
+-- True for an agency the caller is in, their own test agency, and any real
+-- agency with full access, while the agency is not removed.
 create or replace function public.caller_can_use_agency(target text)
 returns boolean
 language sql
@@ -151,6 +178,7 @@ as $$
           where user_id = auth.uid()
             and agency_id = target
         )
+        or (agency.personal_user_id is null and public.caller_has_full_access())
       )
   );
 $$;

@@ -162,7 +162,7 @@ function AgencySignup({ mode, onSignIn }: { mode: SignupMode; onSignIn?: () => v
         <PasswordField
           value={password}
           onChangeText={setPassword}
-          placeholder="Al menos 6 caracteres"
+          placeholder="Al menos 10, con letras y números"
           accessibilityLabel="Contraseña"
         />
       </Field>

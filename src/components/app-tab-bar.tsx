@@ -23,6 +23,7 @@ import {
 import { isLotteryPath, palette, usePalette } from "@/constants/palette";
 import { ServiceIcons, ServiceLine, ServiceTags } from "@/components/service-tags";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
+import { AccountPanel } from "@/components/account-panel";
 import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
 import { HelpPanel } from "@/components/help-panel";
@@ -288,6 +289,7 @@ export function CustomTabList(props: TabListProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [myAccountOpen, setMyAccountOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
   const { collapsed, railOnly, toggle, width } = useContext(SidebarContext);
@@ -445,6 +447,7 @@ export function CustomTabList(props: TabListProps) {
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
                 onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
                 onOpenTrash={canCreateAgencies && canManageTrash ? () => setTrashOpen(true) : null}
+                onOpenMyAccount={() => setMyAccountOpen(true)}
                 agencies={canCreateAgencies ? [] : agencies}
                 viewedAgencyId={snapshot.agencyId}
                 onSwitchAgency={switchAgency}
@@ -531,6 +534,14 @@ export function CustomTabList(props: TabListProps) {
         displayName={displayName}
         userId={userId}
         agencyId={readOnly ? "" : snapshot.agencyId}
+      />
+      <AccountPanel
+        visible={myAccountOpen}
+        onClose={() => setMyAccountOpen(false)}
+        onBack={() => {
+          setMyAccountOpen(false);
+          setAccountOpen(true);
+        }}
       />
       {canCreateAgencies && canManageTrash ? (
         <TrashPanel
@@ -634,7 +645,8 @@ function Brand({ compact = false, agencyName = "", agencyMode }: { compact?: boo
         accessibilityLabel="HippoPro"
         style={{ height: size, width: size, borderRadius: 12 }}
       />
-      <View style={{ flexShrink: 1 }}>
+      {/* On a phone, three short lines: a little air between them, inside the 72 px bar. */}
+      <View style={{ flexShrink: 1, gap: compact ? 3 : 0 }}>
         <Text
           className="text-white"
           numberOfLines={1}
@@ -723,6 +735,7 @@ function AccountMenu({
   onOpenOperators,
   onOpenAgencies,
   onOpenTrash,
+  onOpenMyAccount,
   agencies,
   viewedAgencyId,
   onSwitchAgency,
@@ -742,6 +755,7 @@ function AccountMenu({
   onOpenOperators: (() => void) | null;
   onOpenAgencies: (() => void) | null;
   onOpenTrash: (() => void) | null;
+  onOpenMyAccount: () => void;
   /** This account's agencies. Agencias already lists them for whoever creates agencies. */
   agencies: readonly AgencyChoice[];
   viewedAgencyId: string;
@@ -797,6 +811,7 @@ function AccountMenu({
         </Pressable>
         <Dialog visible={open} title={label} onClose={() => onOpenChange(false)}>
           <View className="gap-3">
+            <SecondaryButton label="Mi cuenta" onPress={() => pick(onOpenMyAccount)} />
             {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => onOpenChange(false)} /> : null}
             {agencies.length > 1 && onSwitchAgency ? (
               <YourAgencies

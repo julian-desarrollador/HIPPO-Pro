@@ -23,6 +23,8 @@ export type AgencyEntry = {
   productMode: AgencyMode;
   /** Whose test it is, for kind test. Empty otherwise. */
   testOf: string;
+  /** member: the account is in it. full: it opens it for real with full access. */
+  access: "member" | "full" | null;
 };
 
 /**
@@ -86,6 +88,7 @@ function agencyEntryFrom(value: unknown): AgencyEntry | null {
     kind: row.kind,
     productMode: agencyModeFrom(row.productMode),
     testOf: row.kind === "test" && typeof row.testOf === "string" ? row.testOf.trim() : "",
+    access: row.access === "member" || row.access === "full" ? row.access : null,
   };
 }
 

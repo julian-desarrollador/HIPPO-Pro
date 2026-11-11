@@ -128,6 +128,16 @@ export async function removePersonFromAgency(admin: SupabaseClient, userId: stri
   return !deleteError;
 }
 
+/** Full access (full-access.sql): any of the caller's rows has the mark. */
+export function hasFullAccess(rows: readonly Record<string, unknown>[]): boolean {
+  return rows.some((row) => row.can_access_all_agencies === true);
+}
+
+/** A real agency (not a test) that is not in the trash: what full access opens. */
+export function isRealActiveAgency(agency: { personal_user_id?: unknown; archived_at?: unknown } | null): boolean {
+  return agency !== null && agency.personal_user_id == null && agency.archived_at == null;
+}
+
 /** How many agencies an account is in. */
 export async function agencyCount(admin: SupabaseClient, userId: string): Promise<number | null> {
   const { count, error } = await admin

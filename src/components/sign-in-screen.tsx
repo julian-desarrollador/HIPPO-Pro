@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import { Field, PasswordField, PrimaryButton, TextField } from "@/components/form-controls";
+import { newPasswordProblem } from "@/modules/identity/password-rule";
 
 export function SignInScreen({
   onSubmit,
@@ -107,12 +108,9 @@ export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) =
     if (busy) {
       return;
     }
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("La contraseña tiene que tener al menos 6 caracteres.");
+    const ruleProblem = newPasswordProblem(password, confirmPassword);
+    if (ruleProblem) {
+      setError(ruleProblem);
       return;
     }
     setBusy(true);
@@ -132,7 +130,7 @@ export function NewPasswordScreen({ onSubmit }: { onSubmit: (password: string) =
           <PasswordField
             value={password}
             onChangeText={setPassword}
-            placeholder="Nueva contraseña"
+            placeholder="Al menos 10, con letras y números"
             accessibilityLabel="Nueva contraseña"
           />
         </Field>

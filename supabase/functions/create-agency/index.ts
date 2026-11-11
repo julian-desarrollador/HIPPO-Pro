@@ -20,7 +20,7 @@
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
-import { accountFor, addPersonToAgency, agencyCount, removePersonFromAgency } from "../_shared/memberships.ts";
+import { accountFor, addPersonToAgency, agencyCount, hasFullAccess, removePersonFromAgency } from "../_shared/memberships.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -286,6 +286,7 @@ Deno.serve(async (req: Request) => {
     return json(403, { message: "Esta cuenta no puede crear agencias." });
   }
   const managesTrash = callerRows.some((row) => row.can_manage_trash === true);
+  const fullAccess = hasFullAccess(callerRows);
   const memberIds = new Set(
     callerRows.map((row) => row.agency_id).filter((id): id is string => typeof id === "string"),
   );
@@ -374,6 +375,8 @@ Deno.serve(async (req: Request) => {
         agencyId: row.agency_id,
         name: row.name,
         kind: memberIds.has(row.agency_id) ? "home" : othersTest ? "test" : row.personal_user_id === callerId ? "personal" : "other",
+        // member: the caller is in it. full: a real agency the caller opens with full access.
+        access: memberIds.has(row.agency_id) ? "member" : fullAccess && row.personal_user_id == null ? "full" : null,
         productMode: productModeOf(row.product_mode),
         testOf: othersTest ? names.get(row.personal_user_id) ?? "" : "",
       };

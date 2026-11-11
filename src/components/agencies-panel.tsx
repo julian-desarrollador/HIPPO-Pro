@@ -124,7 +124,7 @@ export function AgencyMenuList({
     if (busy || agency.agencyId === sessionAgencyId || agency.agencyId === viewedAgencyId) {
       return;
     }
-    if (agency.kind === "home" && switchAgency) {
+    if ((agency.kind === "home" || agency.access === "full") && switchAgency) {
       switchAgency(agency.agencyId);
       onEntered();
       return;
@@ -396,7 +396,7 @@ export function AgenciesPanel({
     if (busy || personalBusy || !visit) {
       return;
     }
-    if (agency.kind === "home" && switchAgency) {
+    if ((agency.kind === "home" || agency.access === "full") && switchAgency) {
       switchAgency(agency.agencyId);
       close();
       return;

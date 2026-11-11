@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { type Session, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
 import { AgencyAdminProvider, type OpenedAgency } from "@/modules/identity/agency-admin";
-import { membershipsFrom, personMarks, pickAgency, rememberedAgencyKey, type Membership } from "@/modules/identity/memberships";
+import { membershipsFrom, personMarks, pickAgency, rememberedAgencyKey, withFullAccess, type Membership } from "@/modules/identity/memberships";
 import { OperatorAdminProvider, readFunctionMessage } from "@/modules/identity/operator-admin";
 import { ledgerErrorMessage } from "./error-messages";
 import { addAgencyService } from "../../application/use-cases/add-agency-service";
@@ -63,6 +63,8 @@ type Phase =
       canInviteOwners: boolean;
       canCreateAgencies: boolean;
       canManageTrash: boolean;
+      canAccessAll: boolean;
+      email: string;
       agencyMode: AgencyMode;
       /** Every agency this account is in, to switch from the name menu. */
       agencies: AgencyChoice[];
@@ -130,6 +132,24 @@ function rememberAgency(userId: string, agencyId: string): void {
   } catch {
     // Without storage the next sign-in opens the first agency.
   }
+}
+
+/** Every real agency that is not in the trash, for an account with full access. */
+async function loadRealAgencies(client: SupabaseClient): Promise<{ agencyId: string; name: string; mode: AgencyMode }[]> {
+  const { data, error } = await client
+    .from("agencies")
+    .select("agency_id, name, product_mode")
+    .is("archived_at", null)
+    .is("personal_user_id", null)
+    .order("name");
+  if (error || !Array.isArray(data)) {
+    return [];
+  }
+  return data.flatMap((row: Record<string, unknown>) =>
+    typeof row.agency_id === "string" && typeof row.name === "string" && row.name.trim()
+      ? [{ agencyId: row.agency_id, name: row.name.trim(), mode: agencyModeFrom(row.product_mode) }]
+      : [],
+  );
 }
 
 async function loadAgency(
@@ -419,6 +439,14 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
           open.push({ ...membership, name: agency.name, mode: agency.mode });
         }
       }
+      // Full access: every other real agency, as owner, in one read.
+      if (personMarks(memberships).canAccessAll) {
+        for (const added of withFullAccess(open, await loadRealAgencies(client))) {
+          if (added.extra) {
+            open.push({ ...added, name: added.extra.name, mode: added.extra.mode });
+          }
+        }
+      }
       if (id !== request.current) {
         return;
       }
@@ -440,6 +468,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
         userId: session.user.id,
         canInviteOwners: active.canInviteOwners,
         ...personMarks(memberships),
+        email: session.user.email ?? "",
         agencyMode: active.mode,
         agencies: open.map((agency) => ({ agencyId: agency.agencyId, name: agency.name, mode: agency.mode, role: agency.role })),
         repository,
@@ -466,6 +495,10 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
     }, 0);
     const { data } = client.auth.onAuthStateChange((event, session) => {
       if (!alive || event === "INITIAL_SESSION") {
+        return;
+      }
+      // Changing the password from Mi cuenta keeps the same agency and book open.
+      if (event === "USER_UPDATED") {
         return;
       }
       if (event === "PASSWORD_RECOVERY") {
@@ -520,6 +553,29 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   function signOut() {
     setVisit(null);
     void client.auth.signOut();
+  }
+
+  /**
+   * Mi cuenta: checks the current password with a separate client, so the open
+   * session is not touched, and then saves the new one.
+   */
+  async function changePassword(current: string, next: string): Promise<string | null> {
+    const ready = phaseRef.current;
+    if (ready.status !== "ready" || !ready.email) {
+      return "No se pudo cambiar la contraseña.";
+    }
+    const checker = createClient(config.url, config.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "hippo-pro-password-check" },
+    });
+    const { error: checkError } = await checker.auth.signInWithPassword({ email: ready.email, password: current });
+    if (checkError) {
+      return /invalid login/i.test(checkError.message)
+        ? "La contraseña actual no es correcta."
+        : "No se pudo cambiar la contraseña. Revisá la conexión.";
+    }
+    void checker.auth.signOut({ scope: "local" });
+    const { error } = await client.auth.updateUser({ password: next });
+    return error ? "No se pudo cambiar la contraseña. Revisá la conexión." : null;
   }
 
   /** Opens another agency of the same account, and remembers it for the next sign-in. */
@@ -648,6 +704,9 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       canInviteOwners={phase.canInviteOwners}
       canCreateAgencies={phase.canCreateAgencies}
       canManageTrash={phase.canManageTrash}
+      canAccessAll={phase.canAccessAll}
+      userEmail={phase.email}
+      changePassword={changePassword}
       agencies={phase.agencies}
       switchAgency={switchAgency}
       sessionAgencyId={phase.agencyId}

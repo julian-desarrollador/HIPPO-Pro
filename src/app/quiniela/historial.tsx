@@ -3,34 +3,13 @@ import { Text } from "react-native";
 import { router, type Href } from "expo-router";
 
 import { localYearMonth } from "@/components/calendar-grid";
+import { ChangeLog } from "@/components/change-log";
 import { DataTable } from "@/components/data-table";
 import { formatIsoDate } from "@/components/format-date";
 import { ConfirmDialog, RowActions } from "@/components/form-controls";
 import { LotteryGate } from "@/components/lottery-gate";
 import { ScreenFrame, SectionTitle } from "@/components/screen-frame";
 import { ledgerErrorMessage, HIPICA_GAME_ID, useLedger, useLottery, type AgencyDayRow } from "@/modules/ledger";
-
-function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  return date.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function whoLabel(actor: string, actorName?: string): string {
-  const name = actorName?.trim();
-  if (name) {
-    return name;
-  }
-  return actor === "owner" ? "Dueño" : "Operador";
-}
 
 export default function LotteryHistoryScreen() {
   return (
@@ -49,13 +28,7 @@ function LotteryHistory() {
   const changes = audit
     .filter((entry) => localYearMonth(entry.at) === viewMonth)
     .slice()
-    .reverse()
-    .map((entry) => ({
-      id: entry.id,
-      at: formatWhen(entry.at),
-      actor: whoLabel(entry.actor, entry.actorName),
-      summary: entry.summary,
-    }));
+    .reverse();
 
   function edit(row: AgencyDayRow) {
     router.push(`/carga-dia?fecha=${row.date}&terminal=${row.terminalId}` as Href);
@@ -135,15 +108,7 @@ function LotteryHistory() {
         onConfirm={() => void confirmRemove()}
       />
       <SectionTitle title="Cambios" />
-      <DataTable
-        empty={audit.length === 0 ? "Todavía no hay cambios." : "No hay cambios en este mes."}
-        columns={[
-          { key: "at", header: "Fecha", compact: true, minWidth: 260, render: (row) => row.at },
-          { key: "actor", header: "Quién", compact: true, minWidth: 180, render: (row) => row.actor },
-          { key: "summary", header: "Qué cambió", compact: true, wrap: true, render: (row) => row.summary },
-        ]}
-        rows={changes}
-      />
+      <ChangeLog entries={changes} empty={audit.length === 0 ? "Todavía no hay cambios." : "No hay cambios en este mes."} />
     </ScreenFrame>
   );
 }

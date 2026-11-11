@@ -1,3 +1,4 @@
+import { newPasswordProblem } from "./password-rule";
 import { inviteOperatorProblem } from "./operator-invite";
 
 export const agencyNameMaxLength = 80;
@@ -61,11 +62,5 @@ export function agencySignupProblem(
   if (problem) {
     return problem;
   }
-  if (password.length < 6) {
-    return "La contraseña tiene que tener al menos 6 caracteres.";
-  }
-  if (password !== confirmPassword) {
-    return "Las contraseñas no coinciden.";
-  }
-  return null;
+  return newPasswordProblem(password, confirmPassword);
 }
