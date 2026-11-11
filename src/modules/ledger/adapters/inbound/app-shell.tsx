@@ -3,6 +3,7 @@ import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import { NewPasswordScreen, SessionNotice, SignInScreen } from "@/components/sign-in-screen";
 import { AgencyAdminProvider, type OpenedAgency } from "@/modules/identity/agency-admin";
+import { membershipsFrom, personMarks, pickAgency, rememberedAgencyKey, type Membership } from "@/modules/identity/memberships";
 import { OperatorAdminProvider, readFunctionMessage } from "@/modules/identity/operator-admin";
 import { ledgerErrorMessage } from "./error-messages";
 import { addAgencyService } from "../../application/use-cases/add-agency-service";
@@ -28,7 +29,7 @@ import { CashPhotoProvider } from "./cash-photo-context";
 import { DayPhotoProvider } from "./day-photo-context";
 import { DepositPhotoProvider } from "./deposit-photo-context";
 import { ExpensePhotoProvider } from "./expense-photo-context";
-import { LedgerProvider } from "./ledger-provider";
+import { LedgerProvider, type AgencyChoice } from "./ledger-provider";
 import { LotteryProvider, type OpenLottery } from "./lottery-provider";
 
 let browserLottery: LotteryRepository | null = null;
@@ -63,21 +64,10 @@ type Phase =
       canCreateAgencies: boolean;
       canManageTrash: boolean;
       agencyMode: AgencyMode;
+      /** Every agency this account is in, to switch from the name menu. */
+      agencies: AgencyChoice[];
       repository: Awaited<ReturnType<typeof openAgencyLedger>>;
     };
-
-type Profile = {
-  agencyId: string;
-  role: ViewerRole;
-  displayName: string;
-  canInviteOwners: boolean;
-  canCreateAgencies: boolean;
-  canManageTrash: boolean;
-};
-
-function isViewerRole(value: unknown): value is ViewerRole {
-  return value === "owner" || value === "operator";
-}
 
 function isChoosingPassword(): boolean {
   if (typeof window === "undefined") {
@@ -116,20 +106,30 @@ function createAgencyClient(config: SupabaseConfig): SupabaseClient {
   return browserSupabase(config);
 }
 
-async function loadProfile(client: SupabaseClient, userId: string): Promise<Profile | null> {
+/** One row per agency the account is in (multi-agency.sql). Null when the read fails. */
+async function loadMemberships(client: SupabaseClient, userId: string): Promise<Membership[] | null> {
   // "*" keeps sign-in working before agencies.sql adds can_create_agencies.
-  const { data, error } = await client.from("profiles").select("*").eq("user_id", userId).maybeSingle();
-  if (error || !data || typeof data.agency_id !== "string" || !isViewerRole(data.role)) {
+  const { data, error } = await client.from("profiles").select("*").eq("user_id", userId);
+  if (error) {
     return null;
   }
-  return {
-    agencyId: data.agency_id,
-    role: data.role,
-    displayName: typeof data.display_name === "string" ? data.display_name : "",
-    canInviteOwners: data.can_invite_owners === true,
-    canCreateAgencies: data.can_create_agencies === true,
-    canManageTrash: data.can_manage_trash === true,
-  };
+  return membershipsFrom(data);
+}
+
+function readRememberedAgency(userId: string): string | null {
+  try {
+    return globalThis.localStorage?.getItem(rememberedAgencyKey(userId)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberAgency(userId: string, agencyId: string): void {
+  try {
+    globalThis.localStorage?.setItem(rememberedAgencyKey(userId), agencyId);
+  } catch {
+    // Without storage the next sign-in opens the first agency.
+  }
 }
 
 async function loadAgency(
@@ -402,38 +402,46 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       setPhase({ status: "recovery" });
       return;
     }
-    const profile = await loadProfile(client, session.user.id);
+    const memberships = await loadMemberships(client, session.user.id);
     if (id !== request.current) {
       return;
     }
-    if (!profile) {
+    if (!memberships || memberships.length === 0) {
       setPhase({ status: "unassigned" });
       return;
     }
     try {
-      const agency = await loadAgency(client, profile.agencyId);
+      // Each agency's name and mode. A removed one leaves the list.
+      const open: (Membership & { name: string; mode: AgencyMode })[] = [];
+      for (const membership of memberships) {
+        const agency = await loadAgency(client, membership.agencyId);
+        if (agency.found) {
+          open.push({ ...membership, name: agency.name, mode: agency.mode });
+        }
+      }
       if (id !== request.current) {
         return;
       }
-      if (!agency.found) {
+      const active = pickAgency(open, readRememberedAgency(session.user.id));
+      if (!active) {
         setPhase({ status: "removed" });
         return;
       }
-      const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), profile.agencyId);
+      const repository = await openAgencyLedger(createSupabaseLedgerRemote(client), active.agencyId);
       if (id !== request.current) {
         return;
       }
       setPhase({
         status: "ready",
-        role: profile.role,
-        displayName: profile.displayName,
-        agencyName: agency.name,
-        agencyId: profile.agencyId,
+        role: active.role,
+        displayName: active.displayName,
+        agencyName: active.name,
+        agencyId: active.agencyId,
         userId: session.user.id,
-        canInviteOwners: profile.canInviteOwners,
-        canCreateAgencies: profile.canCreateAgencies,
-        canManageTrash: profile.canManageTrash,
-        agencyMode: agency.mode,
+        canInviteOwners: active.canInviteOwners,
+        ...personMarks(memberships),
+        agencyMode: active.mode,
+        agencies: open.map((agency) => ({ agencyId: agency.agencyId, name: agency.name, mode: agency.mode, role: agency.role })),
         repository,
       });
     } catch {
@@ -512,6 +520,21 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
   function signOut() {
     setVisit(null);
     void client.auth.signOut();
+  }
+
+  /** Opens another agency of the same account, and remembers it for the next sign-in. */
+  function switchAgency(agencyId: string) {
+    const current = phaseRef.current;
+    if (current.status !== "ready" || !current.agencies.some((agency) => agency.agencyId === agencyId)) {
+      return;
+    }
+    rememberAgency(current.userId, agencyId);
+    setVisit(null);
+    if (agencyId === current.agencyId) {
+      return;
+    }
+    setPhase({ status: "loading" });
+    void client.auth.getSession().then(({ data }) => adopt(data.session));
   }
 
   function openVisit(agency: OpenedAgency) {
@@ -604,7 +627,7 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       };
 
   const pages = (
-    <OperatorAdminProvider client={client} canInviteOwners={phase.canInviteOwners}>
+    <OperatorAdminProvider client={client} agencyId={phase.agencyId} canInviteOwners={phase.canInviteOwners}>
       <AgencyAdminProvider client={client} enabled={phase.canCreateAgencies}>
         <AgencyVisitProvider value={{ open: openVisit, openPersonal, leave: () => setVisit(null) }}>
           {children}
@@ -625,6 +648,8 @@ function RemoteShell({ config, children }: { config: SupabaseConfig; children: R
       canInviteOwners={phase.canInviteOwners}
       canCreateAgencies={phase.canCreateAgencies}
       canManageTrash={phase.canManageTrash}
+      agencies={phase.agencies}
+      switchAgency={switchAgency}
       sessionAgencyId={phase.agencyId}
       persistence="agency"
       readOnly={book.readOnly}

@@ -1,4 +1,6 @@
-// Creates an agency with an empty book and invites its first owner.
+// Creates an agency with an empty book and invites its first owner. An email
+// that already has an account gets the agency added to it (multi-agency.sql).
+// A repeated name answers code name-taken unless allowDuplicateName comes.
 // read returns another agency's racing book and, if it has one, its lottery
 // book, for a read-only visit.
 // create-personal makes an empty book for the caller only, with no invite
@@ -15,6 +17,8 @@
 // Keep the Spanish messages aligned with src/modules/identity/agency-invite.ts.
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+
+import { addPersonToAgency, agencyCount, removePersonFromAgency } from "../_shared/memberships.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -128,10 +132,6 @@ function allowedRedirect(value: unknown): string {
   return publishedOrigin;
 }
 
-function alreadyRegistered(message: string): boolean {
-  return /already|registered|exists/i.test(message);
-}
-
 function productModeOf(value: unknown): "racing" | "lottery" | "both" {
   return value === "lottery" || value === "both" ? value : "racing";
 }
@@ -206,18 +206,20 @@ async function peopleNames(admin: SupabaseClient, userIds: string[]): Promise<Ma
   return names;
 }
 
-type AgencyInsert = { agencyId: string } | { status: number; message: string };
+type AgencyInsert = { agencyId: string } | { status: number; message: string; code?: string };
 
 /**
- * A live agency keeps its name to itself. A removed one keeps its id and its
- * data, so a new agency with the same name gets the next free id (-2, -3...).
- * An id held by an agency with another name is skipped the same way.
+ * A new agency gets the first free id (-2, -3...). A live agency with the same
+ * name stops it with code name-taken, so the app can warn; with
+ * allowDuplicateName it goes on to the next id. An id held by a removed agency,
+ * or by an agency with another name, is skipped the same way.
  */
 async function insertAgency(
   admin: SupabaseClient,
   baseId: string,
   name: string,
   productMode: string,
+  allowDuplicateName = false,
 ): Promise<AgencyInsert> {
   for (let attempt = 1; attempt <= 20; attempt += 1) {
     const agencyId = attempt === 1 ? baseId : `${baseId}-${attempt}`;
@@ -235,47 +237,11 @@ async function insertAgency(
       .maybeSingle();
     // "Lavalle 1442 2" also owns lavalle-1442-2, but it is another name: skip it.
     const sameName = typeof existing?.name === "string" && agencyIdFromName(existing.name) === baseId;
-    if (existing?.archived_at == null && sameName) {
-      return { status: 409, message: "Ya hay una agencia con ese nombre." };
+    if (existing?.archived_at == null && sameName && !allowDuplicateName) {
+      return { status: 409, message: "Ya hay una agencia con ese nombre.", code: "name-taken" };
     }
   }
   return { status: 400, message: "No se pudo crear la agencia." };
-}
-
-/**
- * An owner of a removed agency who never got in is deleted, so the same email
- * can be invited again. Never got in: no sign-in at all (the invite expired),
- * or the invite link was opened but the password was never saved
- * (password_pending). Opening the link alone sets last_sign_in_at.
- * Anyone else is kept. Returns false only when that deletion fails.
- */
-async function releaseUnusedOwner(admin: SupabaseClient, email: string): Promise<boolean> {
-  const { data: profiles, error } = await admin
-    .from("profiles")
-    .select("user_id, agency_id")
-    .eq("email", email);
-  if (error || !profiles || profiles.length !== 1) {
-    return true;
-  }
-  const profile = profiles[0];
-  const { data: agency } = await admin
-    .from("agencies")
-    .select("archived_at")
-    .eq("agency_id", profile.agency_id)
-    .maybeSingle();
-  if (agency?.archived_at == null) {
-    return true;
-  }
-  const { data: userData, error: userError } = await admin.auth.admin.getUserById(profile.user_id);
-  if (userError || !userData.user) {
-    return true;
-  }
-  const passwordPending = userData.user.user_metadata?.password_pending === true;
-  if (userData.user.last_sign_in_at && !passwordPending) {
-    return true;
-  }
-  const { error: deleteError } = await admin.auth.admin.deleteUser(profile.user_id);
-  return !deleteError;
 }
 
 Deno.serve(async (req: Request) => {
@@ -307,18 +273,20 @@ Deno.serve(async (req: Request) => {
     return json(401, { message: "Tenés que entrar para hacer esto." });
   }
 
-  // "*" keeps this working before agency-trash.sql adds can_manage_trash.
-  const { data: caller, error: callerError } = await admin
+  // One row per agency the caller is in (multi-agency.sql). The marks count for the
+  // person if any row has them. "*" keeps this working before agency-trash.sql.
+  const { data: callerRows, error: callerError } = await admin
     .from("profiles")
     .select("*")
-    .eq("user_id", callerId)
-    .maybeSingle();
+    .eq("user_id", callerId);
 
-  if (callerError || !caller || caller.can_create_agencies !== true) {
+  if (callerError || !callerRows || !callerRows.some((row) => row.can_create_agencies === true)) {
     return json(403, { message: "Esta cuenta no puede crear agencias." });
   }
-  const managesTrash = caller.can_manage_trash === true;
-  const homeId = typeof caller.agency_id === "string" ? caller.agency_id : "";
+  const managesTrash = callerRows.some((row) => row.can_manage_trash === true);
+  const memberIds = new Set(
+    callerRows.map((row) => row.agency_id).filter((id): id is string => typeof id === "string"),
+  );
 
   let body: unknown;
   try {
@@ -403,7 +371,7 @@ Deno.serve(async (req: Request) => {
       return {
         agencyId: row.agency_id,
         name: row.name,
-        kind: row.agency_id === homeId ? "home" : othersTest ? "test" : row.personal_user_id === callerId ? "personal" : "other",
+        kind: memberIds.has(row.agency_id) ? "home" : othersTest ? "test" : row.personal_user_id === callerId ? "personal" : "other",
         productMode: productModeOf(row.product_mode),
         testOf: othersTest ? names.get(row.personal_user_id) ?? "" : "",
       };
@@ -454,7 +422,7 @@ Deno.serve(async (req: Request) => {
   // to the trash like a real one: it can be restored, or purged from there.
   if (action === "delete-personal") {
     const agencyId = readText(body, "agencyId");
-    if (!agencyId || agencyId === homeId) {
+    if (!agencyId || memberIds.has(agencyId)) {
       return json(400, { message: "No se pudo quitar la agencia." });
     }
     const { data: agency, error: agencyError } = await admin
@@ -561,7 +529,7 @@ Deno.serve(async (req: Request) => {
     if (!agencyId) {
       return json(400, { message: "No se pudo borrar la agencia." });
     }
-    if (agencyId === "agencia-dolores" || agencyId === homeId) {
+    if (agencyId === "agencia-dolores" || memberIds.has(agencyId)) {
       return json(400, { message: "Esta agencia no se puede borrar." });
     }
     const { data: agency, error: agencyError } = await admin
@@ -585,18 +553,23 @@ Deno.serve(async (req: Request) => {
     if (peopleError || !people) {
       return json(400, { message: "No se pudo borrar la agencia." });
     }
-    if (people.some((person) => person.user_id === callerId || person.can_create_agencies === true || person.can_manage_trash === true)) {
-      return json(400, { message: "Esta agencia tiene una cuenta que crea agencias. Se borra desde Supabase." });
+    // An account that creates agencies, and is in no other agency, would be deleted with it.
+    for (const person of people) {
+      if (person.can_create_agencies === true || person.can_manage_trash === true) {
+        const count = await agencyCount(admin, person.user_id);
+        if (count === null || count <= 1) {
+          return json(400, { message: "Esta agencia tiene una cuenta que crea agencias. Se borra desde Supabase." });
+        }
+      }
     }
     for (const bucket of photoBuckets) {
       if (!await removePhotoFolder(admin, bucket, agencyId)) {
         return json(400, { message: "No se pudieron borrar las fotos. La agencia sigue en la lista: volvé a intentar." });
       }
     }
-    // Deleting the user also deletes its profile (on delete cascade).
+    // Each person leaves this agency. The account goes only if no other agency is left.
     for (const person of people) {
-      const { error: deleteError } = await admin.auth.admin.deleteUser(person.user_id);
-      if (deleteError) {
+      if (!await removePersonFromAgency(admin, person.user_id, agencyId)) {
         const who = typeof person.email === "string" && person.email ? person.email : "una persona";
         return json(400, { message: `No se pudo borrar la cuenta de ${who}. La agencia sigue en la lista: volvé a intentar.` });
       }
@@ -623,7 +596,7 @@ Deno.serve(async (req: Request) => {
     if (agencyError || !agency || agency.archived_at != null || agency.personal_user_id != null) {
       return json(400, { message: "No se pudo quitar la agencia." });
     }
-    if (agencyId === caller.agency_id || agencyId === "agencia-dolores") {
+    if (memberIds.has(agencyId) || agencyId === "agencia-dolores") {
       return json(400, { message: "Esta agencia no se puede quitar." });
     }
     if (typeof agency.name !== "string" || !removalNameMatches(confirmName, agency.name)) {
@@ -655,9 +628,10 @@ Deno.serve(async (req: Request) => {
     const cleanOwner = ownerName.trim();
     const cleanEmail = ownerEmail.trim().toLowerCase();
 
-    const created = await insertAgency(admin, baseId, name, productMode);
+    const allowDuplicateName = (body as Record<string, unknown>).allowDuplicateName === true;
+    const created = await insertAgency(admin, baseId, name, productMode, allowDuplicateName);
     if ("message" in created) {
-      return json(created.status, { message: created.message });
+      return json(created.status, created.code ? { message: created.message, code: created.code } : { message: created.message });
     }
     const agencyId = created.agencyId;
 
@@ -669,40 +643,26 @@ Deno.serve(async (req: Request) => {
       return json(400, { message: "No se pudo crear la agencia." });
     }
 
-    if (!await releaseUnusedOwner(admin, cleanEmail)) {
-      await removeAgency(admin, agencyId);
-      return json(400, { message: "No se pudo enviar la invitación." });
-    }
-
     const redirectTo = allowedRedirect(readText(body, "redirectTo") || null);
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(cleanEmail, {
-      redirectTo,
-      data: { password_pending: true },
-    });
-    if (inviteError || !invited.user) {
-      await removeAgency(admin, agencyId);
-      const message = inviteError?.message ?? "";
-      return json(alreadyRegistered(message) ? 409 : 400, {
-        message: alreadyRegistered(message) ? "Ese correo ya tiene una cuenta." : "No se pudo enviar la invitación.",
-      });
-    }
-
-    const { error: profileError } = await admin.from("profiles").insert({
-      user_id: invited.user.id,
-      agency_id: agencyId,
-      role: "owner",
-      display_name: cleanOwner,
+    const joined = await addPersonToAgency(admin, {
       email: cleanEmail,
-      can_invite_owners: true,
-      can_create_agencies: false,
+      agencyId,
+      role: "owner",
+      displayName: cleanOwner,
+      canInviteOwners: true,
+      redirectTo,
     });
-    if (profileError) {
-      await admin.auth.admin.deleteUser(invited.user.id);
+    if (joined.kind === "error") {
       await removeAgency(admin, agencyId);
-      return json(400, { message: "No se pudo crear el dueño." });
+      return json(joined.status, { message: joined.message });
     }
 
-    return json(200, { ok: true, agencyId });
+    return json(200, {
+      ok: true,
+      agencyId,
+      outcome: joined.kind,
+      passwordLinkSent: joined.kind === "existing" && joined.passwordLinkSent,
+    });
   }
 
   return json(400, { message: "No se pudo completar." });

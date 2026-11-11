@@ -9,6 +9,7 @@ import {
   Feedback,
   Field,
   PrimaryButton,
+  SecondaryButton,
   TextField,
 } from "@/components/form-controls";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
@@ -28,7 +29,11 @@ function isTest(agency: AgencyEntry): boolean {
   return agency.kind === "personal" || agency.kind === "test";
 }
 
+/** Under the name: a test, or another agency of this same account. */
 function testTag(agency: AgencyEntry): string | null {
+  if (agency.kind === "home") {
+    return "Tuya";
+  }
   if (agency.kind === "personal") {
     return "Prueba";
   }
@@ -47,7 +52,7 @@ export function AgencyMenuList({
 }) {
   const admin = useAgencyAdmin();
   const visit = useAgencyVisit();
-  const { snapshot, sessionAgencyId } = useLedger();
+  const { snapshot, sessionAgencyId, switchAgency } = useLedger();
   const viewedAgencyId = snapshot.agencyId;
   const [agencies, setAgencies] = useState<AgencyEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,6 +121,11 @@ export function AgencyMenuList({
 
   async function enter(agency: AgencyEntry) {
     if (busy || agency.agencyId === sessionAgencyId || agency.agencyId === viewedAgencyId) {
+      return;
+    }
+    if (agency.kind === "home" && switchAgency) {
+      switchAgency(agency.agencyId);
+      onEntered();
       return;
     }
     setBusy(true);
@@ -237,7 +247,7 @@ export function AgenciesPanel({
 }) {
   const admin = useAgencyAdmin();
   const visit = useAgencyVisit();
-  const { snapshot, sessionAgencyId, role, readOnly, agencyMode, addService, removeService } = useLedger();
+  const { snapshot, sessionAgencyId, role, readOnly, agencyMode, addService, removeService, switchAgency } = useLedger();
   const viewedAgencyId = snapshot.agencyId;
   const serviceToAdd = role === "owner" && !readOnly ? canAddService(agencyMode) : null;
   const canRemoveService = role === "owner" && !readOnly && agencyMode === "both" && removeService !== null;
@@ -259,6 +269,7 @@ export function AgenciesPanel({
   const [archiveName, setArchiveName] = useState("");
   const [archiveError, setArchiveError] = useState("");
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [nameTaken, setNameTaken] = useState(false);
   const wide = useWindowDimensions().width >= wideLayout;
 
   useEffect(() => {
@@ -304,6 +315,7 @@ export function AgenciesPanel({
     setError("");
     setPersonalError("");
     setMessage("");
+    setNameTaken(false);
   }
 
   function close() {
@@ -345,16 +357,22 @@ export function AgenciesPanel({
     close();
   }
 
-  async function create() {
+  async function create(allowDuplicateName = false) {
     if (busy || personalBusy) {
       return;
     }
     setBusy(true);
     setError("");
     setMessage("");
-    const problem = await directory.create(agencyName, ownerName, ownerEmail, createMode);
-    if (problem) {
-      setError(problem);
+    const result = await directory.create(agencyName, ownerName, ownerEmail, createMode, allowDuplicateName);
+    if (result.status === "name-taken") {
+      setNameTaken(true);
+      setBusy(false);
+      return;
+    }
+    setNameTaken(false);
+    if (result.status === "error") {
+      setError(result.message);
       setBusy(false);
       return;
     }
@@ -363,7 +381,7 @@ export function AgenciesPanel({
     setOwnerName("");
     setOwnerEmail("");
     setMessage(
-      `${created} quedó creada. Le enviamos al dueño un correo para que elija su contraseña.`,
+      `${created} quedó creada. ${result.notice ?? "Le enviamos al dueño un correo para que elija su contraseña."}`,
     );
     try {
       setAgencies(await directory.list());
@@ -375,6 +393,11 @@ export function AgenciesPanel({
 
   async function enter(agency: AgencyEntry) {
     if (busy || personalBusy || !visit) {
+      return;
+    }
+    if (agency.kind === "home" && switchAgency) {
+      switchAgency(agency.agencyId);
+      close();
       return;
     }
     setBusy(true);
@@ -479,7 +502,10 @@ export function AgenciesPanel({
           <Field label="Nombre de la agencia">
             <TextField
               value={agencyName}
-              onChangeText={setAgencyName}
+              onChangeText={(text) => {
+                setAgencyName(text);
+                setNameTaken(false);
+              }}
               placeholder="Agencia Norte"
               accessibilityLabel="Nombre de la agencia"
             />
@@ -508,6 +534,14 @@ export function AgenciesPanel({
             label={busy ? "Enviando…" : "Crear e invitar"}
             onPress={() => void create()}
           />
+          {nameTaken ? (
+            <View className="gap-3 rounded-[10px] bg-amber-soft p-3">
+              <Text className="text-[16px] leading-6 text-amber-ink">
+                Ya hay una agencia con ese nombre. Si es otra agencia, podés crearla igual.
+              </Text>
+              <SecondaryButton label="Crear igual" onPress={() => void create(true)} />
+            </View>
+          ) : null}
           <Feedback error={error} message={message} />
           <View className="gap-4 border-t border-line pt-4">
             <Text className="text-[17px] font-semibold leading-6 text-navy">

@@ -1,7 +1,10 @@
 // Invites or removes an operator, and an owner when the caller may invite owners.
 // add-service lets that owner turn on the missing book (racing or lottery).
 // remove-service turns one off only when both are on, and leaves the books.
-// The target is the caller's own agency, or a personal test agency they own.
+// The target is agencyId: an agency where the caller is owner, or a personal test
+// agency they own. One account can be in several agencies (multi-agency.sql); an
+// older app that sends no agencyId works while the caller is in only one.
+// Inviting an email that already has an account adds the agency to it.
 // Keep that rule aligned with withService and withoutService in
 // src/modules/ledger/domain/features.ts.
 // Runs with the service role inside Supabase.
@@ -9,6 +12,8 @@
 // Keep the Spanish messages aligned with src/modules/identity/operator-invite.ts.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+
+import { addPersonToAgency, removePersonFromAgency } from "../_shared/memberships.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,10 +63,6 @@ function allowedRedirect(value: unknown): string {
   return publishedOrigin;
 }
 
-function alreadyRegistered(message: string): boolean {
-  return /already|registered|exists/i.test(message);
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -91,25 +92,6 @@ Deno.serve(async (req: Request) => {
     return json(401, { message: "Tenés que entrar para hacer esto." });
   }
 
-  const { data: caller, error: callerError } = await admin
-    .from("profiles")
-    .select("agency_id, role, can_invite_owners")
-    .eq("user_id", callerId)
-    .maybeSingle();
-
-  if (callerError || !caller || caller.role !== "owner" || typeof caller.agency_id !== "string") {
-    return json(403, { message: "Solo un dueño puede hacer esto." });
-  }
-  const { data: home, error: homeError } = await admin
-    .from("agencies")
-    .select("archived_at")
-    .eq("agency_id", caller.agency_id)
-    .maybeSingle();
-  if (homeError || !home || home.archived_at != null) {
-    return json(403, { message: "Esta agencia ya no está en HippoPro." });
-  }
-  const callerCanInviteOwners = caller.can_invite_owners === true;
-
   let body: unknown;
   try {
     body = await req.json();
@@ -121,6 +103,35 @@ Deno.serve(async (req: Request) => {
   }
 
   const action = "action" in body ? body.action : null;
+
+  // One row per agency the caller is in.
+  const { data: callerRows, error: callerError } = await admin
+    .from("profiles")
+    .select("agency_id, role, can_invite_owners")
+    .eq("user_id", callerId);
+  if (callerError || !callerRows) {
+    return json(403, { message: "Solo un dueño puede hacer esto." });
+  }
+  const sentId = "agencyId" in body && typeof body.agencyId === "string" ? body.agencyId : "";
+  const targetAgencyId = sentId || (callerRows.length === 1 && typeof callerRows[0].agency_id === "string" ? callerRows[0].agency_id : "");
+  if (!targetAgencyId) {
+    return json(403, { message: "Solo un dueño puede hacer esto." });
+  }
+  const caller = callerRows.find((row) => row.agency_id === targetAgencyId && row.role === "owner") ?? null;
+  const { data: home, error: homeError } = await admin
+    .from("agencies")
+    .select("archived_at, product_mode, personal_user_id")
+    .eq("agency_id", targetAgencyId)
+    .maybeSingle();
+  if (homeError || !home || home.archived_at != null) {
+    return json(403, { message: "Esta agencia ya no está en HippoPro." });
+  }
+  // A test agency has no owner rows: whoever made it may change its services.
+  const ownsPersonal = home.personal_user_id === callerId;
+  if (!caller && !(ownsPersonal && (action === "add-service" || action === "remove-service"))) {
+    return json(403, { message: "Solo un dueño puede hacer esto." });
+  }
+  const callerCanInviteOwners = caller?.can_invite_owners === true;
 
   if (action === "invite") {
     const displayName = "displayName" in body && typeof body.displayName === "string" ? body.displayName : "";
@@ -138,33 +149,25 @@ Deno.serve(async (req: Request) => {
     const cleanName = displayName.trim();
     const grantInvite = role === "owner" && callerCanInviteOwners && "canInviteOwners" in body && body.canInviteOwners === true;
     const redirectTo = allowedRedirect("redirectTo" in body ? body.redirectTo : null);
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(cleanEmail, {
-      redirectTo,
-      data: { password_pending: true },
-    });
-
-    if (inviteError || !invited.user) {
-      const message = inviteError?.message ?? "";
-      return json(alreadyRegistered(message) ? 409 : 400, {
-        message: alreadyRegistered(message) ? "Ese correo ya tiene una cuenta." : "No se pudo enviar la invitación.",
-      });
-    }
-
-    const { error: insertError } = await admin.from("profiles").insert({
-      user_id: invited.user.id,
-      agency_id: caller.agency_id,
-      role,
-      display_name: cleanName,
+    const joined = await addPersonToAgency(admin, {
       email: cleanEmail,
-      can_invite_owners: grantInvite,
+      agencyId: targetAgencyId,
+      role,
+      displayName: cleanName,
+      canInviteOwners: grantInvite,
+      redirectTo,
     });
-
-    if (insertError) {
-      await admin.auth.admin.deleteUser(invited.user.id);
-      return json(400, { message: role === "owner" ? "No se pudo crear el dueño." : "No se pudo crear el operador." });
+    if (joined.kind === "error") {
+      return json(joined.status, { message: joined.message });
     }
-
-    return json(200, { ok: true });
+    if (joined.kind === "already-in") {
+      return json(409, { message: "Ese correo ya está en esta agencia.", code: "already-in" });
+    }
+    return json(200, {
+      ok: true,
+      outcome: joined.kind,
+      passwordLinkSent: joined.kind === "existing" && joined.passwordLinkSent,
+    });
   }
 
   if (action === "remove") {
@@ -180,9 +183,10 @@ Deno.serve(async (req: Request) => {
       .from("profiles")
       .select("agency_id, role, can_invite_owners")
       .eq("user_id", userId)
+      .eq("agency_id", targetAgencyId)
       .maybeSingle();
 
-    if (targetError || !target || target.agency_id !== caller.agency_id) {
+    if (targetError || !target) {
       return json(403, { message: "Esa persona no está en la agencia." });
     }
     if (target.role === "owner") {
@@ -192,7 +196,7 @@ Deno.serve(async (req: Request) => {
       const { data: owners, error: ownersError } = await admin
         .from("profiles")
         .select("user_id, can_invite_owners")
-        .eq("agency_id", caller.agency_id)
+        .eq("agency_id", targetAgencyId)
         .eq("role", "owner");
       if (ownersError || !owners) {
         return json(400, { message: "No se pudo quitar." });
@@ -208,8 +212,8 @@ Deno.serve(async (req: Request) => {
       return json(403, { message: "No se pudo quitar." });
     }
 
-    const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
-    if (deleteError) {
+    // Out of this agency only. The account goes when no other agency is left.
+    if (!await removePersonFromAgency(admin, userId, targetAgencyId)) {
       return json(400, { message: "No se pudo quitar." });
     }
     return json(200, { ok: true });
@@ -220,17 +224,8 @@ Deno.serve(async (req: Request) => {
     if (!service) {
       return json(400, { message: "No se pudo ampliar." });
     }
-    const requestedId = "agencyId" in body && typeof body.agencyId === "string" ? body.agencyId : caller.agency_id;
-    const { data: agency, error: agencyError } = await admin
-      .from("agencies")
-      .select("product_mode, personal_user_id")
-      .eq("agency_id", requestedId)
-      .maybeSingle();
-    const ownsPersonal = agency?.personal_user_id === callerId;
-    if (agencyError || !agency || (requestedId !== caller.agency_id && !ownsPersonal)) {
-      return json(403, { message: "No se pudo ampliar." });
-    }
-    const current = agency.product_mode === "lottery" || agency.product_mode === "both" ? agency.product_mode : "racing";
+    const requestedId = targetAgencyId;
+    const current = home.product_mode === "lottery" || home.product_mode === "both" ? home.product_mode : "racing";
     const expands =
       (service === "lottery" && current === "racing") || (service === "racing" && current === "lottery");
     const next = expands ? "both" : null;
@@ -252,17 +247,8 @@ Deno.serve(async (req: Request) => {
     if (!service) {
       return json(400, { message: "No se pudo quitar." });
     }
-    const requestedId = "agencyId" in body && typeof body.agencyId === "string" ? body.agencyId : caller.agency_id;
-    const { data: agency, error: agencyError } = await admin
-      .from("agencies")
-      .select("product_mode, personal_user_id")
-      .eq("agency_id", requestedId)
-      .maybeSingle();
-    const ownsPersonal = agency?.personal_user_id === callerId;
-    if (agencyError || !agency || (requestedId !== caller.agency_id && !ownsPersonal)) {
-      return json(403, { message: "No se pudo quitar." });
-    }
-    if (agency.product_mode !== "both") {
+    const requestedId = targetAgencyId;
+    if (home.product_mode !== "both") {
       return json(400, { message: "Tiene que quedar un servicio." });
     }
     const next = service === "lottery" ? "racing" : "lottery";

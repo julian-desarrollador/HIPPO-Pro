@@ -68,6 +68,9 @@ import { createLocalStorageLedgerRepository } from "../outbound/local-storage-le
 import type { LedgerRepository } from "../../application/ports/ledger-repository";
 import type { LedgerSnapshot } from "../../domain/types";
 
+/** An agency the signed-in account is in. */
+export type AgencyChoice = { agencyId: string; name: string; mode: AgencyMode; role: ViewerRole };
+
 type LedgerContextValue = {
   role: ViewerRole;
   displayName: string;
@@ -78,6 +81,10 @@ type LedgerContextValue = {
   canCreateAgencies: boolean;
   /** Sees the Papelera: restores removed agencies or deletes them for good. */
   canManageTrash: boolean;
+  /** Every agency of this account. Two or more: the name menu offers to switch. */
+  agencies: readonly AgencyChoice[];
+  /** Opens another agency of this account. Null without a session. */
+  switchAgency: ((agencyId: string) => void) | null;
   sessionAgencyId: string;
   setRole: (role: ViewerRole) => void;
   persistence: "browser" | "agency";
@@ -178,6 +185,8 @@ function currentYearMonth(now = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+const NO_AGENCIES: readonly AgencyChoice[] = [];
+
 export function LedgerProvider({
   children,
   repository: externalRepository,
@@ -189,6 +198,8 @@ export function LedgerProvider({
   canInviteOwners = false,
   canCreateAgencies = false,
   canManageTrash = false,
+  agencies = NO_AGENCIES,
+  switchAgency = null,
   sessionAgencyId = "",
   persistence = "browser",
   readOnly = false,
@@ -208,6 +219,8 @@ export function LedgerProvider({
   canInviteOwners?: boolean;
   canCreateAgencies?: boolean;
   canManageTrash?: boolean;
+  agencies?: readonly AgencyChoice[];
+  switchAgency?: ((agencyId: string) => void) | null;
   sessionAgencyId?: string;
   persistence?: "browser" | "agency";
   readOnly?: boolean;
@@ -271,6 +284,8 @@ export function LedgerProvider({
       canInviteOwners,
       canCreateAgencies,
       canManageTrash,
+      agencies,
+      switchAgency,
       sessionAgencyId,
       setRole: (next) => {
         if (!lockedRole) {
@@ -404,7 +419,7 @@ export function LedgerProvider({
       removeService,
       reset: () => publish(() => repository.reset(), true),
     };
-  }, [addService, agencyMode, agencyName, canCreateAgencies, canInviteOwners, canManageTrash, chosenMonth, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
+  }, [addService, agencyMode, agencyName, agencies, canCreateAgencies, canInviteOwners, canManageTrash, chosenMonth, switchAgency, displayName, leaveVisit, lockedRole, persistence, personalVisit, readOnly, removeService, repository, role, sessionAgencyId, signOut, userId, version]);
 
   return (
     <RacingCommitContext.Provider value={racingCommitRef}>

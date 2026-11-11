@@ -15,14 +15,18 @@ create table public.agencies (
   archived_by uuid
 );
 
+-- One row per person and agency: the same account can be in several agencies.
+-- Role, name and can_invite_owners belong to that agency.
 create table public.profiles (
-  user_id uuid primary key references auth.users (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
   agency_id text not null references public.agencies (agency_id),
   role text not null check (role in ('owner', 'operator')),
   display_name text not null default '',
   email text not null default '',
   can_invite_owners boolean not null default false,
-  can_create_agencies boolean not null default false
+  can_create_agencies boolean not null default false,
+  can_manage_trash boolean not null default false,
+  primary key (user_id, agency_id)
 );
 
 create table public.ledgers (
@@ -67,7 +71,7 @@ grant select, insert, update, delete on public.agencies to service_role;
 grant select, insert, update, delete on public.profiles to service_role;
 grant select, insert, update, delete on public.ledgers to service_role;
 
-create or replace function public.caller_is_owner()
+create or replace function public.caller_is_member(target text)
 returns boolean
 language sql
 stable
@@ -78,28 +82,54 @@ as $$
     select 1
     from public.profiles
     where user_id = auth.uid()
-      and role = 'owner'
+      and agency_id = target
   );
 $$;
 
-create or replace function public.caller_agency_id()
-returns text
+-- Owner of that agency, or it is their own test agency.
+create or replace function public.caller_owns_agency(target text)
+returns boolean
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select agency_id
-  from public.profiles
-  where user_id = auth.uid();
+  select exists (
+    select 1
+    from public.profiles
+    where user_id = auth.uid()
+      and agency_id = target
+      and role = 'owner'
+  ) or exists (
+    select 1
+    from public.agencies
+    where agency_id = target
+      and personal_user_id = auth.uid()
+  );
 $$;
 
-revoke all on function public.caller_is_owner() from public, anon, authenticated;
-revoke all on function public.caller_agency_id() from public, anon, authenticated;
-grant execute on function public.caller_is_owner() to authenticated;
-grant execute on function public.caller_agency_id() to authenticated;
+-- For the edge functions only: is there an account with this email?
+create or replace function public.user_id_for_email(target text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select id
+  from auth.users
+  where lower(email) = lower(btrim(target))
+  limit 1;
+$$;
 
--- True for the profile agency and for a personal agency owned by this user,
+revoke all on function public.caller_is_member(text) from public, anon, authenticated;
+revoke all on function public.caller_owns_agency(text) from public, anon, authenticated;
+revoke all on function public.user_id_for_email(text) from public, anon, authenticated;
+grant execute on function public.caller_is_member(text) to authenticated;
+grant execute on function public.caller_owns_agency(text) to authenticated;
+grant execute on function public.user_id_for_email(text) to service_role;
+
+-- True for an agency the caller is in and for their own test agency,
 -- while the agency is not removed.
 create or replace function public.caller_can_use_agency(target text)
 returns boolean
@@ -110,10 +140,18 @@ set search_path = public
 as $$
   select exists (
     select 1
-    from public.agencies
-    where agency_id = target
-      and archived_at is null
-      and (agency_id = public.caller_agency_id() or personal_user_id = auth.uid())
+    from public.agencies as agency
+    where agency.agency_id = target
+      and agency.archived_at is null
+      and (
+        agency.personal_user_id = auth.uid()
+        or exists (
+          select 1
+          from public.profiles
+          where user_id = auth.uid()
+            and agency_id = target
+        )
+      )
   );
 $$;
 
@@ -136,10 +174,7 @@ create policy profiles_select_agency
   on public.profiles
   for select
   to authenticated
-  using (
-    public.caller_is_owner()
-    and agency_id = public.caller_agency_id()
-  );
+  using (public.caller_owns_agency(agency_id));
 
 create policy ledgers_select_own_agency
   on public.ledgers
@@ -189,7 +224,7 @@ create policy lottery_ledgers_insert_owner
   on public.lottery_ledgers
   for insert
   to authenticated
-  with check (public.caller_can_use_agency(agency_id) and public.caller_is_owner());
+  with check (public.caller_can_use_agency(agency_id) and public.caller_owns_agency(agency_id));
 
 create policy lottery_ledgers_update_own_agency
   on public.lottery_ledgers

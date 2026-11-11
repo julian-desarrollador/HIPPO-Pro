@@ -2,8 +2,8 @@
 -- names, day photos or deposit photos, that nothing opens without a session,
 -- and that a removed agency no longer opens for its own people.
 -- Run it in the SQL editor after agencies.sql, close-ledger.sql,
--- day-photos.sql, deposit-photos.sql, cash-photos.sql, expense-photos.sql and personal-agencies.sql,
--- and again after any change to a policy.
+-- day-photos.sql, deposit-photos.sql, cash-photos.sql, expense-photos.sql, personal-agencies.sql,
+-- lottery-ledgers.sql and multi-agency.sql, and again after any change to a policy.
 -- Everything runs inside one transaction that is rolled back: the test
 -- users, agencies, books and photos never stay. A leak stops the run with
 -- an error that starts with FUGA. The last line says it passed.
@@ -463,6 +463,56 @@ begin
   end;
 end;
 $$;
+
+-- One account in two agencies (multi-agency.sql): A is owner of A and operator of C.
+-- It opens both books, never a third, and as an operator it does not see C's people.
+reset role;
+insert into public.profiles (user_id, agency_id, role, display_name, email) values
+  ('00000000-0000-4000-8000-00000000a001', 'aislamiento-c', 'operator', 'Prueba A', 'aislamiento-a@example.invalid'),
+  ('00000000-0000-4000-8000-00000000a003', 'aislamiento-c', 'owner', 'Prueba C', 'aislamiento-c@example.invalid');
+insert into public.ledgers (agency_id, snapshot) values
+  ('aislamiento-c', '{"agencyId":"aislamiento-c","month":"2026-10","days":[],"deposits":[],"expenses":[],"openingBalances":[]}');
+set local role authenticated;
+
+do $$
+declare
+  n integer;
+begin
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-00000000a001', 'role', 'authenticated')::text,
+    true
+  );
+  select count(*) into n from public.ledgers where agency_id in ('aislamiento-a', 'aislamiento-c');
+  if n <> 2 then
+    raise exception 'La prueba no anda: una cuenta en dos agencias lee % de sus dos libros', n;
+  end if;
+  select count(*) into n from public.ledgers where agency_id = 'aislamiento-b';
+  if n <> 0 then
+    raise exception 'FUGA: una cuenta en dos agencias lee el libro de una tercera';
+  end if;
+  select count(*) into n from public.profiles
+  where agency_id = 'aislamiento-c' and user_id <> '00000000-0000-4000-8000-00000000a001';
+  if n <> 0 then
+    raise exception 'FUGA: el operador de C, que es dueño de A, ve % personas de C', n;
+  end if;
+  begin
+    insert into public.lottery_ledgers (agency_id, snapshot)
+    values ('aislamiento-c', '{"agencyId":"aislamiento-c"}');
+    raise exception 'FUGA: el operador de C, que es dueño de A, abre la lotería de C';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.user_id_for_email('aislamiento-b@example.invalid');
+    raise exception 'FUGA: una sesión busca cuentas por correo';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
+delete from public.profiles where agency_id = 'aislamiento-c';
+delete from public.ledgers where agency_id = 'aislamiento-c';
 
 -- A removed agency keeps its rows, but its own people no longer open them.
 reset role;

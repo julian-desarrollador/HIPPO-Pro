@@ -7,7 +7,8 @@ import { archivedAgenciesFrom, type ArchivedAgency } from "./archived-agency";
 import { openedAgencyFrom, type OpenedAgency } from "./opened-agency";
 
 import { newAgencyProblem, personalAgencyNameProblem, removalNameMatches } from "./agency-invite";
-import { readFunctionMessage } from "./operator-admin";
+import { joinNotice } from "./memberships";
+import { readFunctionError, readFunctionMessage } from "./operator-admin";
 
 export type { ArchivedAgency } from "./archived-agency";
 export type { OpenedAgency } from "./opened-agency";
@@ -24,6 +25,15 @@ export type AgencyEntry = {
   testOf: string;
 };
 
+/**
+ * created: notice says what to tell when the owner's email already had an account.
+ * name-taken: a live agency has that name; it can be created anyway.
+ */
+export type CreateAgencyResult =
+  | { status: "created"; notice: string | null }
+  | { status: "name-taken"; message: string }
+  | { status: "error"; message: string };
+
 export type CreatedPersonalAgency = {
   agencyId: string;
   name: string;
@@ -31,7 +41,13 @@ export type CreatedPersonalAgency = {
 
 type AgencyAdmin = {
   list: () => Promise<AgencyEntry[]>;
-  create: (agencyName: string, ownerName: string, ownerEmail: string, productMode: AgencyMode) => Promise<string | null>;
+  create: (
+    agencyName: string,
+    ownerName: string,
+    ownerEmail: string,
+    productMode: AgencyMode,
+    allowDuplicateName?: boolean,
+  ) => Promise<CreateAgencyResult>;
   createPersonal: (agencyName: string, productMode: AgencyMode) => Promise<CreatedPersonalAgency | string>;
   removePersonal: (agencyId: string) => Promise<string | null>;
   /** Hides a real agency and closes its sign-in. Its data stays in the base. */
@@ -81,10 +97,10 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
         return entry ? [entry] : [];
       });
     },
-    async create(agencyName, ownerName, ownerEmail, productMode) {
+    async create(agencyName, ownerName, ownerEmail, productMode, allowDuplicateName = false) {
       const problem = newAgencyProblem(agencyName, ownerName, ownerEmail);
       if (problem) {
-        return problem;
+        return { status: "error", message: problem };
       }
       const redirectTo = typeof window === "undefined" ? undefined : window.location.origin;
       const { data, error } = await client.functions.invoke("create-agency", {
@@ -95,9 +111,14 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
           ownerEmail: ownerEmail.trim(),
           productMode,
           redirectTo,
+          allowDuplicateName,
         },
       });
-      return error ? readFunctionMessage(error, data) : null;
+      if (error) {
+        const { message, code } = await readFunctionError(error, data);
+        return code === "name-taken" ? { status: "name-taken", message } : { status: "error", message };
+      }
+      return { status: "created", notice: joinNotice(data, ownerEmail) };
     },
     async createPersonal(agencyName, productMode) {
       const problem = personalAgencyNameProblem(agencyName);

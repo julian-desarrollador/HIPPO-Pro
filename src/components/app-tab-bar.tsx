@@ -21,7 +21,7 @@ import {
   wideLayout,
 } from "@/constants/layout";
 import { isLotteryPath, palette, usePalette } from "@/constants/palette";
-import { ServiceLine, ServiceTags } from "@/components/service-tags";
+import { ServiceIcons, ServiceLine, ServiceTags } from "@/components/service-tags";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { AgenciesPanel, AgencyMenuList } from "@/components/agencies-panel";
 import { ConfirmDialog, Dialog, SecondaryButton } from "@/components/form-controls";
@@ -30,7 +30,7 @@ import { OperatorsPanel } from "@/components/operators-panel";
 import { SidebarContext } from "@/components/sidebar-menu";
 import { SupportInbox } from "@/components/support-inbox";
 import { TrashPanel } from "@/components/trash-panel";
-import { canAddService, useLedger, type AgencyMode, type AgencyService, type ViewerRole } from "@/modules/ledger";
+import { canAddService, useLedger, type AgencyChoice, type AgencyMode, type AgencyService, type ViewerRole } from "@/modules/ledger";
 
 const TAB_ICONS = {
   home: "home",
@@ -280,7 +280,7 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const { children, style: listStyle, ...rest } = props;
-  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, canManageTrash, setRole, signOut, snapshot, addService, removeService, readOnly } = useLedger();
+  const { role, displayName, agencyName, agencyMode, userId, canInviteOwners, canCreateAgencies, canManageTrash, setRole, signOut, snapshot, addService, removeService, readOnly, agencies, switchAgency } = useLedger();
   const serviceToAdd = role === "owner" && !readOnly ? canAddService(agencyMode) : null;
   const canRemoveService = role === "owner" && !readOnly && agencyMode === "both" && removeService !== null;
   const [operatorsOpen, setOperatorsOpen] = useState(false);
@@ -445,6 +445,9 @@ export function CustomTabList(props: TabListProps) {
                 onOpenOperators={role === "owner" ? () => setOperatorsOpen(true) : null}
                 onOpenAgencies={canCreateAgencies ? () => setAgenciesOpen(true) : null}
                 onOpenTrash={canCreateAgencies && canManageTrash ? () => setTrashOpen(true) : null}
+                agencies={canCreateAgencies ? [] : agencies}
+                viewedAgencyId={snapshot.agencyId}
+                onSwitchAgency={switchAgency}
                 onOpenHelp={() => setHelpOpen(true)}
                 onOpenSupport={canCreateAgencies ? () => setSupportOpen(true) : null}
                 agencyMode={agencyMode}
@@ -720,6 +723,9 @@ function AccountMenu({
   onOpenOperators,
   onOpenAgencies,
   onOpenTrash,
+  agencies,
+  viewedAgencyId,
+  onSwitchAgency,
   onOpenHelp,
   onOpenSupport,
   agencyMode,
@@ -736,6 +742,10 @@ function AccountMenu({
   onOpenOperators: (() => void) | null;
   onOpenAgencies: (() => void) | null;
   onOpenTrash: (() => void) | null;
+  /** This account's agencies. Agencias already lists them for whoever creates agencies. */
+  agencies: readonly AgencyChoice[];
+  viewedAgencyId: string;
+  onSwitchAgency: ((agencyId: string) => void) | null;
   onOpenHelp: (() => void) | null;
   onOpenSupport: (() => void) | null;
   agencyMode: AgencyMode;
@@ -788,6 +798,16 @@ function AccountMenu({
         <Dialog visible={open} title={label} onClose={() => onOpenChange(false)}>
           <View className="gap-3">
             {onOpenAgencies ? <AgencyMenuList active={open} onEntered={() => onOpenChange(false)} /> : null}
+            {agencies.length > 1 && onSwitchAgency ? (
+              <YourAgencies
+                agencies={agencies}
+                viewedAgencyId={viewedAgencyId}
+                onPick={(agencyId) => {
+                  onOpenChange(false);
+                  onSwitchAgency(agencyId);
+                }}
+              />
+            ) : null}
             {onOpenOperators ? <SecondaryButton label="Operadores" onPress={() => pick(onOpenOperators)} /> : null}
             {onOpenAgencies ? <SecondaryButton label="Agencias" onPress={() => pick(onOpenAgencies)} /> : null}
             {onOpenTrash ? <SecondaryButton label="Papelera" onPress={() => pick(onOpenTrash)} /> : null}
@@ -855,6 +875,66 @@ function AccountMenu({
       </View>
       {confirmExit}
     </>
+  );
+}
+
+/** Tus agencias: the agencies of an account that is in more than one. */
+function YourAgencies({
+  agencies,
+  viewedAgencyId,
+  onPick,
+}: {
+  agencies: readonly AgencyChoice[];
+  viewedAgencyId: string;
+  onPick: (agencyId: string) => void;
+}) {
+  const palette = usePalette();
+  return (
+    <View className="gap-2">
+      <Text className="text-[15px] font-semibold uppercase text-muted" style={{ letterSpacing: 1 }}>
+        Tus agencias
+      </Text>
+      <View className="overflow-hidden rounded-[14px] border border-line">
+        {agencies.map((agency, index) => {
+          const here = agency.agencyId === viewedAgencyId;
+          const last = index === agencies.length - 1;
+          const row = (
+            <>
+              <View className="min-w-0 flex-1 flex-row items-center gap-2">
+                <Text className="shrink text-[17px] font-semibold text-navy" numberOfLines={1}>
+                  {agency.name}
+                </Text>
+                <ServiceIcons mode={agency.mode} />
+              </View>
+              {here ? (
+                <Text className="shrink-0 text-[15px] text-muted">Estás acá</Text>
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={palette.accent} />
+              )}
+            </>
+          );
+          const rowClass = last
+            ? "flex-row items-center gap-3 px-4 py-3"
+            : "flex-row items-center gap-3 border-b border-line px-4 py-3";
+          return here ? (
+            <View key={agency.agencyId} className={rowClass}>
+              {row}
+            </View>
+          ) : (
+            <Pressable
+              key={agency.agencyId}
+              accessibilityRole="button"
+              accessibilityLabel={`Ir a ${agency.name}`}
+              onPress={() => onPick(agency.agencyId)}
+              className={`cursor-pointer ${rowClass}`}
+              style={({ pressed }) => (pressed ? { backgroundColor: palette.tint } : undefined)}
+            >
+              {row}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 

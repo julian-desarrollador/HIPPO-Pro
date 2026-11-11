@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { joinNotice } from "./memberships";
 import { inviteMemberProblem, type InviteRole } from "./operator-invite";
 
 export type AgencyOperator = {
@@ -16,7 +17,8 @@ export type AgencyOwner = AgencyOperator & {
 type OperatorAdmin = {
   list: () => Promise<AgencyOperator[]>;
   listOwners: () => Promise<AgencyOwner[]>;
-  invite: (displayName: string, email: string, role?: InviteRole, grantInvite?: boolean) => Promise<string | null>;
+  /** problem: why it failed. notice: what to tell when the email already had an account. */
+  invite: (displayName: string, email: string, role?: InviteRole, grantInvite?: boolean) => Promise<{ problem: string | null; notice: string | null }>;
   remove: (userId: string) => Promise<string | null>;
 };
 
@@ -43,25 +45,35 @@ function isPersonRow(value: unknown): value is {
   );
 }
 
-export async function readFunctionMessage(error: { context?: unknown }, data: unknown): Promise<string> {
-  if (data && typeof data === "object" && "message" in data && typeof data.message === "string") {
-    return data.message;
+/** The message and, when there is one, the code a function answered with an error. */
+export async function readFunctionError(error: { context?: unknown }, data: unknown): Promise<{ message: string; code: string }> {
+  const pick = (value: unknown) => {
+    if (value && typeof value === "object" && "message" in value && typeof value.message === "string") {
+      const code = "code" in value && typeof value.code === "string" ? value.code : "";
+      return { message: value.message, code };
+    }
+    return null;
+  };
+  const direct = pick(data) ?? (error.context instanceof Response ? null : pick(error.context));
+  if (direct) {
+    return direct;
   }
   const context = error.context;
-  if (context && typeof context === "object" && "message" in context && typeof context.message === "string") {
-    return context.message;
-  }
   if (context instanceof Response) {
     try {
-      const payload: unknown = await context.json();
-      if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string") {
-        return payload.message;
+      const payload = pick(await context.json());
+      if (payload) {
+        return payload;
       }
     } catch {
       // The function did not return JSON.
     }
   }
-  return connectionProblem;
+  return { message: connectionProblem, code: "" };
+}
+
+export async function readFunctionMessage(error: { context?: unknown }, data: unknown): Promise<string> {
+  return (await readFunctionError(error, data)).message;
 }
 
 async function callFunction(
@@ -77,10 +89,13 @@ async function callFunction(
 
 export function OperatorAdminProvider({
   client,
+  agencyId,
   canInviteOwners,
   children,
 }: {
   client: SupabaseClient;
+  /** The agency open in this session. An account can be in several. */
+  agencyId: string;
   canInviteOwners: boolean;
   children: ReactNode;
 }) {
@@ -90,6 +105,7 @@ export function OperatorAdminProvider({
         const { data, error } = await client
           .from("profiles")
           .select("user_id, display_name, email, role")
+          .eq("agency_id", agencyId)
           .eq("role", "operator")
           .order("display_name");
         if (error || !Array.isArray(data)) {
@@ -105,6 +121,7 @@ export function OperatorAdminProvider({
         const { data, error } = await client
           .from("profiles")
           .select("user_id, display_name, email, role, can_invite_owners")
+          .eq("agency_id", agencyId)
           .eq("role", "owner")
           .order("display_name");
         if (error || !Array.isArray(data)) {
@@ -117,26 +134,33 @@ export function OperatorAdminProvider({
           canInviteOwners: row.can_invite_owners === true,
         }));
       },
-      invite(displayName, email, role = "operator", grantInvite = false) {
+      async invite(displayName, email, role = "operator", grantInvite = false) {
         const problem = inviteMemberProblem(displayName, email, role, canInviteOwners);
         if (problem) {
-          return Promise.resolve(problem);
+          return { problem, notice: null };
         }
         const redirectTo = typeof window === "undefined" ? undefined : window.location.origin;
-        return callFunction(client, {
-          action: "invite",
-          displayName: displayName.trim(),
-          email: email.trim(),
-          role,
-          canInviteOwners: role === "owner" && grantInvite,
-          redirectTo,
+        const { data, error } = await client.functions.invoke("manage-operator", {
+          body: {
+            action: "invite",
+            agencyId,
+            displayName: displayName.trim(),
+            email: email.trim(),
+            role,
+            canInviteOwners: role === "owner" && grantInvite,
+            redirectTo,
+          },
         });
+        if (error) {
+          return { problem: await readFunctionMessage(error, data), notice: null };
+        }
+        return { problem: null, notice: joinNotice(data, email) };
       },
       remove(userId) {
-        return callFunction(client, { action: "remove", userId });
+        return callFunction(client, { action: "remove", agencyId, userId });
       },
     }),
-    [canInviteOwners, client],
+    [agencyId, canInviteOwners, client],
   );
 
   return <OperatorAdminContext.Provider value={value}>{children}</OperatorAdminContext.Provider>;

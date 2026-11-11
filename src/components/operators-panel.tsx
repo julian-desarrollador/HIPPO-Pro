@@ -113,7 +113,7 @@ export function OperatorsPanel({
     setBusy(true);
     setError("");
     setMessage("");
-    const problem = await directory.invite(displayName, email, "operator");
+    const { problem, notice } = await directory.invite(displayName, email, "operator");
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -121,7 +121,7 @@ export function OperatorsPanel({
     }
     setDisplayName("");
     setEmail("");
-    setMessage("Le enviamos un correo para que elija su contraseña.");
+    setMessage(notice ?? "Le enviamos un correo para que elija su contraseña.");
     try {
       setOperators(await directory.list());
     } catch {
@@ -137,7 +137,7 @@ export function OperatorsPanel({
     setBusy(true);
     setError("");
     setMessage("");
-    const problem = await directory.invite(ownerName, ownerEmail, "owner", grantInvite);
+    const { problem, notice } = await directory.invite(ownerName, ownerEmail, "owner", grantInvite);
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -146,7 +146,7 @@ export function OperatorsPanel({
     setOwnerName("");
     setOwnerEmail("");
     setGrantInvite(false);
-    setMessage("Le enviamos un correo para que elija su contraseña.");
+    setMessage(notice ?? "Le enviamos un correo para que elija su contraseña.");
     try {
       setOwners(await directory.listOwners());
     } catch {
