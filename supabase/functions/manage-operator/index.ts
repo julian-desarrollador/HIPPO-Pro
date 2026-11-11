@@ -4,7 +4,8 @@
 // The target is agencyId: an agency where the caller is owner, or a personal test
 // agency they own. One account can be in several agencies (multi-agency.sql); an
 // older app that sends no agencyId works while the caller is in only one.
-// Inviting an email that already has an account adds the agency to it.
+// Inviting an email that already has an account adds the agency to it, once the
+// owner confirms: without confirmExisting it answers code existing-account.
 // Keep that rule aligned with withService and withoutService in
 // src/modules/ledger/domain/features.ts.
 // Runs with the service role inside Supabase.
@@ -156,12 +157,16 @@ Deno.serve(async (req: Request) => {
       displayName: cleanName,
       canInviteOwners: grantInvite,
       redirectTo,
+      confirmExisting: "confirmExisting" in body && body.confirmExisting === true,
     });
     if (joined.kind === "error") {
       return json(joined.status, { message: joined.message });
     }
     if (joined.kind === "already-in") {
       return json(409, { message: "Ese correo ya está en esta agencia.", code: "already-in" });
+    }
+    if (joined.kind === "needs-confirmation") {
+      return json(409, { message: "Ese correo ya tiene una cuenta.", code: "existing-account" });
     }
     return json(200, {
       ok: true,

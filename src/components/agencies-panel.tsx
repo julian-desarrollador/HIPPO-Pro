@@ -9,7 +9,6 @@ import {
   Feedback,
   Field,
   PrimaryButton,
-  SecondaryButton,
   TextField,
 } from "@/components/form-controls";
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
@@ -20,6 +19,7 @@ import { usePalette } from "@/constants/palette";
 import {
   useAgencyAdmin,
   type AgencyEntry,
+  type CreateAgencyOptions,
 } from "@/modules/identity/agency-admin";
 import { removalNameMatches } from "@/modules/identity/agency-invite";
 import { canAddService, useAgencyVisit, useLedger, type AgencyMode, type AgencyService } from "@/modules/ledger";
@@ -269,7 +269,8 @@ export function AgenciesPanel({
   const [archiveName, setArchiveName] = useState("");
   const [archiveError, setArchiveError] = useState("");
   const [archiveBusy, setArchiveBusy] = useState(false);
-  const [nameTaken, setNameTaken] = useState(false);
+  /** Something to confirm before creating: a repeated name, or an owner email with an account. */
+  const [ask, setAsk] = useState<{ kind: "name-taken" | "existing-account"; options: CreateAgencyOptions } | null>(null);
   const wide = useWindowDimensions().width >= wideLayout;
 
   useEffect(() => {
@@ -315,7 +316,7 @@ export function AgenciesPanel({
     setError("");
     setPersonalError("");
     setMessage("");
-    setNameTaken(false);
+    setAsk(null);
   }
 
   function close() {
@@ -357,20 +358,19 @@ export function AgenciesPanel({
     close();
   }
 
-  async function create(allowDuplicateName = false) {
+  async function create(options: CreateAgencyOptions = {}) {
     if (busy || personalBusy) {
       return;
     }
     setBusy(true);
     setError("");
     setMessage("");
-    const result = await directory.create(agencyName, ownerName, ownerEmail, createMode, allowDuplicateName);
-    if (result.status === "name-taken") {
-      setNameTaken(true);
+    const result = await directory.create(agencyName, ownerName, ownerEmail, createMode, options);
+    if (result.status === "name-taken" || result.status === "existing-account") {
+      setAsk({ kind: result.status, options });
       setBusy(false);
       return;
     }
-    setNameTaken(false);
     if (result.status === "error") {
       setError(result.message);
       setBusy(false);
@@ -502,10 +502,7 @@ export function AgenciesPanel({
           <Field label="Nombre de la agencia">
             <TextField
               value={agencyName}
-              onChangeText={(text) => {
-                setAgencyName(text);
-                setNameTaken(false);
-              }}
+              onChangeText={setAgencyName}
               placeholder="Agencia Norte"
               accessibilityLabel="Nombre de la agencia"
             />
@@ -534,14 +531,6 @@ export function AgenciesPanel({
             label={busy ? "Enviando…" : "Crear e invitar"}
             onPress={() => void create()}
           />
-          {nameTaken ? (
-            <View className="gap-3 rounded-[10px] bg-amber-soft p-3">
-              <Text className="text-[16px] leading-6 text-amber-ink">
-                Ya hay una agencia con ese nombre. Si es otra agencia, podés crearla igual.
-              </Text>
-              <SecondaryButton label="Crear igual" onPress={() => void create(true)} />
-            </View>
-          ) : null}
           <Feedback error={error} message={message} />
           <View className="gap-4 border-t border-line pt-4">
             <Text className="text-[17px] font-semibold leading-6 text-navy">
@@ -645,6 +634,28 @@ export function AgenciesPanel({
       confirmLabel="Quitar"
       onCancel={() => setPendingRemoval(null)}
       onConfirm={() => void confirmRemoval()}
+    />
+    <ConfirmDialog
+      visible={ask !== null}
+      title={ask?.kind === "name-taken" ? "Ya hay una agencia con ese nombre" : "Ese correo ya tiene cuenta"}
+      detail={
+        ask?.kind === "name-taken"
+          ? `${agencyName.trim()} ya existe. Si es otra agencia, podés crearla igual. Si querías volver a invitar al dueño, cancelá: crearla de nuevo arma otra agencia vacía.`
+          : `${ownerEmail.trim().toLowerCase()} ya entra a HippoPro. Si seguís, ${agencyName.trim()} se suma a su cuenta y entra con su contraseña de siempre.`
+      }
+      confirmLabel="Continuar"
+      onCancel={() => setAsk(null)}
+      onConfirm={() => {
+        const pending = ask;
+        setAsk(null);
+        if (pending) {
+          void create(
+            pending.kind === "name-taken"
+              ? { ...pending.options, allowDuplicateName: true }
+              : { ...pending.options, confirmExisting: true },
+          );
+        }
+      }}
     />
     <ConfirmDialog
       visible={pendingArchive !== null}

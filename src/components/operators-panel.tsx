@@ -34,6 +34,8 @@ export function OperatorsPanel({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The email already has an account: ask before adding it to this agency. */
+  const [confirmInvite, setConfirmInvite] = useState<"operator" | "owner" | null>(null);
   const [pending, setPending] = useState<PendingRemoval | null>(null);
   const [staffName, setStaffName] = useState("");
   const [pendingStaffId, setPendingStaffId] = useState<string | null>(null);
@@ -106,14 +108,19 @@ export function OperatorsPanel({
     onClose();
   }
 
-  async function inviteOperator() {
+  async function inviteOperator(confirmExisting = false) {
     if (busy) {
       return;
     }
     setBusy(true);
     setError("");
     setMessage("");
-    const { problem, notice } = await directory.invite(displayName, email, "operator");
+    const { problem, notice, needsConfirm } = await directory.invite(displayName, email, "operator", false, confirmExisting);
+    if (needsConfirm) {
+      setConfirmInvite("operator");
+      setBusy(false);
+      return;
+    }
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -130,14 +137,19 @@ export function OperatorsPanel({
     setBusy(false);
   }
 
-  async function inviteOwner() {
+  async function inviteOwner(confirmExisting = false) {
     if (busy) {
       return;
     }
     setBusy(true);
     setError("");
     setMessage("");
-    const { problem, notice } = await directory.invite(ownerName, ownerEmail, "owner", grantInvite);
+    const { problem, notice, needsConfirm } = await directory.invite(ownerName, ownerEmail, "owner", grantInvite, confirmExisting);
+    if (needsConfirm) {
+      setConfirmInvite("owner");
+      setBusy(false);
+      return;
+    }
     if (problem) {
       setError(problem);
       setBusy(false);
@@ -303,6 +315,18 @@ export function OperatorsPanel({
         title={pending?.kind === "owner" ? "¿Quitar este dueño?" : "¿Quitar este operador?"}
         onCancel={() => setPending(null)}
         onConfirm={() => void confirmRemove()}
+      />
+      <ConfirmDialog
+        visible={confirmInvite !== null}
+        title="Ese correo ya tiene cuenta"
+        detail={`${(confirmInvite === "owner" ? ownerEmail : email).trim().toLowerCase()} ya entra a HippoPro. Si seguís, se suma a esta agencia como ${confirmInvite === "owner" ? "dueño" : "operador"} y entra con su contraseña de siempre.`}
+        confirmLabel="Continuar"
+        onCancel={() => setConfirmInvite(null)}
+        onConfirm={() => {
+          const role = confirmInvite;
+          setConfirmInvite(null);
+          void (role === "owner" ? inviteOwner(true) : inviteOperator(true));
+        }}
       />
       <ConfirmDialog
         visible={pendingStaffId !== null}

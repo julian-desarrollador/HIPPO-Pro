@@ -17,8 +17,17 @@ export type AgencyOwner = AgencyOperator & {
 type OperatorAdmin = {
   list: () => Promise<AgencyOperator[]>;
   listOwners: () => Promise<AgencyOwner[]>;
-  /** problem: why it failed. notice: what to tell when the email already had an account. */
-  invite: (displayName: string, email: string, role?: InviteRole, grantInvite?: boolean) => Promise<{ problem: string | null; notice: string | null }>;
+  /**
+   * problem: why it failed. notice: what to tell when the email already had an account.
+   * needsConfirm: the email has an account and nothing was done yet; call again with confirmExisting.
+   */
+  invite: (
+    displayName: string,
+    email: string,
+    role?: InviteRole,
+    grantInvite?: boolean,
+    confirmExisting?: boolean,
+  ) => Promise<{ problem: string | null; notice: string | null; needsConfirm: boolean }>;
   remove: (userId: string) => Promise<string | null>;
 };
 
@@ -134,10 +143,10 @@ export function OperatorAdminProvider({
           canInviteOwners: row.can_invite_owners === true,
         }));
       },
-      async invite(displayName, email, role = "operator", grantInvite = false) {
+      async invite(displayName, email, role = "operator", grantInvite = false, confirmExisting = false) {
         const problem = inviteMemberProblem(displayName, email, role, canInviteOwners);
         if (problem) {
-          return { problem, notice: null };
+          return { problem, notice: null, needsConfirm: false };
         }
         const redirectTo = typeof window === "undefined" ? undefined : window.location.origin;
         const { data, error } = await client.functions.invoke("manage-operator", {
@@ -149,12 +158,16 @@ export function OperatorAdminProvider({
             role,
             canInviteOwners: role === "owner" && grantInvite,
             redirectTo,
+            confirmExisting,
           },
         });
         if (error) {
-          return { problem: await readFunctionMessage(error, data), notice: null };
+          const { message, code } = await readFunctionError(error, data);
+          return code === "existing-account"
+            ? { problem: null, notice: null, needsConfirm: true }
+            : { problem: message, notice: null, needsConfirm: false };
         }
-        return { problem: null, notice: joinNotice(data, email) };
+        return { problem: null, notice: joinNotice(data, email), needsConfirm: false };
       },
       remove(userId) {
         return callFunction(client, { action: "remove", agencyId, userId });

@@ -1,6 +1,8 @@
 // Creates an agency with an empty book and invites its first owner. An email
 // that already has an account gets the agency added to it (multi-agency.sql).
-// A repeated name answers code name-taken unless allowDuplicateName comes.
+// A repeated name answers code name-taken unless allowDuplicateName comes, and
+// an email with an account answers code existing-account unless confirmExisting
+// comes. Both before anything is created, so the app can ask first.
 // read returns another agency's racing book and, if it has one, its lottery
 // book, for a read-only visit.
 // create-personal makes an empty book for the caller only, with no invite
@@ -18,7 +20,7 @@
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
-import { addPersonToAgency, agencyCount, removePersonFromAgency } from "../_shared/memberships.ts";
+import { accountFor, addPersonToAgency, agencyCount, removePersonFromAgency } from "../_shared/memberships.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -629,6 +631,20 @@ Deno.serve(async (req: Request) => {
     const cleanEmail = ownerEmail.trim().toLowerCase();
 
     const allowDuplicateName = (body as Record<string, unknown>).allowDuplicateName === true;
+    const confirmExisting = (body as Record<string, unknown>).confirmExisting === true;
+    if (!allowDuplicateName) {
+      const { data: sameName } = await admin
+        .from("agencies")
+        .select("agency_id, name")
+        .is("archived_at", null)
+        .is("personal_user_id", null);
+      if ((sameName ?? []).some((row) => typeof row.name === "string" && agencyIdFromName(row.name) === baseId)) {
+        return json(409, { message: "Ya hay una agencia con ese nombre.", code: "name-taken" });
+      }
+    }
+    if (!confirmExisting && await accountFor(admin, cleanEmail)) {
+      return json(409, { message: "Ese correo ya tiene una cuenta.", code: "existing-account" });
+    }
     const created = await insertAgency(admin, baseId, name, productMode, allowDuplicateName);
     if ("message" in created) {
       return json(created.status, created.code ? { message: created.message, code: created.code } : { message: created.message });
@@ -651,10 +667,13 @@ Deno.serve(async (req: Request) => {
       displayName: cleanOwner,
       canInviteOwners: true,
       redirectTo,
+      confirmExisting: true,
     });
-    if (joined.kind === "error") {
+    if (joined.kind === "error" || joined.kind === "needs-confirmation" || joined.kind === "already-in") {
       await removeAgency(admin, agencyId);
-      return json(joined.status, { message: joined.message });
+      return joined.kind === "error"
+        ? json(joined.status, { message: joined.message })
+        : json(400, { message: "No se pudo crear el dueño." });
     }
 
     return json(200, {

@@ -11,6 +11,8 @@ export type JoinInput = {
   displayName: string;
   canInviteOwners: boolean;
   redirectTo: string;
+  /** The person already said to go on with an email that has an account. */
+  confirmExisting: boolean;
 };
 
 export type JoinResult =
@@ -20,6 +22,8 @@ export type JoinResult =
   | { kind: "existing"; userId: string; passwordLinkSent: boolean }
   /** That account is already in this agency. Nothing changed. */
   | { kind: "already-in" }
+  /** The email has an account and the person has not confirmed yet. Nothing changed. */
+  | { kind: "needs-confirmation" }
   | { kind: "error"; status: number; message: string };
 
 function alreadyRegistered(message: string): boolean {
@@ -27,7 +31,7 @@ function alreadyRegistered(message: string): boolean {
 }
 
 /** The account with this email, or null. undefined when the lookup is not installed yet. */
-async function accountFor(admin: SupabaseClient, email: string): Promise<string | null | undefined> {
+export async function accountFor(admin: SupabaseClient, email: string): Promise<string | null | undefined> {
   const { data, error } = await admin.rpc("user_id_for_email", { target: email });
   if (error) {
     return undefined;
@@ -63,6 +67,9 @@ export async function addPersonToAgency(admin: SupabaseClient, input: JoinInput)
     }
     if (present) {
       return { kind: "already-in" };
+    }
+    if (!input.confirmExisting) {
+      return { kind: "needs-confirmation" };
     }
     const { error: insertError } = await admin.from("profiles").insert({ user_id: existingId, ...row });
     if (insertError) {

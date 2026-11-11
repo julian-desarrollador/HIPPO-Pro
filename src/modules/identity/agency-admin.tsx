@@ -27,12 +27,17 @@ export type AgencyEntry = {
 
 /**
  * created: notice says what to tell when the owner's email already had an account.
- * name-taken: a live agency has that name; it can be created anyway.
+ * name-taken: a live agency has that name; nothing was created, it can go on anyway.
+ * existing-account: the owner's email already has an account; nothing was created yet.
  */
 export type CreateAgencyResult =
   | { status: "created"; notice: string | null }
   | { status: "name-taken"; message: string }
+  | { status: "existing-account"; message: string }
   | { status: "error"; message: string };
+
+/** What the person already confirmed, so the function does not ask again. */
+export type CreateAgencyOptions = { allowDuplicateName?: boolean; confirmExisting?: boolean };
 
 export type CreatedPersonalAgency = {
   agencyId: string;
@@ -46,7 +51,7 @@ type AgencyAdmin = {
     ownerName: string,
     ownerEmail: string,
     productMode: AgencyMode,
-    allowDuplicateName?: boolean,
+    options?: CreateAgencyOptions,
   ) => Promise<CreateAgencyResult>;
   createPersonal: (agencyName: string, productMode: AgencyMode) => Promise<CreatedPersonalAgency | string>;
   removePersonal: (agencyId: string) => Promise<string | null>;
@@ -97,7 +102,7 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
         return entry ? [entry] : [];
       });
     },
-    async create(agencyName, ownerName, ownerEmail, productMode, allowDuplicateName = false) {
+    async create(agencyName, ownerName, ownerEmail, productMode, options = {}) {
       const problem = newAgencyProblem(agencyName, ownerName, ownerEmail);
       if (problem) {
         return { status: "error", message: problem };
@@ -111,12 +116,16 @@ function createAgencyAdmin(client: SupabaseClient): AgencyAdmin {
           ownerEmail: ownerEmail.trim(),
           productMode,
           redirectTo,
-          allowDuplicateName,
+          allowDuplicateName: options.allowDuplicateName === true,
+          confirmExisting: options.confirmExisting === true,
         },
       });
       if (error) {
         const { message, code } = await readFunctionError(error, data);
-        return code === "name-taken" ? { status: "name-taken", message } : { status: "error", message };
+        if (code === "name-taken" || code === "existing-account") {
+          return { status: code, message };
+        }
+        return { status: "error", message };
       }
       return { status: "created", notice: joinNotice(data, ownerEmail) };
     },
