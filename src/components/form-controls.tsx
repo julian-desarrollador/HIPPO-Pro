@@ -21,7 +21,7 @@ const confirmStyles = StyleSheet.create({
     opacity: 0.4,
   },
   card: {
-    width: 320,
+    width: 360,
     maxWidth: "100%",
     zIndex: 1,
   },

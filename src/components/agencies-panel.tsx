@@ -14,6 +14,7 @@ import {
 import { AddServiceAction, AgencyServiceCards, RemoveServiceActions } from "@/components/add-service-card";
 import { SectionTitle } from "@/components/screen-frame";
 import { ServiceIcons } from "@/components/service-tags";
+import { ConfirmNotice, NoticeLine, NoticeName } from "@/components/confirm-notice";
 import { wideLayout } from "@/constants/layout";
 import { usePalette } from "@/constants/palette";
 import {
@@ -638,11 +639,6 @@ export function AgenciesPanel({
     <ConfirmDialog
       visible={ask !== null}
       title={ask?.kind === "name-taken" ? "Ya hay una agencia con ese nombre" : "Ese correo ya tiene cuenta"}
-      detail={
-        ask?.kind === "name-taken"
-          ? `${agencyName.trim()} ya existe. Si es otra agencia, podés crearla igual. Si querías volver a invitar al dueño, cancelá: crearla de nuevo arma otra agencia vacía.`
-          : `${ownerEmail.trim().toLowerCase()} ya entra a HippoPro. Si seguís, ${agencyName.trim()} se suma a su cuenta y entra con su contraseña de siempre.`
-      }
       confirmLabel="Continuar"
       onCancel={() => setAsk(null)}
       onConfirm={() => {
@@ -656,7 +652,23 @@ export function AgenciesPanel({
           );
         }
       }}
-    />
+    >
+      {ask?.kind === "name-taken" ? (
+        <ConfirmNotice subject={agencyName.trim()}>
+          <NoticeLine>Si es otra agencia, podés crearla igual.</NoticeLine>
+          <NoticeLine>
+            Si querías volver a invitar al dueño, cancelá: crearla de nuevo arma otra agencia vacía.
+          </NoticeLine>
+        </ConfirmNotice>
+      ) : (
+        <ConfirmNotice subject={ownerEmail.trim().toLowerCase()}>
+          <NoticeLine>Ya entra a HippoPro.</NoticeLine>
+          <NoticeLine>
+            Si seguís, <NoticeName>{agencyName.trim()}</NoticeName> se suma a su cuenta y entra con su contraseña de siempre.
+          </NoticeLine>
+        </ConfirmNotice>
+      )}
+    </ConfirmDialog>
     <ConfirmDialog
       visible={pendingArchive !== null}
       title={pendingArchive ? `¿Quitar ${pendingArchive.name}?` : "¿Quitar esta agencia?"}

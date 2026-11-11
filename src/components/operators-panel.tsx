@@ -3,6 +3,7 @@ import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { ChoiceChips, ConfirmDialog, Dialog, Feedback, Field, PrimaryButton, TextField } from "@/components/form-controls";
 import { SectionTitle } from "@/components/screen-frame";
+import { ConfirmNotice, NoticeLine, NoticeName } from "@/components/confirm-notice";
 import { wideLayout } from "@/constants/layout";
 import { useOperatorAdmin, type AgencyOperator, type AgencyOwner } from "@/modules/identity/operator-admin";
 import { ledgerErrorMessage, useLedger } from "@/modules/ledger";
@@ -319,7 +320,6 @@ export function OperatorsPanel({
       <ConfirmDialog
         visible={confirmInvite !== null}
         title="Ese correo ya tiene cuenta"
-        detail={`${(confirmInvite === "owner" ? ownerEmail : email).trim().toLowerCase()} ya entra a HippoPro. Si seguís, se suma a esta agencia como ${confirmInvite === "owner" ? "dueño" : "operador"} y entra con su contraseña de siempre.`}
         confirmLabel="Continuar"
         onCancel={() => setConfirmInvite(null)}
         onConfirm={() => {
@@ -327,7 +327,14 @@ export function OperatorsPanel({
           setConfirmInvite(null);
           void (role === "owner" ? inviteOwner(true) : inviteOperator(true));
         }}
-      />
+      >
+        <ConfirmNotice subject={(confirmInvite === "owner" ? ownerEmail : email).trim().toLowerCase()}>
+          <NoticeLine>Ya entra a HippoPro.</NoticeLine>
+          <NoticeLine>
+            Si seguís, se suma a esta agencia como <NoticeName>{confirmInvite === "owner" ? "dueño" : "operador"}</NoticeName> y entra con su contraseña de siempre.
+          </NoticeLine>
+        </ConfirmNotice>
+      </ConfirmDialog>
       <ConfirmDialog
         visible={pendingStaffId !== null}
         title="¿Quitar esta persona?"
